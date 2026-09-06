@@ -10,12 +10,7 @@
 html,
 body,
 #root {
-  direction: ltr;
   min-width: 320px;
-}
-
-#root [dir="rtl"] {
-  direction: ltr !important;
 }
 
 #meayon-erp-app-root > .flex {

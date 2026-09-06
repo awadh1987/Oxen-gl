@@ -75,10 +75,10 @@ export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> =
               </span>
               <IsolationTelemetryBadge variant="pill" />
             </div>
-            <h1 className="mt-1 text-xl font-black text-white">
+            <h1 className="mt-1 text-xl font-black text-slate-900 dark:text-white">
               {isAr ? 'لوحة العمليات واللوجستيات التنفيذية' : 'Executive Operations & Logistics Dashboard'}
             </h1>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               {currentCompany?.name || (isAr ? 'بيئة العمل النشطة' : 'Active Workspace')} · Schema RLS L3
             </p>
           </div>
