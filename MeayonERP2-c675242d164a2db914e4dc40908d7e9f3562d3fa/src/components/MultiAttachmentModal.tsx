@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { DocumentAttachment } from '../types';
 import {
@@ -34,7 +34,7 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
   recordId,
   existingAttachments = [],
 }) => {
-  const { addAttachmentToRecord, removeAttachmentFromRecord, language } = useApp();
+  const { addAttachmentToRecord, removeAttachmentFromRecord, language, showToast } = useApp();
   const isAr = language === 'ar';
 
   const [category, setCategory] = useState<DocumentAttachment['docCategory']>('Scale Ticket');
@@ -42,6 +42,21 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [viewingAttachment, setViewingAttachment] = useState<DocumentAttachment | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        if (viewingAttachment) {
+          setViewingAttachment(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, viewingAttachment]);
 
   if (!isOpen) return null;
 
@@ -107,24 +122,29 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl bg-white shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="multi-attachment-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4"
+    >
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl bg-white dark:bg-[#141726] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-4 bg-slate-50/50 dark:bg-slate-900/60">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 border border-orange-100">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/40">
               <Paperclip className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-black text-slate-900">
+              <h2 id="multi-attachment-title" className="text-base font-black text-slate-900 dark:text-white">
                 {isAr ? 'نظام المرفقات والمستندات الثبوتية' : 'Document Attachments System'}
               </h2>
-              <p className="text-xs text-slate-500 font-medium">{title}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{title}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -133,16 +153,16 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
         {/* Content Body */}
         <div className="overflow-y-auto p-6 space-y-6 flex-1">
           {/* Uploader Section */}
-          <div className="rounded-2xl border border-dashed border-orange-200 bg-orange-50/30 p-5 space-y-4">
+          <div className="rounded-2xl border border-dashed border-orange-200 dark:border-orange-900/40 bg-orange-50/30 dark:bg-orange-950/20 p-5 space-y-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <div className="flex-1">
-                <label className="mb-1 block text-xs font-bold text-slate-700">
+                <label className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                   {isAr ? 'نوع وتصنيف المستند المرفق *' : 'Document Category *'}
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as any)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-bold text-slate-800 dark:text-slate-100 focus:border-orange-500 focus:outline-none"
                 >
                   <option value="Scale Ticket">{isAr ? 'تذكرة ميزان (Scale Ticket)' : 'Scale Ticket'}</option>
                   <option value="Waybill">{isAr ? 'بوليصة شحن / ترحيل (Waybill)' : 'Waybill'}</option>
@@ -317,10 +337,10 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end border-t border-slate-100 bg-slate-50/50 px-6 py-4">
+        <div className="flex items-center justify-end border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/60 px-6 py-4">
           <button
             onClick={onClose}
-            className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors"
+            className="rounded-xl bg-slate-900 dark:bg-orange-600 hover:bg-slate-800 dark:hover:bg-orange-700 px-5 py-2 text-xs font-bold text-white shadow-xs transition-colors"
           >
             {isAr ? 'إغلاق' : 'Close'}
           </button>
@@ -330,20 +350,20 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
       {/* Embedded Document Viewer Modal */}
       {viewingAttachment && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
-          <div className="flex max-h-[95vh] w-full max-w-4xl flex-col rounded-3xl bg-white shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div className="flex max-h-[95vh] w-full max-w-4xl flex-col rounded-3xl bg-white dark:bg-[#141726] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-6 py-4">
               <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-orange-600" />
+                <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">{viewingAttachment.fileName}</h3>
-                  <p className="text-xs text-slate-500">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{viewingAttachment.fileName}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {viewingAttachment.docCategory} - {viewingAttachment.fileSize}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setViewingAttachment(null)}
-                className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>

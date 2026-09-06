@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Printer,
@@ -397,12 +397,28 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   return (
     <div
       id="export-print-modal-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-2 sm:p-4 backdrop-blur-md transition-all overflow-hidden"
     >
-      <div className="flex h-[96vh] w-full max-w-[1440px] flex-col rounded-3xl border border-slate-700/80 bg-slate-900 shadow-2xl overflow-hidden text-slate-100">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isAr ? 'مركز المعاينة الحية والطباعة والتصدير' : 'Live Print & Export Studio'}
+        className="flex h-[96vh] w-full max-w-[1440px] flex-col rounded-3xl border border-slate-700/80 bg-slate-900 shadow-2xl overflow-hidden text-slate-100"
+      >
         {/* Top Modal Header */}
         <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/90 px-5 py-3.5 gap-3 shrink-0">
           <div className="flex items-center gap-3">

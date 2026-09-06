@@ -75,6 +75,7 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({
     vouchers,
     brandConfig,
     isOnline,
+    showToast,
   } = useApp();
 
   const isAr = language === 'ar';
@@ -173,17 +174,19 @@ How can I assist you with your operations today?`,
     localStorage.setItem('meayon_ai_chat_history', JSON.stringify(messages.slice(-20)));
   }, [messages]);
 
-  // Keyboard shortcut: Ctrl+J / Cmd+J to toggle assistant
+  // Keyboard shortcut: Ctrl+J / Cmd+J to toggle assistant, Escape to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && (e.key === 'j' || e.key === 'J')) {
         e.preventDefault();
         setIsOpen((prev) => !prev);
+      } else if (e.key === 'Escape' && isOpen) {
+        handleClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isOpen]);
 
   const handleClose = () => {
     setIsOpen(false);
@@ -359,10 +362,11 @@ How can I assist you with your operations today?`,
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert(
+      showToast(
         isAr
           ? 'خاصية التعرف على الصوت غير مدعومة في متصفحك الحالي.'
-          : 'Speech recognition is not supported in this browser.'
+          : 'Speech recognition is not supported in this browser.',
+        'error'
       );
       return;
     }
@@ -498,12 +502,15 @@ How can I assist you with your operations today?`,
 
             <motion.div
               id="meayon-ai-assistant-widget"
+              role="dialog"
+              aria-modal="true"
+              aria-label={isAr ? 'المساعد الذكي' : 'AI Assistant'}
               dir={isAr ? 'rtl' : 'ltr'}
               initial={{ opacity: 0, y: 40, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 40, scale: 0.95 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className={`fixed z-50 flex flex-col overflow-hidden rounded-3xl border border-orange-200/80 bg-white shadow-2xl shadow-neutral-950/20 transition-all ${
+              className={`fixed z-50 flex flex-col overflow-hidden rounded-3xl border border-orange-200/80 bg-white shadow-2xl shadow-neutral-950/20 transition-all dark:border-slate-800 dark:bg-[#141726] ${
                 isExpanded
                   ? 'inset-4 md:inset-8'
                   : `bottom-4 sm:bottom-6 ${
@@ -512,7 +519,7 @@ How can I assist you with your operations today?`,
               }`}
             >
               {/* Header */}
-              <div className="flex shrink-0 items-center justify-between border-b border-orange-100 bg-gradient-to-r from-orange-950 via-neutral-950 to-slate-900 px-4 py-3 text-white">
+              <div className="flex shrink-0 items-center justify-between border-b border-orange-100 dark:border-slate-800 bg-gradient-to-r from-orange-950 via-neutral-950 to-slate-900 px-4 py-3 text-white">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-600/50 text-amber-300 ring-2 ring-orange-400/30">
                     <Sparkles className="h-4 w-4 animate-pulse" />
@@ -561,7 +568,7 @@ How can I assist you with your operations today?`,
               </div>
 
               {/* Model & Role Selector Control Strip */}
-              <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/95 px-3 py-1.5 text-[11px]">
+              <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-slate-50/95 px-3 py-1.5 text-[11px] dark:border-slate-800 dark:bg-[#101322]">
                 <div className="flex items-center gap-2">
                   {/* Model Switcher */}
                   <div className="flex items-center gap-1">
@@ -569,7 +576,7 @@ How can I assist you with your operations today?`,
                     <select
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
-                      className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-700 focus:border-orange-500 focus:outline-none"
+                      className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-700 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                     >
                       <option value="gemini-3.7-flash">Standard operational analysis</option>
                       <option value="gemini-3.5-flash">Research and location analysis</option>
@@ -583,7 +590,7 @@ How can I assist you with your operations today?`,
                     <select
                       value={selectedRole}
                       onChange={(e) => setSelectedRole(e.target.value)}
-                      className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-orange-700 focus:border-orange-500 focus:outline-none"
+                      className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-orange-700 focus:border-orange-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-orange-400"
                     >
                       <option value="auditor">{isAr ? 'مدقق أوزان ولوجستيات' : 'Senior Auditor'}</option>
                       <option value="dispute_officer">{isAr ? 'مسؤول نزاعات وخطابات' : 'Dispute Officer'}</option>
@@ -604,7 +611,7 @@ How can I assist you with your operations today?`,
                     className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-all ${
                       useSearch
                         ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
                     }`}
                     title={isAr ? 'تفعيل البحث التنظيمي والسوقي' : 'Regulatory and market research'}
                   >
@@ -621,7 +628,7 @@ How can I assist you with your operations today?`,
                     className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-all ${
                       useMaps
                         ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                        : 'bg-slate-200 text-slate-600 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'
                     }`}
                     title={isAr ? 'تفعيل الاستعلام الجغرافي للمواقع والموازين' : 'Logistics location research'}
                   >
@@ -632,7 +639,7 @@ How can I assist you with your operations today?`,
               </div>
 
               {/* Chat Message Scrollable Container */}
-              <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5 bg-gradient-to-b from-slate-50/30 to-white">
+              <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5 bg-gradient-to-b from-slate-50/30 to-white dark:from-slate-900/50 dark:to-[#141726]">
                 {messages.map((msg) => {
                   const isUser = msg.role === 'user';
                   return (
@@ -650,15 +657,15 @@ How can I assist you with your operations today?`,
                         className={`group relative max-w-[88%] rounded-2xl p-3 text-xs leading-relaxed shadow-xs ${
                           isUser
                             ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white font-medium'
-                            : 'bg-white border border-slate-200/90 text-slate-800'
+                            : 'bg-white border border-slate-200/90 text-slate-800 dark:bg-slate-800/90 dark:border-slate-700 dark:text-slate-200'
                         }`}
                       >
                         {/* Control buttons for Assistant Messages */}
                         {!isUser && (
-                          <div className="absolute top-2 left-2 hidden group-hover:flex items-center gap-1 bg-white/90 backdrop-blur-xs rounded-md p-0.5 shadow-xs border border-slate-200">
+                          <div className="absolute top-2 left-2 hidden group-hover:flex items-center gap-1 bg-white/90 backdrop-blur-xs rounded-md p-0.5 shadow-xs border border-slate-200 dark:bg-slate-800/90 dark:border-slate-700">
                             <button
                               onClick={() => handleSpeakText(msg.id, msg.content)}
-                              className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-orange-600 transition-colors"
+                              className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-orange-600 transition-colors dark:text-slate-400 dark:hover:bg-slate-700"
                               title={isSpeakingId === msg.id ? (isAr ? 'إيقاف الصوت' : 'Stop Audio') : (isAr ? 'استماع للرد' : 'Listen')}
                             >
                               {isSpeakingId === msg.id ? (
@@ -670,7 +677,7 @@ How can I assist you with your operations today?`,
 
                             <button
                               onClick={() => handleCopyText(msg.id, msg.content)}
-                              className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-orange-600 transition-colors"
+                              className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-100 hover:text-orange-600 transition-colors dark:text-slate-400 dark:hover:bg-slate-700"
                               title={isAr ? 'نسخ النص' : 'Copy'}
                             >
                               {copiedId === msg.id ? (
@@ -696,7 +703,7 @@ How can I assist you with your operations today?`,
                                           <strong
                                             key={sIdx}
                                             className={
-                                              isUser ? 'text-orange-100 font-bold' : 'text-slate-950 font-bold'
+                                              isUser ? 'text-orange-100 font-bold' : 'text-slate-950 font-bold dark:text-white'
                                             }
                                           >
                                             {segment.slice(2, -2)}
@@ -714,9 +721,9 @@ How can I assist you with your operations today?`,
 
                         {/* Web Sources Grounding Citations */}
                         {msg.webSources && msg.webSources.length > 0 && (
-                          <div className="mt-2.5 pt-2 border-t border-slate-100">
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-blue-700">
-                              <Globe className="h-3 w-3 text-blue-600" />
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-700">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-blue-700 dark:text-blue-400">
+                              <Globe className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                               <span>{isAr ? 'مصادر البحث الموثوقة:' : 'Search Sources:'}</span>
                             </span>
                             <div className="mt-1 flex flex-wrap gap-1">
@@ -726,7 +733,7 @@ How can I assist you with your operations today?`,
                                   href={source.uri}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/70 px-2 py-0.5 text-[10px] text-blue-800 hover:bg-blue-100 transition-colors"
+                                  className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/70 px-2 py-0.5 text-[10px] text-blue-800 hover:bg-blue-100 transition-colors dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50"
                                 >
                                   <span>{source.title}</span>
                                   <ArrowUpRight className="h-2.5 w-2.5 opacity-70" />
@@ -738,9 +745,9 @@ How can I assist you with your operations today?`,
 
                         {/* Google Maps Grounding Links */}
                         {msg.mapSources && msg.mapSources.length > 0 && (
-                          <div className="mt-2.5 pt-2 border-t border-slate-100">
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700">
-                              <MapPin className="h-3 w-3 text-emerald-600" />
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-700">
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                              <MapPin className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
                               <span>{isAr ? 'المواقع المحددة على خرائط جوجل:' : 'Google Maps Places:'}</span>
                             </span>
                             <div className="mt-1 flex flex-wrap gap-1">
@@ -750,7 +757,7 @@ How can I assist you with your operations today?`,
                                   href={place.uri}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50/70 px-2 py-0.5 text-[10px] font-medium text-emerald-800 hover:bg-emerald-100 transition-colors"
+                                  className="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50/70 px-2 py-0.5 text-[10px] font-medium text-emerald-800 hover:bg-emerald-100 transition-colors dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
                                 >
                                   <span>{place.title}</span>
                                   <ArrowUpRight className="h-2.5 w-2.5 opacity-70" />
@@ -772,8 +779,8 @@ How can I assist you with your operations today?`,
 
                         {/* Suggested Follow-up Actions */}
                         {msg.suggestedActions && msg.suggestedActions.length > 0 && (
-                          <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1">
-                            <span className="text-[10px] font-bold text-slate-500">
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-700 space-y-1">
+                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
                               {isAr ? '💡 مقترحات سريعة:' : '💡 Follow-up:'}
                             </span>
                             <div className="flex flex-wrap gap-1">
@@ -781,7 +788,7 @@ How can I assist you with your operations today?`,
                                 <button
                                   key={aIdx}
                                   onClick={() => handleSendMessage(action.query)}
-                                  className="flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50/70 px-2 py-0.5 text-[10px] font-semibold text-orange-800 transition-all hover:bg-orange-100 hover:border-orange-300 text-right"
+                                  className="flex items-center gap-1 rounded-lg border border-orange-200 bg-orange-50/70 px-2 py-0.5 text-[10px] font-semibold text-orange-800 transition-all hover:bg-orange-100 hover:border-orange-300 text-right dark:border-orange-800/60 dark:bg-orange-950/30 dark:text-orange-300 dark:hover:bg-orange-900/40"
                                 >
                                   <span>{isAr ? action.labelAr : action.labelEn}</span>
                                   <ArrowUpRight className="h-2.5 w-2.5 opacity-60" />
@@ -793,7 +800,7 @@ How can I assist you with your operations today?`,
                       </div>
 
                       {isUser && (
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-700 font-bold text-xs shadow-xs">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-700 font-bold text-xs shadow-xs dark:bg-slate-700 dark:text-slate-200">
                           {currentUser.username.slice(0, 1).toUpperCase()}
                         </div>
                       )}
@@ -807,7 +814,7 @@ How can I assist you with your operations today?`,
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-orange-600 text-white shadow-xs">
                       <Bot className="h-4 w-4 animate-spin" />
                     </div>
-                    <div className="rounded-2xl border border-orange-100 bg-white p-3 shadow-xs text-xs text-slate-600 flex items-center gap-2">
+                    <div className="rounded-2xl border border-orange-100 bg-white p-3 shadow-xs text-xs text-slate-600 flex items-center gap-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                       <span className="relative flex h-2.5 w-2.5">
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75" />
                         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-orange-600" />
@@ -827,7 +834,7 @@ How can I assist you with your operations today?`,
               </div>
 
               {/* Quick Starter Chips */}
-              <div className="shrink-0 border-t border-slate-100 bg-white px-3 py-1.5">
+              <div className="shrink-0 border-t border-slate-100 bg-white px-3 py-1.5 dark:border-slate-800 dark:bg-[#101322]">
                 <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
                   {quickChips.map((chip, idx) => {
                     const Icon = chip.icon;
@@ -835,7 +842,7 @@ How can I assist you with your operations today?`,
                       <button
                         key={idx}
                         onClick={() => handleSendMessage(chip.query)}
-                        className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:border-orange-400 hover:bg-orange-50 hover:text-orange-950 transition-colors"
+                        className="flex shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:border-orange-400 hover:bg-orange-50 hover:text-orange-950 transition-colors dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
                       >
                         <Icon className="h-3 w-3 text-orange-600" />
                         <span>{isAr ? chip.labelAr : chip.labelEn}</span>
@@ -846,7 +853,7 @@ How can I assist you with your operations today?`,
               </div>
 
               {/* Input Bar with Voice Support */}
-              <div className="shrink-0 border-t border-slate-200/90 bg-white p-2.5">
+              <div className="shrink-0 border-t border-slate-200/90 bg-white p-2.5 dark:border-slate-800 dark:bg-[#101322]">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -860,8 +867,8 @@ How can I assist you with your operations today?`,
                     onClick={handleToggleVoice}
                     className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-all ${
                       isListening
-                        ? 'border-rose-400 bg-rose-50 text-rose-600 animate-pulse ring-2 ring-rose-300'
-                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        ? 'border-rose-400 bg-rose-50 text-rose-600 animate-pulse ring-2 ring-rose-300 dark:bg-rose-950/40 dark:border-rose-700'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white'
                     }`}
                     title={
                       isListening
@@ -890,14 +897,14 @@ How can I assist you with your operations today?`,
                         ? 'اكتب سؤالك أو استفسارك هنا...'
                         : 'Ask about weighbridge loss, crusher accounts...'
                     }
-                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:bg-white focus:outline-none"
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500"
                   />
 
                   {/* Send Button */}
                   <button
                     type="submit"
                     disabled={loading || !input.trim()}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md shadow-orange-200 disabled:opacity-40 hover:opacity-95 transition-all"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md shadow-orange-200 disabled:opacity-40 hover:opacity-95 transition-all dark:shadow-none"
                   >
                     <Send className="h-4 w-4" />
                   </button>

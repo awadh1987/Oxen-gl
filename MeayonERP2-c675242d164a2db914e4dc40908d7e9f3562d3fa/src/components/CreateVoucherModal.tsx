@@ -41,9 +41,21 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
     addVoucher,
     isAdmin,
     isCOO,
+    showToast,
   } = useApp();
 
   const isAr = language === 'ar';
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   const [type, setType] = useState<VoucherType>(initialType);
   const [category, setCategory] = useState<VoucherCategory>(initialCategory);
@@ -134,11 +146,11 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!partyName.trim()) {
-      alert(isAr ? 'يرجى إدخال اسم المستفيد / المستلم منه' : 'Please provide party name');
+      showToast(isAr ? 'يرجى إدخال اسم المستفيد / المستلم منه' : 'Please provide party name', 'warning');
       return;
     }
     if (amount <= 0) {
-      alert(isAr ? 'يرجى إدخال مبلغ صحيح أكبر من الصفر' : 'Please enter a valid amount greater than 0');
+      showToast(isAr ? 'يرجى إدخال مبلغ صحيح أكبر من الصفر' : 'Please enter a valid amount greater than 0', 'warning');
       return;
     }
 
@@ -173,23 +185,27 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
     if (onSuccess) {
       onSuccess(created);
     }
+    showToast(isAr ? 'تم حفظ وإصدار السند المالي بنجاح' : 'Financial voucher issued successfully', 'success');
     onClose();
   };
 
   return (
     <div
       id="create-voucher-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-voucher-title"
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-xs"
     >
-      <div className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] shadow-2xl transition-colors">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-gradient-to-r from-slate-900 via-neutral-950 to-slate-900 px-6 py-4 text-white">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-900 via-neutral-950 to-slate-900 px-6 py-4 text-white">
           <div className="flex items-center gap-3">
             <div className={`flex h-10 w-10 items-center justify-center rounded-xl font-black text-sm ${type === 'Payment' ? 'bg-rose-600' : 'bg-emerald-600'}`}>
               {type === 'Payment' ? 'صرف' : 'قبض'}
             </div>
             <div>
-              <h2 className="text-base font-black sm:text-lg">
+              <h2 id="create-voucher-title" className="text-base font-black sm:text-lg">
                 {isAr
                   ? type === 'Payment' ? 'إنشاء سند صـرف مالي جديد' : 'إنشاء سند قـبض مالي جديد'
                   : type === 'Payment' ? 'Create Payment Voucher' : 'Create Receipt Voucher'}

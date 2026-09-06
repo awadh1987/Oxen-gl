@@ -48,9 +48,21 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
     language,
     currentUser,
     canAccessFinancials,
+    showToast,
   } = useApp();
 
   const isAr = language === 'ar';
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // 1. User Input Fields State
   const [loadingDate, setLoadingDate] = useState(new Date().toISOString().slice(0, 10));
@@ -224,7 +236,7 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
     e.preventDefault();
 
     if (!truckNo || !transporterName || !destinationCustomer || !loadingSource) {
-      alert(isAr ? 'يرجى تعبئة كافة الحقول الإلزامية المطلوبة' : 'Please fill all required fields');
+      showToast(isAr ? 'يرجى تعبئة كافة الحقول الإلزامية المطلوبة' : 'Please fill all required fields', 'warning');
       return;
     }
 
@@ -257,12 +269,14 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
 
     if (initialData) {
       updateOperation(initialData.id, payload);
+      showToast(isAr ? 'تم تحديث قيد العملية بنجاح' : 'Trip operation updated successfully', 'success');
     } else {
       try {
         await addOperation(payload);
+        showToast(isAr ? 'تم تسجيل وقيد الرحلة بنجاح' : 'Trip operation registered successfully', 'success');
       } catch (error) {
         console.error('Could not create the weighbridge operation:', error);
-        alert(isAr ? 'تعذر حفظ تذكرة الميزان في الخادم. يرجى المحاولة مجدداً.' : 'The weighbridge ticket could not be saved to the server. Please try again.');
+        showToast(isAr ? 'تعذر حفظ تذكرة الميزان في الخادم. يرجى المحاولة مجدداً.' : 'The weighbridge ticket could not be saved to the server. Please try again.', 'error');
         return;
       }
     }
@@ -273,20 +287,25 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="daily-operations-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto"
+    >
       <div
         id="daily-operations-modal"
-        className="relative my-6 w-full max-w-4xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl transition-all"
+        className="relative my-6 w-full max-w-4xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] p-6 shadow-2xl transition-all"
       >
         {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-md shadow-orange-200">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-md shadow-orange-200 dark:shadow-none">
               <Scale className="h-6 w-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-black text-slate-900">
+                <h2 id="daily-operations-title" className="text-base font-black text-slate-900 dark:text-white">
                   {initialData
                     ? isAr
                       ? 'تعديل قيد عملية تشغيلية'
@@ -295,14 +314,14 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                     ? 'تسجيل رحلة جديدة (قيد العمليات اليومية)'
                     : 'Add New Trip (Daily Operations Entry)'}
                 </h2>
-                <span className="rounded-md border border-orange-200 bg-orange-50 px-2 py-0.5 font-mono text-[11px] font-black text-orange-700">
+                <span className="rounded-md border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 font-mono text-[11px] font-black text-orange-700 dark:text-orange-300">
                   {tripId}
                 </span>
-                <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                <span className="rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
                   {isAr ? `شهر ${opMonth} (${monthLabel})` : `Month: ${monthLabel}`}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {isAr
                   ? 'بوابة إدخال ومطابقة بيانات النقل اليومية، أوزان البسكول، واحتساب الفاقد وهوامش الربح آلياً'
                   : 'Daily haulage data entry portal mirroring official operations log with live calculations'}
@@ -311,7 +330,7 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
