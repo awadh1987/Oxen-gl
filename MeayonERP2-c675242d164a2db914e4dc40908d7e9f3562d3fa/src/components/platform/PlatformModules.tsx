@@ -57,6 +57,7 @@ export const TenantsRegistryView: React.FC<{ onInspect: (company: Company) => vo
         vat_number: form.vat,
         admin_email: form.adminEmail,
         admin_name: form.nameEn,
+        admin_password: form.cr || 'Admin@123456',
       });
       await refreshCompanies();
       setNotice('Tenant registered successfully.');

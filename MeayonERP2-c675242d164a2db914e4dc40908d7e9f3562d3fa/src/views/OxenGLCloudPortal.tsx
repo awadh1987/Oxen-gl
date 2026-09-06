@@ -26,6 +26,7 @@ import { useApp } from '../context/AppContext';
 import { Company, User } from '../types';
 import { erpApi } from '../services/api';
 import { LoginButton } from '../components/LoginButton';
+import { ThemeDensityToolbar } from '../components/design-system/ThemeDensityToolbar';
 
 interface OxenGLCloudPortalProps {
   onLoginSuccess: () => void;
@@ -241,7 +242,13 @@ export const OxenGLCloudPortal: React.FC<OxenGLCloudPortalProps> = ({ onLoginSuc
       <nav className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/85 px-4 py-3.5 backdrop-blur-xl sm:px-8">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
           <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-blue-600 to-indigo-800 shadow-lg shadow-indigo-600/30 ring-1 ring-white/20"><Crown className="h-6 w-6 text-amber-300" /></div><div><div className="flex items-center gap-2"><span className="text-lg font-black tracking-tight text-white">OxenGL</span><span className="rounded-md border border-indigo-500/30 bg-indigo-500/20 px-2 py-0.5 text-[10px] font-black text-indigo-300">GLOBAL CLOUD PORTAL</span></div><p className="text-xs text-slate-400">Multi-Tenant Master Gateway</p></div></div>
-          <div className="flex items-center gap-2 sm:gap-3"><span className="hidden items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-300 lg:inline-flex"><i className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /><b className="text-emerald-400">Cloud Nominal</b><span className="text-slate-600">|</span><span className="font-mono text-[11px] text-slate-400">KSA-Riyadh Node</span></span><button className="hidden items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-300 sm:inline-flex" onClick={() => { setLoginError(null); setShowMasterLogin(true); }}><Crown className="h-3.5 w-3.5" />Platform Master</button><button onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')} className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"><Globe2 className="h-3.5 w-3.5 text-indigo-400" />{language === 'ar' ? 'English' : 'Arabic'}</button><div className="hidden items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-1.5 md:flex"><div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">A</div><div><p className="text-xs font-bold leading-none text-slate-200">Awadh Ahmed</p><p className="mt-0.5 font-mono text-[10px] text-indigo-400">Super Admin</p></div></div></div>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="hidden items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-300 lg:inline-flex"><i className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" /><b className="text-emerald-400">Cloud Nominal</b><span className="text-slate-600">|</span><span className="font-mono text-[11px] text-slate-400">KSA-Riyadh Node</span></span>
+            <ThemeDensityToolbar />
+            <button className="hidden items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-300 sm:inline-flex" onClick={() => { setLoginError(null); setShowMasterLogin(true); }}><Crown className="h-3.5 w-3.5" />Platform Master</button>
+            <button onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')} className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800"><Globe2 className="h-3.5 w-3.5 text-indigo-400" />{language === 'ar' ? 'English' : 'Arabic'}</button>
+            <div className="hidden items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-1.5 md:flex"><div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">A</div><div><p className="text-xs font-bold leading-none text-slate-200">Awadh Ahmed</p><p className="mt-0.5 font-mono text-[10px] text-indigo-400">Super Admin</p></div></div>
+          </div>
         </div>
       </nav>
 

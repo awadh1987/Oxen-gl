@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { CustomerInvoice, InvoiceItem, OperationRecord, DocumentAttachment } from '../types';
+import { erpApi, ApiCustomerInvoice } from '../services/api';
 import {
   FileText,
   Printer,
@@ -21,6 +22,10 @@ import {
   Check,
   Clock,
   AlertCircle,
+  AlertTriangle,
+  Save,
+  RefreshCw,
+  BookOpen,
   ExternalLink,
   Archive,
 } from 'lucide-react';
@@ -36,6 +41,7 @@ import { OfficialLetterheadFooter } from '../components/OfficialLetterheadFooter
 
 export const CustomerInvoicingView: React.FC = () => {
   const {
+    currentCompany,
     customers,
     accessibleOperations,
     language,
@@ -55,18 +61,21 @@ export const CustomerInvoicingView: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<number>(8); // August
   const [selectedYear, setSelectedYear] = useState<number>(2026);
 
+  // Backend sync state
+  const [backendInvoices, setBackendInvoices] = useState<ApiCustomerInvoice[]>([]);
+  const [currentBackendInvoice, setCurrentBackendInvoice] = useState<ApiCustomerInvoice | null>(null);
+  const [isLoadingBackend, setIsLoadingBackend] = useState<boolean>(false);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'warning'; message: string } | null>(null);
+
   // State-machine approval status
-  const [invoiceStatus, setInvoiceStatus] = useState<'Draft' | 'Pending_Approval' | 'Approved' | 'Paid'>('Approved');
-  const [isSigned, setIsSigned] = useState<boolean>(true);
+  const [invoiceStatus, setInvoiceStatus] = useState<'Draft' | 'Pending_Approval' | 'Approved' | 'Paid'>('Draft');
+  const [isSigned, setIsSigned] = useState<boolean>(false);
   const [approvalDetails, setApprovalDetails] = useState<{
     approvedBy?: string;
     approvedAt?: string;
     verificationHash?: string;
-  }>({
-    approvedBy: brandConfig.ceoNameAr,
-    approvedAt: '2026-08-28T09:30:00Z',
-    verificationHash: 'MYN-AUTH-202608-CEOSIGN-9A8B7C6D',
-  });
+  }>({});
 
   // Modals state
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
@@ -126,17 +135,69 @@ export const CustomerInvoicingView: React.FC = () => {
     });
   }, [matchingTrips]);
 
-  const subtotal = invoiceItems.reduce((acc, item) => acc + item.subtotal, 0);
-  const totalVat = invoiceItems.reduce((acc, item) => acc + item.vatAmount, 0);
-  const grandTotal = subtotal + totalVat;
+  const subtotal = Number(invoiceItems.reduce((acc, item) => acc + item.subtotal, 0).toFixed(2));
+  const totalVat = Number(invoiceItems.reduce((acc, item) => acc + item.vatAmount, 0).toFixed(2));
+  const grandTotal = Number((subtotal + totalVat).toFixed(2));
   const totalTrips = invoiceItems.reduce((acc, item) => acc + item.tripsCount, 0);
   const totalLoaded = invoiceItems.reduce((acc, item) => acc + item.loadedWeight, 0);
   const totalDelivered = invoiceItems.reduce((acc, item) => acc + item.deliveredWeight, 0);
   const totalWastage = invoiceItems.reduce((acc, item) => acc + item.wastageWeight, 0);
 
-  const invoiceNumber = `INV-${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${selectedCustomer?.crNumber?.slice(-4) || '1048'}`;
-  const issueDate = `2026-${String(selectedMonth).padStart(2, '0')}-28`;
-  const dueDate = `2026-${String(selectedMonth + 1 > 12 ? 1 : selectedMonth + 1).padStart(2, '0')}-28`;
+  // Financial balance validation rule (BR-001)
+  const isUnbalanced = useMemo(() => {
+    if (invoiceItems.length === 0) return false;
+    return Math.abs(subtotal + totalVat - grandTotal) > 0.01;
+  }, [subtotal, totalVat, grandTotal, invoiceItems.length]);
+
+  const invoiceNumber = currentBackendInvoice?.invoice_number || `INV-${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${selectedCustomer?.crNumber?.slice(-4) || '1048'}`;
+  const issueDate = currentBackendInvoice?.issue_date?.slice(0, 10) || `2026-${String(selectedMonth).padStart(2, '0')}-28`;
+  const dueDate = currentBackendInvoice?.due_date?.slice(0, 10) || `2026-${String(selectedMonth + 1 > 12 ? 1 : selectedMonth + 1).padStart(2, '0')}-28`;
+
+  // Backend synchronization
+  const loadBackendInvoices = useCallback(async () => {
+    if (!currentCompany?.id) return;
+    setIsLoadingBackend(true);
+    try {
+      const list = await erpApi.getCustomerInvoices(currentCompany.id);
+      setBackendInvoices(list);
+      const match = list.find(
+        (inv) =>
+          inv.invoice_number === invoiceNumber ||
+          (inv.partner_id === selectedCustomerId &&
+            inv.issue_date &&
+            inv.issue_date.startsWith(`${selectedYear}-${String(selectedMonth).padStart(2, '0')}`))
+      );
+      if (match) {
+        setCurrentBackendInvoice(match);
+        const st = match.status as 'Draft' | 'Approved' | 'Issued';
+        setInvoiceStatus(st === 'Issued' ? 'Paid' : st);
+        if (st === 'Approved' || st === 'Issued') {
+          setIsSigned(true);
+          setApprovalDetails({
+            approvedBy: match.approved_by || brandConfig.ceoNameAr,
+            approvedAt: match.approved_at || match.created_at,
+            verificationHash: `OXEN-${match.status.toUpperCase()}-${match.invoice_number}`,
+          });
+        } else {
+          setIsSigned(false);
+          setApprovalDetails({});
+        }
+      } else {
+        setCurrentBackendInvoice(null);
+        setInvoiceStatus('Draft');
+        setIsSigned(false);
+        setApprovalDetails({});
+      }
+    } catch (err: any) {
+      console.error('Failed to load customer invoices from backend:', err);
+    } finally {
+      setIsLoadingBackend(false);
+    }
+  }, [currentCompany?.id, invoiceNumber, selectedCustomerId, selectedMonth, selectedYear, brandConfig.ceoNameAr]);
+
+  useEffect(() => {
+    loadBackendInvoices();
+  }, [loadBackendInvoices]);
 
   const customerInvoiceObject: CustomerInvoice = {
     id: invoiceNumber,
@@ -183,33 +244,178 @@ export const CustomerInvoicingView: React.FC = () => {
     exportInvoiceToExcel(customerInvoiceObject, matchingTrips);
   };
 
-  // Step 3: CEO Review & Authorization ("Approve & Sign")
-  const handleCeoApproveAndSign = () => {
-    const hash = `MYN-AUTH-${Date.now().toString(16).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const approvalTimestamp = new Date().toISOString();
+  // Step 1: Save Draft to Backend
+  const handleSaveDraft = async () => {
+    if (!currentCompany?.id) return;
+    if (isUnbalanced) {
+      setFeedback({
+        type: 'error',
+        message: isAr
+          ? 'خطأ توازن محاسبي: مجموع البنود والضريبة لا يطابق الإجمالي النهائي. يرجى مراجعة وتصحيح الحسابات.'
+          : 'Unbalanced invoice error: subtotal + VAT must equal grand total.',
+      });
+      return;
+    }
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      if (currentBackendInvoice && currentBackendInvoice.status === 'Draft') {
+        const updated = await erpApi.updateCustomerInvoice(currentCompany.id, currentBackendInvoice.id, {
+          customer_name: selectedCustomer?.customerName || 'Customer',
+          customer_tax_number: selectedCustomer?.taxNumber || null,
+          partner_id: selectedCustomer?.id || null,
+          subtotal,
+          vat_amount: totalVat,
+          grand_total: grandTotal,
+          issue_date: issueDate,
+          due_date: dueDate,
+        });
+        setCurrentBackendInvoice(updated);
+        setInvoiceStatus('Draft');
+      } else {
+        const created = await erpApi.createCustomerInvoice(currentCompany.id, {
+          invoice_number: invoiceNumber,
+          customer_name: selectedCustomer?.customerName || 'Customer',
+          customer_tax_number: selectedCustomer?.taxNumber || null,
+          partner_id: selectedCustomer?.id || null,
+          subtotal,
+          vat_amount: totalVat,
+          grand_total: grandTotal,
+          issue_date: issueDate,
+          due_date: dueDate,
+        });
+        setCurrentBackendInvoice(created);
+        setInvoiceStatus('Draft');
+      }
+      setFeedback({
+        type: 'success',
+        message: isAr
+          ? `تم حفظ المسودة في الخادم المركزي بنجاح برقم (${invoiceNumber})`
+          : `Draft invoice ${invoiceNumber} saved successfully to backend.`,
+      });
+      await loadBackendInvoices();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || (isAr ? 'فشل حفظ المسودة في الخادم' : 'Failed to save draft invoice.'),
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
-    setIsSigned(true);
-    setInvoiceStatus('Approved');
-    setApprovalDetails({
-      approvedBy: currentUser.fullNameAr || currentUser.fullName,
-      approvedAt: approvalTimestamp,
-      verificationHash: hash,
-    });
+  // Step 2: CEO Review & Authorization ("Approve & Sign")
+  const handleCeoApproveAndSign = async () => {
+    if (!currentCompany?.id) return;
+    if (isUnbalanced) {
+      setFeedback({
+        type: 'error',
+        message: isAr ? 'لا يمكن اعتماد فاتورة غير متوازنة مالياً (BR-001).' : 'Cannot approve an unbalanced invoice (BR-001).',
+      });
+      return;
+    }
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      let targetId = currentBackendInvoice?.id;
+      if (!targetId || currentBackendInvoice?.status !== 'Draft') {
+        const created = await erpApi.createCustomerInvoice(currentCompany.id, {
+          invoice_number: invoiceNumber,
+          customer_name: selectedCustomer?.customerName || 'Customer',
+          customer_tax_number: selectedCustomer?.taxNumber || null,
+          partner_id: selectedCustomer?.id || null,
+          subtotal,
+          vat_amount: totalVat,
+          grand_total: grandTotal,
+          issue_date: issueDate,
+          due_date: dueDate,
+        });
+        targetId = created.id;
+        setCurrentBackendInvoice(created);
+      }
 
-    logAuditAction({
-      userId: currentUser.id,
-      userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
-      action: 'APPROVE',
-      entityType: 'Invoice',
-      entityId: invoiceNumber,
-      summary: `اعتماد وتوقيع الفاتورة الضريبية رقم (${invoiceNumber}) وإلغاء علامة المسودة المائية`,
-      newData: {
-        invoiceNumber,
-        grandTotal,
+      const approved = await erpApi.approveCustomerInvoice(currentCompany.id, targetId);
+      setCurrentBackendInvoice(approved);
+      setInvoiceStatus('Approved');
+      setIsSigned(true);
+      const hash = `OXEN-AUTH-${Date.now().toString(16).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      setApprovalDetails({
+        approvedBy: approved.approved_by || currentUser.fullNameAr || currentUser.fullName,
+        approvedAt: approved.approved_at || new Date().toISOString(),
         verificationHash: hash,
-      },
-    });
+      });
+      setFeedback({
+        type: 'success',
+        message: isAr
+          ? `تم اعتماد وتوقيع الفاتورة رسمياً من المدير التنفيذي (${approved.invoice_number})`
+          : `Invoice ${approved.invoice_number} officially approved and signed by CEO.`,
+      });
+      logAuditAction({
+        userId: currentUser.id,
+        userName: currentUser.fullNameAr || currentUser.fullName,
+        userRole: currentUser.role,
+        action: 'APPROVE',
+        entityType: 'Invoice',
+        entityId: invoiceNumber,
+        summary: `اعتماد وتوقيع الفاتورة الضريبية رقم (${invoiceNumber}) وإلغاء علامة المسودة المائية`,
+        newData: {
+          invoiceNumber,
+          grandTotal,
+          verificationHash: hash,
+        },
+      });
+      await loadBackendInvoices();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || (isAr ? 'فشل اعتماد وتوقيع الفاتورة' : 'Failed to approve invoice.'),
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Step 3: Issue Invoice and Post Balanced Double-Entry to General Ledger
+  const handleIssueToGeneralLedger = async () => {
+    if (!currentCompany?.id || !currentBackendInvoice?.id) return;
+    if (isUnbalanced) {
+      setFeedback({
+        type: 'error',
+        message: isAr ? 'لا يمكن ترحيل قيد غير متوازن لدفتر الأستاذ العام' : 'Cannot post unbalanced entry to GL.',
+      });
+      return;
+    }
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      const issued = await erpApi.issueCustomerInvoice(currentCompany.id, currentBackendInvoice.id);
+      setCurrentBackendInvoice(issued);
+      setInvoiceStatus('Paid');
+      setFeedback({
+        type: 'success',
+        message: isAr
+          ? `تم إصدار الفاتورة وترحيل القيد المحاسبي المزدوج آلياً إلى دفتر الأستاذ العام بنجاح! رقم القيد: ${issued.move_id || 'POSTED'}`
+          : `Invoice issued and posted to General Ledger! GL Move: ${issued.move_id || 'POSTED'}`,
+      });
+      logAuditAction({
+        userId: currentUser.id,
+        userName: currentUser.fullNameAr || currentUser.fullName,
+        userRole: currentUser.role,
+        action: 'ISSUE',
+        entityType: 'Invoice',
+        entityId: invoiceNumber,
+        summary: `إصدار الفاتورة وترحيل القيود المالية (${invoiceNumber})`,
+        newData: { invoiceNumber, moveId: issued.move_id },
+      });
+      await loadBackendInvoices();
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err.message || (isAr ? 'فشل إصدار الفاتورة وترحيل القيد' : 'Failed to issue invoice to ledger.'),
+      });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   // Multi-Channel WhatsApp Link Handler
@@ -249,14 +455,20 @@ Myon Economic Contracting Co. Ltd.`;
             </h1>
             <span
               className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${
-                invoiceStatus === 'Approved'
+                currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid'
+                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                  : invoiceStatus === 'Approved'
                   ? 'bg-emerald-100 text-emerald-800'
                   : invoiceStatus === 'Pending_Approval'
                   ? 'bg-amber-100 text-amber-800'
                   : 'bg-slate-100 text-slate-700'
               }`}
             >
-              {invoiceStatus === 'Approved'
+              {currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid'
+                ? isAr
+                  ? 'مصدرة ومرحلة لدفتر الأستاذ (Issued & Posted)'
+                  : 'Issued & Posted to GL'
+                : invoiceStatus === 'Approved'
                 ? isAr
                   ? 'معتمدة وموقعة رسمياً'
                   : 'Approved & Signed'
@@ -271,12 +483,23 @@ Myon Economic Contracting Co. Ltd.`;
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             {isAr
-              ? 'تجميع رحلات التوريد، احتساب ضريبة القيمة المضافة 15%، وإدارة سير الاعتماد والتوقيع الرقمي للمدير التنفيذي'
-              : 'Auto-aggregate monthly deliveries, compute 15% VAT, and manage state-machine CEO approvals'}
+              ? 'تجميع رحلات التوريد، احتساب ضريبة القيمة المضافة 15%، وإدارة سير الاعتماد والتوقيع الرقمي للمدير التنفيذي مع الترحيل المالي لدفتر الأستاذ العام'
+              : 'Auto-aggregate monthly deliveries, compute 15% VAT, manage CEO approvals, and post double-entry GL vouchers'}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Refresh Backend Status */}
+          <button
+            onClick={loadBackendInvoices}
+            disabled={isLoadingBackend}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 disabled:opacity-50"
+            title={isAr ? 'تحديث حالة الفاتورة من الخادم' : 'Sync status with backend'}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-slate-500 ${isLoadingBackend ? 'animate-spin' : ''}`} />
+            <span>{isAr ? 'مزامنة' : 'Sync'}</span>
+          </button>
+
           {/* Attachments Trigger */}
           <button
             onClick={() => setIsAttachmentModalOpen(true)}
@@ -308,10 +531,59 @@ Myon Economic Contracting Co. Ltd.`;
         </div>
       </div>
 
+      {/* Dynamic Alert & Feedback Banner */}
+      {feedback && (
+        <div
+          className={`flex items-center justify-between rounded-2xl p-4 text-xs font-bold transition-all ${
+            feedback.type === 'error'
+              ? 'border border-rose-200 bg-rose-50 text-rose-900'
+              : feedback.type === 'warning'
+              ? 'border border-amber-200 bg-amber-50 text-amber-900'
+              : 'border border-emerald-200 bg-emerald-50 text-emerald-900'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {feedback.type === 'error' ? (
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            ) : feedback.type === 'warning' ? (
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+            )}
+            <span>{feedback.message}</span>
+          </div>
+          <button
+            onClick={() => setFeedback(null)}
+            className="text-[11px] font-bold underline opacity-75 hover:opacity-100"
+          >
+            {isAr ? 'إغلاق' : 'Dismiss'}
+          </button>
+        </div>
+      )}
+
+      {/* Financial Engine Balance Alert (BR-001) */}
+      {isUnbalanced && (
+        <div className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/90 p-4 text-xs font-bold text-rose-950 shadow-sm">
+          <AlertTriangle className="h-6 w-6 shrink-0 text-rose-600" />
+          <div className="flex-1">
+            <h4 className="font-black text-rose-900">
+              {isAr ? 'تنبيه عدم التوازن المالي (Atomic Posting Rule BR-001 Violation)' : 'Financial Balance Rule Violation (BR-001)'}
+            </h4>
+            <p className="mt-0.5 text-[11px] font-normal text-rose-800">
+              {isAr
+                ? `المجموع الفرعي (${formatCurrency(subtotal, 'ar')}) + ضريبة القيمة المضافة (${formatCurrency(totalVat, 'ar')}) لا يطابق الإجمالي النهائي (${formatCurrency(grandTotal, 'ar')}). يمنع محرك القيود المزدوجة ترحيل أي مستند مالي غير متوازن لمنع اختلال ميزان المراجعة.`
+                : `Subtotal + VAT must exactly balance Grand Total. The double-entry financial engine rejects unbalanced journal postings.`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* 2. State-Machine Approval Workflow & Submission Banner */}
       <div
         className={`rounded-3xl border p-5 transition-all ${
-          invoiceStatus === 'Approved'
+          currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid'
+            ? 'border-blue-200 bg-blue-50/70 text-blue-950'
+            : invoiceStatus === 'Approved'
             ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
             : 'border-amber-200 bg-amber-50/70 text-amber-950'
         }`}
@@ -320,25 +592,43 @@ Myon Economic Contracting Co. Ltd.`;
           <div className="flex items-start gap-3">
             <div
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-                invoiceStatus === 'Approved' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
+                currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid'
+                  ? 'bg-blue-600 text-white'
+                  : invoiceStatus === 'Approved'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-amber-500 text-white'
               }`}
             >
-              {invoiceStatus === 'Approved' ? <ShieldCheck className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
+              {currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid' ? (
+                <BookOpen className="h-6 w-6" />
+              ) : invoiceStatus === 'Approved' ? (
+                <ShieldCheck className="h-6 w-6" />
+              ) : (
+                <Clock className="h-6 w-6" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-black">
-                  {invoiceStatus === 'Approved'
+                  {currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid'
+                    ? isAr
+                      ? 'الفاتورة مصدرة ومرحلة لدفتر الأستاذ العام (Posted to GL)'
+                      : 'Invoice Issued & Posted to General Ledger'
+                    : invoiceStatus === 'Approved'
                     ? isAr
                       ? 'الفاتورة معتمدة وموقعة رسمياً من المدير التنفيذي'
                       : 'Invoice Officially Approved & Signed by CEO'
                     : isAr
-                    ? 'مسودة مطالبة مالية قيد الاعتماد (Pending CEO Approval)'
+                    ? 'مسودة مطالبة مالية قيد الاعتماد (Draft - Awaiting CEO Approval)'
                     : 'Draft Invoice Awaiting CEO Authorization'}
                 </h3>
               </div>
               <p className="mt-1 text-xs opacity-85">
-                {invoiceStatus === 'Approved'
+                {currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid'
+                  ? isAr
+                    ? `تم الترحيل بالكامل إلى الحسابات المدينة والإيرادات وضريبة القيمة المضافة. تم قفل الفاتورة نهائياً.`
+                    : `Double-entry posting completed in General Ledger. Invoice is permanently locked.`
+                  : invoiceStatus === 'Approved'
                   ? isAr
                     ? `تم اعتمادها بواسطة ${approvalDetails.approvedBy || brandConfig.ceoNameAr} بتاريخ ${approvalDetails.approvedAt?.slice(0, 10) || '2026-08-28'} | التوقيع الرقمي والختم الرسمي مفعلان بالكامل.`
                     : `Approved by ${approvalDetails.approvedBy || brandConfig.ceoNameEn}. Digital signature and company seal are permanently attached.`
@@ -346,45 +636,86 @@ Myon Economic Contracting Co. Ltd.`;
                   ? `مُعد الفاتورة: ${currentUser.fullNameAr || currentUser.fullName} (${currentUser.role}). تتضمن الفاتورة حالياً علامة مائية (DRAFT) حتى اعتمادها.`
                   : `Prepared by: ${currentUser.fullName} (${currentUser.role}). A "DRAFT" watermark is active until authorized.`}
               </p>
+              {currentBackendInvoice?.move_id && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-mono font-bold text-blue-900 shadow-xs">
+                  <BookOpen className="h-3.5 w-3.5 text-blue-600" />
+                  <span>{isAr ? 'معرف القيد المالي:' : 'GL Move ID:'} {currentBackendInvoice.move_id}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Action buttons based on role & status */}
+          {/* Action buttons based on state machine & role */}
           <div className="flex flex-wrap items-center gap-2">
-            {invoiceStatus !== 'Approved' && (isAdmin || canApproveInvoices) && (
-              <button
-                onClick={handleCeoApproveAndSign}
-                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-emerald-600/30 hover:opacity-95"
-              >
-                <Check className="h-4 w-4" />
-                <span>{isAr ? 'اعتماد وتوقيع الفاتورة رسمياً (Approve & Sign)' : 'Approve & Sign (CEO)'}</span>
-              </button>
+            {/* Draft Stage: Save Draft and Approve */}
+            {invoiceStatus === 'Draft' && (
+              <>
+                <button
+                  disabled={actionLoading || isUnbalanced}
+                  onClick={handleSaveDraft}
+                  className="flex items-center gap-1.5 rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin text-slate-600" /> : <Save className="h-4 w-4 text-slate-600" />}
+                  <span>{isAr ? 'حفظ كمسودة (Save Draft)' : 'Save Draft'}</span>
+                </button>
+
+                {(isAdmin || canApproveInvoices) && (
+                  <button
+                    disabled={actionLoading || isUnbalanced}
+                    onClick={handleCeoApproveAndSign}
+                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-emerald-600/30 hover:opacity-95 disabled:opacity-50 transition-all"
+                  >
+                    {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    <span>{isAr ? 'اعتماد وتوقيع الفاتورة (Approve & Sign)' : 'Approve & Sign (CEO)'}</span>
+                  </button>
+                )}
+              </>
             )}
 
+            {/* Approved Stage: Issue to General Ledger */}
             {invoiceStatus === 'Approved' && (
               <>
-                {/* Advanced PDF & Bundled Attachments Export/Share Modal Trigger */}
+                <button
+                  disabled={actionLoading || isUnbalanced}
+                  onClick={handleIssueToGeneralLedger}
+                  className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-blue-600/30 hover:opacity-95 disabled:opacity-50 transition-all"
+                >
+                  {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                  <span>{isAr ? 'إصدار وترحيل لدفتر الأستاذ (Post to GL)' : 'Issue & Post to GL'}</span>
+                </button>
+
                 <button
                   onClick={() => setIsExportShareModalOpen(true)}
-                  className="flex items-center gap-1.5 rounded-2xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/30 hover:bg-orange-700"
+                  className="flex items-center gap-1.5 rounded-2xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/30 hover:bg-orange-700 transition-colors"
                 >
                   <Share2 className="h-4 w-4" />
-                  <span>{isAr ? 'تصدير ومشاركة الحزمة المعتمدة' : 'Export & Share Bundle'}</span>
+                  <span>{isAr ? 'تصدير ومشاركة الحزمة' : 'Export & Share Bundle'}</span>
                 </button>
+              </>
+            )}
 
-                {/* WhatsApp Dispatch Button */}
+            {/* Issued / Paid Stage: Share actions */}
+            {(invoiceStatus === 'Paid' || currentBackendInvoice?.status === 'Issued') && (
+              <>
                 <button
                   onClick={() => setIsExportShareModalOpen(true)}
-                  className="flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                  className="flex items-center gap-1.5 rounded-2xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/30 hover:bg-orange-700 transition-colors"
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span>{isAr ? 'تصدير ومشاركة الحزمة' : 'Export & Share Bundle'}</span>
+                </button>
+
+                <button
+                  onClick={handleLaunchWhatsApp}
+                  className="flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors"
                 >
                   <MessageCircle className="h-4 w-4" />
-                  <span>{isAr ? 'واتساب والمرفقات' : 'WhatsApp'}</span>
+                  <span>{isAr ? 'واتساب' : 'WhatsApp'}</span>
                 </button>
 
-                {/* Email Launcher Modal Button */}
                 <button
-                  onClick={() => setIsExportShareModalOpen(true)}
-                  className="flex items-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800"
+                  onClick={() => setIsEmailModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800 transition-colors"
                 >
                   <Mail className="h-4 w-4" />
                   <span>{isAr ? 'بريد إلكتروني' : 'Email'}</span>

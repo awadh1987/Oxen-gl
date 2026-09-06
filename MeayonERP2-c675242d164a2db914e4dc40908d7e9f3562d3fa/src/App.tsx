@@ -17,13 +17,15 @@ import { LoginView } from './views/LoginView';
 import { OxenGLCloudPortal } from './views/OxenGLCloudPortal';
 import { SuperAdminCockpitView } from './views/SuperAdminCockpitView';
 import { PublicSharedInvoiceView } from './views/PublicSharedInvoiceView';
+import { WorkflowAutomationView } from './views/WorkflowAutomationView';
+import { DesignSystemStudioView } from './views/DesignSystemStudioView';
 import { AIAssistantWidget } from './components/AIAssistantWidget';
 import { ExportPrintModal, ExportDocType } from './components/ExportPrintModal';
-import { Building2, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Receipt, Scale, Sparkles, Truck, Users, X } from 'lucide-react';
+import { Building2, Cpu, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, X } from 'lucide-react';
 import { UserRole } from './types';
 
 function AppContent() {
-  const { language, currentUser, brandConfig, isDriverMode } = useApp();
+  const { language, currentUser, brandConfig, isDriverMode, themeMode } = useApp();
   const isAr = language === 'ar';
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('oxengl_session_active') === 'true');
@@ -40,10 +42,12 @@ function AppContent() {
     { id: 'transporters', label: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
     { id: 'crushers', label: 'Crusher Statements', icon: Building2, group: 'Operations & Logistics' },
     { id: 'master-data', label: 'Master Data & Pricing', icon: Users, group: 'Operations & Logistics' },
+    { id: 'workflow-builder', label: 'Workflow Automation', icon: Cpu, group: 'Operations & Logistics' },
     { id: 'invoicing', label: 'Customer Tax Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
     { id: 'vouchers', label: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
     { id: 'executive-admin', label: 'Executive Approvals & Audit', icon: Landmark, group: 'Finance, Accounting & Control' },
     { id: 'ai-insights', label: 'AI Operations Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
+    { id: 'design-studio', label: 'Design System & AI Studio', icon: Palette, group: 'Finance, Accounting & Control' },
   ];
 
   useEffect(() => {
@@ -140,6 +144,8 @@ function AppContent() {
     'ai-insights': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     'executive-admin': ['Super_Admin', 'Admin', 'COO'],
     'master-data': ['Super_Admin', 'Admin', 'COO'],
+    'workflow-builder': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+    'design-studio': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
   };
 
   const leaveWorkspace = () => {
@@ -169,6 +175,10 @@ function AppContent() {
         return <ExecutiveAdminView />;
       case 'master-data':
         return <MasterDataView />;
+      case 'workflow-builder':
+        return <WorkflowAutomationView />;
+      case 'design-studio':
+        return <DesignSystemStudioView />;
       default:
         return <DashboardView onNavigateToTab={(tab) => setActiveTab(tab)} />;
     }
@@ -178,7 +188,9 @@ function AppContent() {
     <div
       id="meayon-erp-app-root"
       dir="ltr"
-      className="min-h-screen bg-slate-100 font-sans text-neutral-900 antialiased selection:bg-[#F05627] selection:text-white relative"
+      className={`min-h-screen font-sans antialiased selection:bg-[#F05627] selection:text-white relative transition-colors ${
+        themeMode === 'dark' ? 'bg-[#0b0d19] text-slate-100' : 'bg-slate-100 text-neutral-900'
+      }`}
     >
       {activeTab !== 'hub' && <Navbar
         onOpenAIModal={() => setIsAIChatOpen(true)}
@@ -186,12 +198,12 @@ function AppContent() {
         onLogout={leaveWorkspace}
       />}
 
-      {activeTab !== 'hub' && <div className="border-b border-slate-200 bg-white shadow-sm" dir="ltr">
-        <div className="flex min-h-9 items-center gap-2 border-b border-slate-100 px-4 sm:px-6"><span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-700"><Truck className="h-3 w-3 text-orange-600" />Operations & Logistics</span><div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto">{tenantNavigation.filter((item) => item.group === 'Operations & Logistics').map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => setActiveTab(item.id)} className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold ${activeTab === item.id ? 'border-orange-500 text-orange-700' : 'border-transparent text-slate-600 hover:text-slate-950'}`}><Icon className="h-3.5 w-3.5" />{item.label}</button>; })}</div></div>
-        <div className="flex min-h-9 items-center gap-2 px-4 sm:px-6"><span className="inline-flex items-center gap-1.5 rounded-md bg-violet-50 px-2 py-1 text-[10px] font-black text-violet-800"><Landmark className="h-3 w-3" />Finance, Accounting & Control</span><div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto">{tenantNavigation.filter((item) => item.group === 'Finance, Accounting & Control').map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => setActiveTab(item.id)} className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold ${activeTab === item.id ? 'border-violet-600 text-violet-700' : 'border-transparent text-slate-600 hover:text-slate-950'}`}><Icon className="h-3.5 w-3.5" />{item.label}</button>; })}</div></div>
+      {activeTab !== 'hub' && <div className={`border-b shadow-sm ${themeMode === 'dark' ? 'border-slate-800 bg-[#0e1324]' : 'border-slate-200 bg-white'}`} dir="ltr">
+        <div className={`flex min-h-9 items-center gap-2 border-b px-4 sm:px-6 ${themeMode === 'dark' ? 'border-slate-800/60' : 'border-slate-100'}`}><span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-black ${themeMode === 'dark' ? 'bg-slate-800 text-orange-400' : 'bg-slate-100 text-slate-700'}`}><Truck className="h-3 w-3 text-orange-500" />Operations & Logistics</span><div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto">{tenantNavigation.filter((item) => item.group === 'Operations & Logistics').map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => setActiveTab(item.id)} className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold transition-colors ${activeTab === item.id ? 'border-orange-500 text-orange-400' : themeMode === 'dark' ? 'border-transparent text-slate-400 hover:text-white' : 'border-transparent text-slate-600 hover:text-slate-950'}`}><Icon className="h-3.5 w-3.5" />{item.label}</button>; })}</div></div>
+        <div className="flex min-h-9 items-center gap-2 px-4 sm:px-6"><span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-black ${themeMode === 'dark' ? 'bg-violet-950/60 text-violet-300' : 'bg-violet-50 text-violet-800'}`}><Landmark className="h-3 w-3 text-violet-400" />Finance, Accounting & Control</span><div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto">{tenantNavigation.filter((item) => item.group === 'Finance, Accounting & Control').map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => setActiveTab(item.id)} className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold transition-colors ${activeTab === item.id ? 'border-violet-500 text-violet-400' : themeMode === 'dark' ? 'border-transparent text-slate-400 hover:text-white' : 'border-transparent text-slate-600 hover:text-slate-950'}`}><Icon className="h-3.5 w-3.5" />{item.label}</button>; })}</div></div>
       </div>}
 
-      <main className={activeTab === 'hub' ? 'min-w-0 flex-1' : 'min-w-0 flex-1 bg-slate-100 p-4 sm:p-6 lg:p-8'}>
+      <main className={activeTab === 'hub' ? 'min-w-0 flex-1' : `min-w-0 flex-1 p-4 sm:p-6 lg:p-8 ${themeMode === 'dark' ? 'bg-[#0b0d19]' : 'bg-slate-100'}`}>
           <div className="mb-4 flex items-center justify-between lg:hidden">
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-xs">{isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}<span>{isAr ? 'Navigation' : 'Menu'}</span></button>
             <span className="text-xs font-black text-[#F05627]">{isAr ? brandConfig.companyNameAr : brandConfig.companyNameEn}</span>

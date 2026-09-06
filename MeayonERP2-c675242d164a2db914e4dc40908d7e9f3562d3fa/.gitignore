@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+*CREDENTIALS*
+*SECRETS*
+*findings*
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/

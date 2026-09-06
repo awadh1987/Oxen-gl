@@ -45,6 +45,14 @@ import {
 } from '../data/mockData';
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
 import { ApiCompany, ApiOperation, erpApi } from '../services/api';
+import {
+  TenantColorTheme,
+  DensityMode,
+  ThemeMode,
+  TENANT_PALETTES,
+  DEFAULT_ISOLATION_TELEMETRY,
+  IsolationTelemetry,
+} from '../theme/designTokens';
 
 interface AppContextType {
   currentUser: User;
@@ -177,6 +185,14 @@ interface AppContextType {
   // Computed KPIs
   kpis: DashboardKPIs;
   resetToDefaults: () => void;
+  // Unified Multi-Tenant Design System & Isolation Telemetry
+  tenantTheme: TenantColorTheme;
+  setTenantTheme: (theme: TenantColorTheme) => void;
+  densityMode: DensityMode;
+  setDensityMode: (density: DensityMode) => void;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
+  isolationTelemetry: IsolationTelemetry;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -323,6 +339,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .getOperations(currentCompany.id)
       .then((serverOperations) => setOperations(serverOperations.map(mapApiOperation)))
       .catch((error) => console.warn('Operations API unavailable; retaining offline cache:', error));
+
+    erpApi
+      .getPartners(currentCompany.id)
+      .then((partners) => {
+        if (!partners || partners.length === 0) return;
+
+        const apiCustomers: Customer[] = partners
+          .filter((p) => p.partner_type === 'customer')
+          .map((p) => ({
+            id: p.id,
+            customerName: p.name,
+            customerNameEn: p.name,
+            taxNumber: p.tax_number || '',
+            crNumber: p.commercial_registration || '',
+            contactPerson: '',
+            phone: p.phone || '',
+            email: p.email || '',
+            address: '',
+            openingBalance: 0,
+            creditLimit: 0,
+            is_deleted: false,
+          }));
+
+        const apiCrushers: Crusher[] = partners
+          .filter((p) => ['supplier', 'raw_materials_supplier'].includes(p.partner_type))
+          .map((p) => ({
+            id: p.id,
+            crusherName: p.name,
+            crusherNameEn: p.name,
+            location: '',
+            bankDetails: '',
+            taxNumber: p.tax_number || '',
+            openingBalance: 0,
+            phone: p.phone || '',
+            is_deleted: false,
+          }));
+
+        const apiTransporters: Transporter[] = partners
+          .filter((p) => ['transporter', 'service_supplier'].includes(p.partner_type))
+          .map((p) => ({
+            id: p.id,
+            transporterName: p.name,
+            transporterNameEn: p.name,
+            driverName: '',
+            phone: p.phone || '',
+            truckDetails: '',
+            is_deleted: false,
+          }));
+
+        if (apiCustomers.length > 0) setCustomers(apiCustomers);
+        if (apiCrushers.length > 0) setCrushers(apiCrushers);
+        if (apiTransporters.length > 0) setTransporters(apiTransporters);
+      })
+      .catch((error) => console.warn('Partners API unavailable; retaining local cache:', error));
   }, [isOnline, currentCompany]);
 
   useEffect(() => {
@@ -380,6 +450,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('meayon_driver_mode', String(isDriverMode));
   }, [isDriverMode]);
+
+  // Unified Multi-Tenant Design System State
+  const [tenantTheme, setTenantThemeState] = useState<TenantColorTheme>(() => {
+    return (localStorage.getItem('oxengl_tenant_theme') as TenantColorTheme) || 'orange';
+  });
+
+  const [densityMode, setDensityModeState] = useState<DensityMode>(() => {
+    return (localStorage.getItem('oxengl_density_mode') as DensityMode) || 'comfortable';
+  });
+
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    return (localStorage.getItem('oxengl_theme_mode') as ThemeMode) || 'dark';
+  });
+
+  const [isolationTelemetry] = useState<IsolationTelemetry>(DEFAULT_ISOLATION_TELEMETRY);
+
+  const setTenantTheme = (theme: TenantColorTheme) => {
+    setTenantThemeState(theme);
+    localStorage.setItem('oxengl_tenant_theme', theme);
+  };
+
+  const setDensityMode = (density: DensityMode) => {
+    setDensityModeState(density);
+    localStorage.setItem('oxengl_density_mode', density);
+  };
+
+  const setThemeMode = (mode: ThemeMode) => {
+    setThemeModeState(mode);
+    localStorage.setItem('oxengl_theme_mode', mode);
+  };
+
+  // Sync design system theme, density, and CSS variables across document
+  useEffect(() => {
+    const palette = TENANT_PALETTES[tenantTheme] || TENANT_PALETTES.orange;
+    const root = document.documentElement;
+
+    root.setAttribute('data-theme-mode', themeMode);
+    root.setAttribute('data-density', densityMode);
+    root.setAttribute('data-tenant-theme', tenantTheme);
+
+    if (themeMode === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+
+    const primary = currentCompany?.uiPrimaryColor || palette.primary;
+    const secondary = currentCompany?.uiSecondaryColor || palette.secondary;
+    root.style.setProperty('--tenant-primary', primary);
+    root.style.setProperty('--tenant-primary-hover', palette.primaryHover);
+    root.style.setProperty('--tenant-primary-light', palette.primaryLight);
+    root.style.setProperty('--tenant-secondary', secondary);
+    root.style.setProperty('--tenant-glow', palette.glow);
+    root.style.setProperty('--tenant-surface', palette.surfaceAccent);
+    root.style.setProperty('--tenant-border', palette.badgeBorder);
+  }, [tenantTheme, themeMode, densityMode, currentCompany]);
 
   // Export JSON Snapshot of daily operations for auditing
   const exportDailyOperationsSnapshotJSON = (targetDate?: string) => {
@@ -1018,6 +1144,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       summary: `اعتماد وتوقيع السند المالي (${existing.voucherNumber}) بالختم الرقمي والتفويض التنفيذي`,
       newData: approvedVoucher,
     });
+
+    if (currentCompany) {
+      void (async () => {
+        try {
+          const accounts = await erpApi.getAccountingAccounts(currentCompany.id);
+          const cashAcc = accounts.find((a) => a.code === '101000') || accounts.find((a) => a.internal_type === 'asset');
+          const counterAcc = approvedVoucher.type === 'Receipt'
+            ? (accounts.find((a) => a.code === '120000') || accounts.find((a) => a.code === '401000') || accounts.find((a) => a.internal_type === 'revenue'))
+            : (accounts.find((a) => a.code === '201000') || accounts.find((a) => a.code === '501000') || accounts.find((a) => a.internal_type === 'expense'));
+
+          if (cashAcc && counterAcc) {
+            const isReceipt = approvedVoucher.type === 'Receipt';
+            const move = await erpApi.createAccountMove(currentCompany.id, {
+              journal_code: 'MISC',
+              move_type: 'settlement',
+              ref: approvedVoucher.voucherNumber,
+              name: approvedVoucher.purpose || approvedVoucher.voucherNumber,
+              lines: [
+                {
+                  account_id: isReceipt ? cashAcc.id : counterAcc.id,
+                  debit: Number(approvedVoucher.amount),
+                  credit: 0,
+                  name: `${approvedVoucher.voucherNumber} - ${approvedVoucher.partyName || ''}`,
+                },
+                {
+                  account_id: isReceipt ? counterAcc.id : cashAcc.id,
+                  debit: 0,
+                  credit: Number(approvedVoucher.amount),
+                  name: `${approvedVoucher.voucherNumber} - ${approvedVoucher.partyName || ''}`,
+                },
+              ],
+            });
+
+            if (move?.id) {
+              setVouchers((prev) => prev.map((v) => (v.id === id ? { ...v, move_id: move.id } : v)));
+            }
+          }
+        } catch (err) {
+          console.warn('[VoucherSync] Failed to post voucher to general ledger:', err);
+        }
+      })();
+    }
   };
 
   const autoGenerateVoucherFromPayment = (payment: CrusherPaymentEntry): FinancialVoucher => {
@@ -1064,6 +1232,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       is_deleted: false,
     };
     setCustomers((prev) => [newCust, ...prev]);
+
+    if (currentCompany) {
+      erpApi
+        .createPartner(currentCompany.id, {
+          name: custData.customerName,
+          partner_type: 'customer',
+          email: custData.email || null,
+          phone: custData.phone || null,
+          tax_number: custData.taxNumber || null,
+          commercial_registration: custData.crNumber || null,
+        })
+        .then((created) => {
+          setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, id: created.id } : c)));
+        })
+        .catch((err) => console.warn('Customer backend sync warning:', err));
+    }
 
     logAuditAction({
       userId: currentUser.id,
@@ -1177,6 +1361,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setCrushers((prev) => [newCrush, ...prev]);
 
+    if (currentCompany) {
+      erpApi
+        .createPartner(currentCompany.id, {
+          name: crushData.crusherName,
+          partner_type: 'supplier',
+          phone: crushData.phone || null,
+          tax_number: crushData.taxNumber || null,
+        })
+        .then((created) => {
+          setCrushers((prev) => prev.map((c) => (c.id === id ? { ...c, id: created.id } : c)));
+        })
+        .catch((err) => console.warn('Crusher backend sync warning:', err));
+    }
+
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
@@ -1279,6 +1477,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       is_deleted: false,
     };
     setTransporters((prev) => [newTrans, ...prev]);
+
+    if (currentCompany) {
+      erpApi
+        .createPartner(currentCompany.id, {
+          name: transData.transporterName,
+          partner_type: 'transporter',
+          phone: transData.phone || null,
+        })
+        .then((created) => {
+          setTransporters((prev) => prev.map((t) => (t.id === id ? { ...t, id: created.id } : t)));
+        })
+        .catch((err) => console.warn('Transporter backend sync warning:', err));
+    }
 
     logAuditAction({
       userId: currentUser.id,
@@ -1981,6 +2192,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         softDeletedOperations,
         kpis,
         resetToDefaults,
+        tenantTheme,
+        setTenantTheme,
+        densityMode,
+        setDensityMode,
+        themeMode,
+        setThemeMode,
+        isolationTelemetry,
       }}
     >
       {children}

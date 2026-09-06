@@ -435,6 +435,7 @@ export interface FinancialVoucher {
   digitalSignature?: DigitalSignatureStamp;
   status: 'Draft' | 'Pending_Approval' | 'Approved' | 'Cancelled';
   attachments?: DocumentAttachment[];
+  move_id?: string;
   created_at: string;
   updated_at: string;
 }

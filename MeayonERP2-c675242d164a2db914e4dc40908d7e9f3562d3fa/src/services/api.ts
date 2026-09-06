@@ -135,6 +135,35 @@ export interface DirectWorkspaceAccessResponse {
   };
 }
 
+export interface ApiAccount {
+  id: string;
+  company_id: string;
+  code: string;
+  name: string;
+  internal_type: string;
+  currency: string;
+}
+
+export interface AccountMoveLinePayload {
+  account_id: string;
+  partner_id?: string | null;
+  cost_center_id?: string | null;
+  debit: number;
+  credit: number;
+  name: string;
+}
+
+export interface AccountMoveCreatePayload {
+  name?: string;
+  journal_code: string;
+  move_type?: 'entry' | 'out_invoice' | 'in_invoice' | 'settlement';
+  partner_id?: string | null;
+  cost_center_id?: string | null;
+  date?: string;
+  ref?: string;
+  lines: AccountMoveLinePayload[];
+}
+
 export interface ApiAccountMove {
   id: string;
   company_id: string;
@@ -144,6 +173,50 @@ export interface ApiAccountMove {
   date: string;
   state: 'draft' | 'posted' | 'canceled';
   ref: string | null;
+}
+
+export interface ApiCustomerInvoice {
+  id: string;
+  company_id: string;
+  partner_id: string | null;
+  move_id: string | null;
+  invoice_number: string;
+  customer_name: string;
+  customer_tax_number: string | null;
+  issue_date: string;
+  due_date: string | null;
+  status: 'Draft' | 'Approved' | 'Issued' | 'Cancelled';
+  subtotal: string | number;
+  vat_amount: string | number;
+  grand_total: string | number;
+  approved_by: string | null;
+  approved_at: string | null;
+  issued_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CustomerInvoiceCreatePayload {
+  partner_id?: string | null;
+  invoice_number?: string | null;
+  customer_name: string;
+  customer_tax_number?: string | null;
+  issue_date?: string | null;
+  due_date?: string | null;
+  subtotal: number;
+  vat_amount: number;
+  grand_total: number;
+}
+
+export interface CustomerInvoiceUpdatePayload {
+  partner_id?: string | null;
+  customer_name?: string | null;
+  customer_tax_number?: string | null;
+  issue_date?: string | null;
+  due_date?: string | null;
+  subtotal?: number;
+  vat_amount?: number;
+  grand_total?: number;
 }
 
 export interface ApiSettlement {
@@ -214,7 +287,32 @@ export const erpApi = {
     body: JSON.stringify(payload),
   }),
   getOperations: (companyId: string) => request<ApiOperation[]>('/api/operations', companyId),
+  getAccountingAccounts: (companyId: string) => request<ApiAccount[]>('/api/accounting/accounts', companyId),
   getAccountingMoves: (companyId: string) => request<ApiAccountMove[]>('/api/accounting/moves', companyId),
+  getAccountingMove: (companyId: string, moveId: string) => request<ApiAccountMove>(`/api/accounting/moves/${moveId}`, companyId),
+  createAccountMove: (companyId: string, payload: AccountMoveCreatePayload) => request<ApiAccountMove>('/api/accounting/moves', companyId, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  getCustomerInvoices: (companyId: string) => request<ApiCustomerInvoice[]>('/api/customer-invoices', companyId),
+  getCustomerInvoice: (companyId: string, invoiceId: string) => request<ApiCustomerInvoice>(`/api/customer-invoices/${invoiceId}`, companyId),
+  createCustomerInvoice: (companyId: string, payload: CustomerInvoiceCreatePayload) => request<ApiCustomerInvoice>('/api/customer-invoices', companyId, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+  updateCustomerInvoice: (companyId: string, invoiceId: string, payload: CustomerInvoiceUpdatePayload) => request<ApiCustomerInvoice>(`/api/customer-invoices/${invoiceId}`, companyId, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  }),
+  deleteCustomerInvoice: (companyId: string, invoiceId: string) => request<void>(`/api/customer-invoices/${invoiceId}`, companyId, {
+    method: 'DELETE',
+  }),
+  approveCustomerInvoice: (companyId: string, invoiceId: string) => request<ApiCustomerInvoice>(`/api/customer-invoices/${invoiceId}/approve`, companyId, {
+    method: 'POST',
+  }),
+  issueCustomerInvoice: (companyId: string, invoiceId: string) => request<ApiCustomerInvoice>(`/api/customer-invoices/${invoiceId}/issue`, companyId, {
+    method: 'POST',
+  }),
   getSettlements: (companyId: string) => request<ApiSettlement[]>('/api/settlements', companyId),
   getPartners: (companyId: string) => request<Partner[]>('/api/partners', companyId),
   createPartner: (companyId: string, payload: PartnerPayload) => request<Partner>('/api/partners', companyId, { method: 'POST', body: JSON.stringify(payload) }),
