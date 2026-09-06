@@ -198,7 +198,15 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<'ar' | 'en'>('ar');
+  const [language, setLanguageState] = useState<'ar' | 'en'>(() => {
+    return (localStorage.getItem('oxengl_language') as 'ar' | 'en') || 'ar';
+  });
+
+  const setLanguage = (lang: 'ar' | 'en') => {
+    setLanguageState(lang);
+    localStorage.setItem('oxengl_language', lang);
+  };
+
   const dir = language === 'ar' ? 'rtl' : 'ltr';
   const [companies, setCompanies] = useState<Company[]>([]);
   const [currentCompany, setCurrentCompany] = useState<Company | null>(() => {
@@ -489,6 +497,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     root.setAttribute('data-theme-mode', themeMode);
     root.setAttribute('data-density', densityMode);
     root.setAttribute('data-tenant-theme', tenantTheme);
+    root.setAttribute('dir', language === 'ar' ? 'rtl' : 'ltr');
+    root.setAttribute('lang', language);
 
     if (themeMode === 'dark') {
       root.classList.add('dark');
@@ -505,7 +515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     root.style.setProperty('--tenant-glow', palette.glow);
     root.style.setProperty('--tenant-surface', palette.surfaceAccent);
     root.style.setProperty('--tenant-border', palette.badgeBorder);
-  }, [tenantTheme, themeMode, densityMode, currentCompany]);
+  }, [tenantTheme, themeMode, densityMode, currentCompany, language]);
 
   // Export JSON Snapshot of daily operations for auditing
   const exportDailyOperationsSnapshotJSON = (targetDate?: string) => {

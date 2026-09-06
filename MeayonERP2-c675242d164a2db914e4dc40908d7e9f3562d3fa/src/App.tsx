@@ -187,7 +187,7 @@ function AppContent() {
   return (
     <div
       id="meayon-erp-app-root"
-      dir="ltr"
+      dir={isAr ? 'rtl' : 'ltr'}
       className={`min-h-screen font-sans antialiased selection:bg-[#F05627] selection:text-white relative transition-colors ${
         themeMode === 'dark' ? 'bg-[#0b0d19] text-slate-100' : 'bg-slate-100 text-neutral-900'
       }`}
@@ -198,7 +198,7 @@ function AppContent() {
         onLogout={leaveWorkspace}
       />}
 
-      {activeTab !== 'hub' && <div className={`border-b shadow-sm ${themeMode === 'dark' ? 'border-slate-800 bg-[#0e1324]' : 'border-slate-200 bg-white'}`} dir="ltr">
+      {activeTab !== 'hub' && <div className={`border-b shadow-sm ${themeMode === 'dark' ? 'border-slate-800 bg-[#0e1324]' : 'border-slate-200 bg-white'}`} dir={isAr ? 'rtl' : 'ltr'}>
         <div className={`flex min-h-9 items-center gap-2 border-b px-4 sm:px-6 ${themeMode === 'dark' ? 'border-slate-800/60' : 'border-slate-100'}`}><span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-black ${themeMode === 'dark' ? 'bg-slate-800 text-orange-400' : 'bg-slate-100 text-slate-700'}`}><Truck className="h-3 w-3 text-orange-500" />Operations & Logistics</span><div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto">{tenantNavigation.filter((item) => item.group === 'Operations & Logistics').map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => setActiveTab(item.id)} className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold transition-colors ${activeTab === item.id ? 'border-orange-500 text-orange-400' : themeMode === 'dark' ? 'border-transparent text-slate-400 hover:text-white' : 'border-transparent text-slate-600 hover:text-slate-950'}`}><Icon className="h-3.5 w-3.5" />{item.label}</button>; })}</div></div>
         <div className="flex min-h-9 items-center gap-2 px-4 sm:px-6"><span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-black ${themeMode === 'dark' ? 'bg-violet-950/60 text-violet-300' : 'bg-violet-50 text-violet-800'}`}><Landmark className="h-3 w-3 text-violet-400" />Finance, Accounting & Control</span><div className="flex min-w-0 flex-1 items-center justify-end gap-1 overflow-x-auto">{tenantNavigation.filter((item) => item.group === 'Finance, Accounting & Control').map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => setActiveTab(item.id)} className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold transition-colors ${activeTab === item.id ? 'border-violet-500 text-violet-400' : themeMode === 'dark' ? 'border-transparent text-slate-400 hover:text-white' : 'border-transparent text-slate-600 hover:text-slate-950'}`}><Icon className="h-3.5 w-3.5" />{item.label}</button>; })}</div></div>
       </div>}

@@ -314,13 +314,13 @@ export function FleetLogisticsView() {
       {/* Tab 2: 11 Tenant Color Themes */}
       {activeTab === 'themes' && (
         <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-5 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-black text-white">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">
                   Interactive Tenant White-Labeling Palettes (11 Supported Themes)
                 </h3>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Click any palette to instantly re-theme the entire application and inspect its live visual tokens.
                 </p>
               </div>

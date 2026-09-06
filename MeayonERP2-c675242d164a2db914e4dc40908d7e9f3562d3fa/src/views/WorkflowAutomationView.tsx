@@ -21,10 +21,10 @@ export const WorkflowAutomationView: React.FC = () => {
             </span>
             <IsolationTelemetryBadge variant="pill" />
           </div>
-          <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+          <h1 className="mt-2 text-2xl font-black text-slate-900 dark:text-white sm:text-3xl">
             Workflow & Process Automation Builder
           </h1>
-          <p className="mt-1 text-xs text-slate-400 sm:text-sm">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 sm:text-sm">
             Configure cross-departmental approval chains, real-time dispatch triggers, and automated ZATCA tax invoice generation.
           </p>
         </div>
