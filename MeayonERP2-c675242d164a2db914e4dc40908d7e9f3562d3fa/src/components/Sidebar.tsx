@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   Lock,
   Receipt,
+  Cpu,
+  Palette,
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -116,6 +118,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Database,
       roles: ['Admin', 'COO'],
       badge: null,
+    },
+    {
+      id: 'workflow-builder' as ActiveTab,
+      labelAr: 'أتمتة وسير العمليات',
+      labelEn: 'Workflow Automation',
+      icon: Cpu,
+      roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+      badge: 'Visual BPM',
+    },
+    {
+      id: 'design-studio' as ActiveTab,
+      labelAr: 'استوديو التصميم وهوية المستأجر',
+      labelEn: 'Design Studio & Themes',
+      icon: Palette,
+      roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+      badge: 'Themes',
     },
   ];
 
