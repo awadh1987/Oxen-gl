@@ -1,0 +1,800 @@
+import React, { useState, useMemo, useRef } from 'react';
+import { useApp } from '../context/AppContext';
+import { CustomerInvoice, InvoiceItem, OperationRecord, DocumentAttachment } from '../types';
+import {
+  FileText,
+  Printer,
+  Download,
+  Calendar,
+  Building,
+  CheckCircle2,
+  Share2,
+  FileSpreadsheet,
+  QrCode,
+  Layers,
+  ArrowRight,
+  Send,
+  MessageCircle,
+  Mail,
+  ShieldCheck,
+  Paperclip,
+  Check,
+  Clock,
+  AlertCircle,
+  ExternalLink,
+  Archive,
+} from 'lucide-react';
+import { formatCurrency, formatDate, formatNumber, formatTonnage, getMonthName, generateZatcaQR } from '../utils/formatters';
+import { exportInvoiceToExcel } from '../utils/excelExporter';
+import { BrandLogo } from '../components/BrandLogo';
+import { DynamicEmailLauncherModal } from '../components/DynamicEmailLauncherModal';
+import { MultiAttachmentModal } from '../components/MultiAttachmentModal';
+import { InvoiceExportShareModal } from '../components/InvoiceExportShareModal';
+import { ExportPrintModal } from '../components/ExportPrintModal';
+import { OfficialLetterheadHeader } from '../components/OfficialLetterheadHeader';
+import { OfficialLetterheadFooter } from '../components/OfficialLetterheadFooter';
+import { apiService } from '../services/api';
+
+export const CustomerInvoicingView: React.FC = () => {
+  const {
+    customers,
+    accessibleOperations,
+    language,
+    currentUser,
+    isAdmin,
+    canApproveInvoices,
+    brandConfig,
+    logAuditAction,
+    addAttachmentToRecord,
+    removeAttachmentFromRecord,
+  } = useApp();
+  const isAr = language === 'ar';
+
+  const invoiceContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(customers[0]?.id || '');
+  const [selectedMonth, setSelectedMonth] = useState<number>(8); // August
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
+
+  // State-machine approval status
+  const [invoiceStatus, setInvoiceStatus] = useState<'Draft' | 'Pending_Approval' | 'Approved' | 'Issued' | 'Paid' | 'Overdue'>('Approved');
+  const [isSigned, setIsSigned] = useState<boolean>(true);
+  const [approvalDetails, setApprovalDetails] = useState<{
+    approvedBy?: string;
+    approvedAt?: string;
+    verificationHash?: string;
+  }>({
+    approvedBy: brandConfig.ceoNameAr,
+    approvedAt: '2026-08-28T09:30:00Z',
+    verificationHash: 'MYN-AUTH-202608-CEOSIGN-9A8B7C6D',
+  });
+  const [persistedInvoiceId, setPersistedInvoiceId] = useState<string | null>(null);
+
+  // Modals state
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
+  const [isExportShareModalOpen, setIsExportShareModalOpen] = useState(false);
+  const [isExportPrintModalOpen, setIsExportPrintModalOpen] = useState(false);
+  const [invoiceAttachments, setInvoiceAttachments] = useState<DocumentAttachment[]>([]);
+
+  const selectedCustomer = useMemo(() => {
+    return customers.find((c) => c.id === selectedCustomerId) || customers[0];
+  }, [customers, selectedCustomerId]);
+
+  // Filter matching trips for this customer & billing cycle
+  const matchingTrips = useMemo(() => {
+    if (!selectedCustomer) return [];
+    return accessibleOperations.filter((op) => {
+      const matchCustomer =
+        op.destination_customer.includes(selectedCustomer.customerName) ||
+        (selectedCustomer.customerNameEn && op.destination_customer.includes(selectedCustomer.customerNameEn));
+      const matchMonth = op.operation_month === selectedMonth && op.operation_year === selectedYear;
+      return matchCustomer && matchMonth;
+    });
+  }, [accessibleOperations, selectedCustomer, selectedMonth, selectedYear]);
+
+  // Auto-aggregate by material_type
+  const invoiceItems: InvoiceItem[] = useMemo(() => {
+    const map: Record<string, { trips: number; loaded: number; delivered: number; wastage: number; sales: number }> = {};
+
+    matchingTrips.forEach((op) => {
+      if (!map[op.material_type]) {
+        map[op.material_type] = { trips: 0, loaded: 0, delivered: 0, wastage: 0, sales: 0 };
+      }
+      map[op.material_type].trips += 1;
+      map[op.material_type].loaded += op.qty_loaded;
+      map[op.material_type].delivered += op.qty_delivered;
+      map[op.material_type].wastage += op.qty_wastage;
+      map[op.material_type].sales += op.sales_amount;
+    });
+
+    return Object.entries(map).map(([materialType, data]) => {
+      const unitPrice = data.delivered > 0 ? Number((data.sales / data.delivered).toFixed(2)) : 44;
+      const subtotal = Number(data.sales.toFixed(2));
+      const vatAmount = Number((subtotal * 0.15).toFixed(2));
+      const total = Number((subtotal + vatAmount).toFixed(2));
+
+      return {
+        materialType,
+        tripsCount: data.trips,
+        loadedWeight: Number(data.loaded.toFixed(2)),
+        deliveredWeight: Number(data.delivered.toFixed(2)),
+        wastageWeight: Number(data.wastage.toFixed(2)),
+        unitPrice,
+        subtotal,
+        vatAmount,
+        total,
+      };
+    });
+  }, [matchingTrips]);
+
+  const subtotal = invoiceItems.reduce((acc, item) => acc + item.subtotal, 0);
+  const totalVat = invoiceItems.reduce((acc, item) => acc + item.vatAmount, 0);
+  const grandTotal = subtotal + totalVat;
+  const totalTrips = invoiceItems.reduce((acc, item) => acc + item.tripsCount, 0);
+  const totalLoaded = invoiceItems.reduce((acc, item) => acc + item.loadedWeight, 0);
+  const totalDelivered = invoiceItems.reduce((acc, item) => acc + item.deliveredWeight, 0);
+  const totalWastage = invoiceItems.reduce((acc, item) => acc + item.wastageWeight, 0);
+
+  const invoiceNumber = `INV-${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${selectedCustomer?.crNumber?.slice(-4) || '1048'}`;
+  const issueDate = `2026-${String(selectedMonth).padStart(2, '0')}-28`;
+  const dueDate = `2026-${String(selectedMonth + 1 > 12 ? 1 : selectedMonth + 1).padStart(2, '0')}-28`;
+
+  const customerInvoiceObject: CustomerInvoice = {
+    id: invoiceNumber,
+    invoiceNumber,
+    customerId: selectedCustomer?.id || '',
+    customerName: selectedCustomer?.customerName || '',
+    customerTaxNumber: selectedCustomer?.taxNumber || '',
+    billingMonth: selectedMonth,
+    billingYear: selectedYear,
+    issueDate,
+    dueDate,
+    items: invoiceItems,
+    subtotal,
+    vatAmount: totalVat,
+    grandTotal,
+    totalTrips,
+    totalLoadedWeight: totalLoaded,
+    totalDeliveredWeight: totalDelivered,
+    totalWastageWeight: totalWastage,
+    status: invoiceStatus,
+    preparedBy: currentUser.fullNameAr || currentUser.fullName,
+    preparedByRole: currentUser.role,
+    approvedBy: approvalDetails.approvedBy,
+    approvedAt: approvalDetails.approvedAt,
+    isSigned,
+    signatureData: isSigned
+      ? {
+          signedBy: approvalDetails.approvedBy || brandConfig.ceoNameAr,
+          signedByRole: brandConfig.ceoTitleAr,
+          signedAt: approvalDetails.approvedAt || new Date().toISOString(),
+          verificationHash: approvalDetails.verificationHash || 'MYN-SHA256-9A8B7C6D5E4F3210',
+          signatureImageUrl: brandConfig.ceoSignatureUrl,
+          stampImageUrl: brandConfig.companyStampUrl,
+        }
+      : undefined,
+    attachments: invoiceAttachments,
+  };
+
+  const handlePrint = () => {
+    document.body.classList.add('print-invoice-only');
+    const cleanup = () => {
+      document.body.classList.remove('print-invoice-only');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  };
+
+  const handleExcelExport = () => {
+    exportInvoiceToExcel(customerInvoiceObject, matchingTrips);
+  };
+
+  // Step 3: CEO Review & Authorization ("Approve & Sign")
+  const handleCeoApproveAndSign = async () => {
+    const hash = `MYN-AUTH-${Date.now().toString(16).toUpperCase()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const approvalTimestamp = new Date().toISOString();
+
+    try {
+      const existingInvoice = await apiService.createInvoice({
+        invoice_number: invoiceNumber,
+        customer_id: selectedCustomer?.id || '',
+        customer_name: selectedCustomer?.customerName || '',
+        subtotal: Number(subtotal.toFixed(2)),
+        vat_amount: Number(totalVat.toFixed(2)),
+        grand_total: Number(grandTotal.toFixed(2)),
+        status: 'Pending_Approval',
+      });
+      await apiService.approveInvoice(existingInvoice.id);
+      setPersistedInvoiceId(existingInvoice.id);
+    } catch (error) {
+      console.error('Invoice approval failed:', error);
+      alert(error instanceof Error ? error.message : (isAr ? 'تعذر اعتماد الفاتورة في الخادم.' : 'Could not approve invoice on the server.'));
+      return;
+    }
+
+    setIsSigned(true);
+    setInvoiceStatus('Approved');
+    setApprovalDetails({
+      approvedBy: currentUser.fullNameAr || currentUser.fullName,
+      approvedAt: approvalTimestamp,
+      verificationHash: hash,
+    });
+
+    logAuditAction({
+      userId: currentUser.id,
+      userName: currentUser.fullNameAr || currentUser.fullName,
+      userRole: currentUser.role,
+      action: 'APPROVE',
+      entityType: 'Invoice',
+      entityId: invoiceNumber,
+      summary: `اعتماد وتوقيع الفاتورة الضريبية رقم (${invoiceNumber}) وإلغاء علامة المسودة المائية`,
+      newData: {
+        invoiceNumber,
+        grandTotal,
+        verificationHash: hash,
+      },
+    });
+  };
+
+  const handleIssueInvoice = async () => {
+    if (!persistedInvoiceId) return;
+    try {
+      await apiService.issueInvoice(persistedInvoiceId);
+      setInvoiceStatus('Issued' as any);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : (isAr ? 'تعذر إصدار الفاتورة.' : 'Could not issue invoice.'));
+    }
+  };
+
+  const handlePayInvoice = async () => {
+    if (!persistedInvoiceId) return;
+    try {
+      await apiService.payInvoice(persistedInvoiceId);
+      setInvoiceStatus('Paid');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : (isAr ? 'تعذر تسجيل سداد الفاتورة.' : 'Could not record invoice payment.'));
+    }
+  };
+
+  // Multi-Channel WhatsApp Link Handler
+  const handleLaunchWhatsApp = () => {
+    const phoneRaw = selectedCustomer?.phone?.replace(/[^0-9]/g, '') || '966501234567';
+    const messageAr = `السادة / ${selectedCustomer?.customerName} المحترمين،
+نرفق لكم الفاتورة الضريبية المعتمدة رقم (${invoiceNumber}) لشهر ${selectedMonth}/${selectedYear}.
+- إجمالي الرحلات: ${totalTrips} رحلة
+- الوزن الصافي المستلم: ${totalDelivered.toLocaleString()} طن
+- المبلغ الإجمالي المستحق: ${formatCurrency(grandTotal, 'ar')}
+- حالة الاعتماد: معتمدة وموقعة رسمياً من الإدارة العامة
+حساب التحويل: مصرف الراجحي | IBAN: SA4280000123608010123456
+شركة ميون للمقاولات المحدودة`;
+
+    const messageEn = `Dear ${selectedCustomer?.customerNameEn || selectedCustomer?.customerName},
+Attached is the approved Tax Invoice #${invoiceNumber} for ${selectedMonth}/${selectedYear}.
+- Total Trips: ${totalTrips}
+- Delivered Weight: ${totalDelivered.toLocaleString()} Tons
+- Total Due: ${formatCurrency(grandTotal, 'en')}
+- Status: Officially Approved & Signed by CEO
+Bank: Al Rajhi Bank | IBAN: SA4280000123608010123456
+Myon Economic Contracting Co. Ltd.`;
+
+    const text = encodeURIComponent(isAr ? messageAr : messageEn);
+    const waUrl = `https://wa.me/${phoneRaw}?text=${text}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <div className="space-y-6" id="customer-invoicing-view">
+      {/* 1. Header & Quick Actions */}
+      <div className="flex flex-col justify-between gap-4 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-black text-slate-900">
+              {isAr ? 'محرك الفواتير والمطالبات الشهرية للعملاء' : 'Dynamic Customer Invoicing Engine'}
+            </h1>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${
+                invoiceStatus === 'Approved'
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : invoiceStatus === 'Pending_Approval'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              {invoiceStatus === 'Approved'
+                ? isAr
+                  ? 'معتمدة وموقعة رسمياً'
+                  : 'Approved & Signed'
+                : invoiceStatus === 'Pending_Approval'
+                ? isAr
+                  ? 'مسودة - بانتظار اعتماد الإدارة'
+                  : 'Pending Approval'
+                : isAr
+                ? 'مسودة أولية'
+                : 'Draft'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {isAr
+              ? 'تجميع رحلات التوريد، احتساب ضريبة القيمة المضافة 15%، وإدارة سير الاعتماد والتوقيع الرقمي للمدير التنفيذي'
+              : 'Auto-aggregate monthly deliveries, compute 15% VAT, and manage state-machine CEO approvals'}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Attachments Trigger */}
+          <button
+            onClick={() => setIsAttachmentModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50"
+          >
+            <Paperclip className="h-4 w-4 text-orange-600" />
+            <span>
+              {isAr ? 'المرفقات وتذاكر الميزان' : 'Attachments'} ({invoiceAttachments.length})
+            </span>
+          </button>
+
+          {/* Excel Export */}
+          <button
+            onClick={handleExcelExport}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+            <span>{isAr ? 'تصدير كشف Excel' : 'Export Excel'}</span>
+          </button>
+
+          {/* Print / Live Preview Export */}
+          <button
+            onClick={() => setIsExportPrintModalOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors"
+          >
+            <Printer className="h-4 w-4" />
+            <span>{isAr ? 'معاينة وطباعة (Print Preview)' : 'Print / Export Studio'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 2. State-Machine Approval Workflow & Submission Banner */}
+      <div
+        className={`rounded-3xl border p-5 transition-all ${
+          invoiceStatus === 'Approved'
+            ? 'border-emerald-200 bg-emerald-50/70 text-emerald-950'
+            : 'border-amber-200 bg-amber-50/70 text-amber-950'
+        }`}
+      >
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                invoiceStatus === 'Approved' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
+              }`}
+            >
+              {invoiceStatus === 'Approved' ? <ShieldCheck className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black">
+                  {invoiceStatus === 'Approved'
+                    ? isAr
+                      ? 'الفاتورة معتمدة وموقعة رسمياً من المدير التنفيذي'
+                      : 'Invoice Officially Approved & Signed by CEO'
+                    : isAr
+                    ? 'مسودة مطالبة مالية قيد الاعتماد (Pending CEO Approval)'
+                    : 'Draft Invoice Awaiting CEO Authorization'}
+                </h3>
+              </div>
+              <p className="mt-1 text-xs opacity-85">
+                {invoiceStatus === 'Approved'
+                  ? isAr
+                    ? `تم اعتمادها بواسطة ${approvalDetails.approvedBy || brandConfig.ceoNameAr} بتاريخ ${approvalDetails.approvedAt?.slice(0, 10) || '2026-08-28'} | التوقيع الرقمي والختم الرسمي مفعلان بالكامل.`
+                    : `Approved by ${approvalDetails.approvedBy || brandConfig.ceoNameEn}. Digital signature and company seal are permanently attached.`
+                  : isAr
+                  ? `مُعد الفاتورة: ${currentUser.fullNameAr || currentUser.fullName} (${currentUser.role}). تتضمن الفاتورة حالياً علامة مائية (DRAFT) حتى اعتمادها.`
+                  : `Prepared by: ${currentUser.fullName} (${currentUser.role}). A "DRAFT" watermark is active until authorized.`}
+              </p>
+            </div>
+          </div>
+
+          {/* Action buttons based on role & status */}
+          <div className="flex flex-wrap items-center gap-2">
+            {invoiceStatus !== 'Approved' && (isAdmin || canApproveInvoices) && (
+              <button
+                onClick={handleCeoApproveAndSign}
+                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-emerald-600/30 hover:opacity-95"
+              >
+                <Check className="h-4 w-4" />
+                <span>{isAr ? 'اعتماد وتوقيع الفاتورة رسمياً (Approve & Sign)' : 'Approve & Sign (CEO)'}</span>
+              </button>
+            )}
+
+            {invoiceStatus === 'Approved' && persistedInvoiceId && (isAdmin || currentUser.role === 'Accountant') && (
+              <button
+                onClick={handleIssueInvoice}
+                className="flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-blue-600/20 hover:bg-blue-700"
+              >
+                <Send className="h-4 w-4" />
+                <span>{isAr ? 'إصدار الفاتورة' : 'Issue Invoice'}</span>
+              </button>
+            )}
+
+            {invoiceStatus === 'Issued' && persistedInvoiceId && (isAdmin || currentUser.role === 'COO' || currentUser.role === 'Accountant') && (
+              <button
+                onClick={handlePayInvoice}
+                className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700"
+              >
+                <Check className="h-4 w-4" />
+                <span>{isAr ? 'تسجيل السداد' : 'Mark Paid'}</span>
+              </button>
+            )}
+
+            {invoiceStatus === 'Approved' && (
+              <>
+                {/* Advanced PDF & Bundled Attachments Export/Share Modal Trigger */}
+                <button
+                  onClick={() => setIsExportShareModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-2xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/30 hover:bg-orange-700"
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span>{isAr ? 'تصدير ومشاركة الحزمة المعتمدة' : 'Export & Share Bundle'}</span>
+                </button>
+
+                {/* WhatsApp Dispatch Button */}
+                <button
+                  onClick={() => setIsExportShareModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  <span>{isAr ? 'واتساب والمرفقات' : 'WhatsApp'}</span>
+                </button>
+
+                {/* Email Launcher Modal Button */}
+                <button
+                  onClick={() => setIsExportShareModalOpen(true)}
+                  className="flex items-center gap-1.5 rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-slate-800"
+                >
+                  <Mail className="h-4 w-4" />
+                  <span>{isAr ? 'بريد إلكتروني' : 'Email'}</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Invoice Generator Controls Bar */}
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-700">
+              {isAr ? 'اختيار العميل المطلوب محاسبته *' : 'Select Customer *'}
+            </label>
+            <select
+              value={selectedCustomerId}
+              onChange={(e) => setSelectedCustomerId(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+            >
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.customerName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-700">
+              {isAr ? 'الشهر المالي *' : 'Billing Month *'}
+            </label>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                <option key={m} value={m}>
+                  {getMonthName(m, language)} {selectedYear}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-700">
+              {isAr ? 'السنة المالية' : 'Year'}
+            </label>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+            >
+              <option value={2026}>2026</option>
+              <option value={2025}>2025</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-bold text-slate-700">
+              {isAr ? 'حالة الاعتماد وسير العمل' : 'Workflow Stage'}
+            </label>
+            <select
+              value={invoiceStatus}
+              onChange={(e) => {
+                const val = e.target.value as any;
+                if (val === 'Issued') {
+                  void handleIssueInvoice();
+                  return;
+                }
+                if (val === 'Paid') {
+                  void handlePayInvoice();
+                  return;
+                }
+                setInvoiceStatus(val);
+                if (val === 'Approved') setIsSigned(true);
+                else setIsSigned(false);
+              }}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-orange-950 focus:border-orange-500 focus:bg-white focus:outline-none"
+            >
+              <option value="Draft">{isAr ? 'مسودة أولية (Draft)' : 'Draft'}</option>
+              <option value="Pending_Approval">{isAr ? 'قيد المراجعة والاعتماد (Pending)' : 'Pending Approval'}</option>
+              <option value="Approved">{isAr ? 'معتمدة وموقعة (Approved & Signed)' : 'Approved & Signed'}</option>
+              <option value="Paid">{isAr ? 'مسددة بالكامل (Paid)' : 'Paid'}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Official Saudi ZATCA Tax Invoice Document (فاتورة ضريبية رسمية) */}
+      <div
+        ref={invoiceContainerRef}
+        id="customer-tax-invoice-printable"
+        className="relative overflow-hidden rounded-3xl border border-slate-300 bg-white p-8 sm:p-10 shadow-xl text-slate-900"
+      >
+        {/* Pre-Approval Watermark (Shown when status is Draft or Pending_Approval) */}
+        {invoiceStatus !== 'Approved' && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center select-none overflow-hidden z-10">
+            <div className="rotate-[-28deg] border-4 border-dashed border-rose-500/20 bg-rose-500/5 px-12 py-6 rounded-3xl text-center shadow-lg">
+              <span className="text-3xl sm:text-5xl font-black text-rose-500/30 uppercase tracking-widest block font-mono">
+                DRAFT / PENDING APPROVAL
+              </span>
+              <span className="text-xl sm:text-3xl font-black text-rose-500/30 block mt-2">
+                مسودة - قيد الاعتماد والمراجعة
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Invoice Top Header with Official Letterhead */}
+        <OfficialLetterheadHeader
+          brandConfig={brandConfig}
+          documentTypeAr="فاتورة ضريبية معتمدة"
+          documentTypeEn="TAX INVOICE"
+          documentNumber={invoiceNumber}
+          issueDate={issueDate}
+          isAr={isAr}
+        />
+
+        {/* Customer Information Block */}
+        <div className="my-6 grid grid-cols-1 gap-4 rounded-2xl bg-slate-50 p-4 border border-slate-200 sm:grid-cols-2">
+          <div>
+            <span className="text-[11px] font-bold text-orange-800 uppercase">
+              {isAr ? 'بيانات العميل المستلم (Billed To):' : 'Billed To:'}
+            </span>
+            <h3 className="mt-1 text-sm font-black text-slate-900">
+              {selectedCustomer?.customerName}
+            </h3>
+            <p className="text-xs text-slate-600">{selectedCustomer?.customerNameEn}</p>
+            <p className="mt-1 text-xs text-slate-700">
+              {isAr ? 'العنوان:' : 'Address:'} {selectedCustomer?.address || 'المملكة العربية السعودية'}
+            </p>
+          </div>
+
+          <div className="space-y-1 text-xs">
+            <p>
+              <span className="text-slate-500">{isAr ? 'الرقم الضريبي للعميل:' : 'Customer VAT:'}</span>{' '}
+              <strong className="font-mono text-slate-900">{selectedCustomer?.taxNumber}</strong>
+            </p>
+            <p>
+              <span className="text-slate-500">{isAr ? 'رقم السجل التجاري:' : 'CR Number:'}</span>{' '}
+              <strong className="font-mono text-slate-900">{selectedCustomer?.crNumber || '1010XXXXXX'}</strong>
+            </p>
+            <p>
+              <span className="text-slate-500">{isAr ? 'الشخص المسؤول:' : 'Contact Person:'}</span>{' '}
+              <strong>{selectedCustomer?.contactPerson}</strong> ({selectedCustomer?.phone})
+            </p>
+            <p>
+              <span className="text-slate-500">{isAr ? 'دورة التوريد:' : 'Supply Cycle:'}</span>{' '}
+              <strong className="text-orange-950">{getMonthName(selectedMonth, language)} {selectedYear}</strong>
+            </p>
+          </div>
+        </div>
+
+        {/* Aggregate Items Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-right text-xs">
+            <thead>
+              <tr className="border-y-2 border-slate-900 bg-slate-100 font-bold text-slate-900">
+                <th className="py-3 px-3">#</th>
+                <th className="py-3 px-3">{isAr ? 'نوع المادة / البند' : 'Material Description'}</th>
+                <th className="py-3 px-3 text-center">{isAr ? 'عدد الرحلات' : 'Trips'}</th>
+                <th className="py-3 px-3 text-center">{isAr ? 'الوزن المحمل (طن)' : 'Loaded'}</th>
+                <th className="py-3 px-3 text-center">{isAr ? 'الوزن الصافي (طن)' : 'Delivered'}</th>
+                <th className="py-3 px-3 text-center">{isAr ? 'الفاقد (طن)' : 'Loss'}</th>
+                <th className="py-3 px-3">{isAr ? 'سعر الطن (ر.س)' : 'Rate/Ton'}</th>
+                <th className="py-3 px-3">{isAr ? 'المبلغ (بدون ضريبة)' : 'Amount'}</th>
+                <th className="py-3 px-3">{isAr ? 'الضريبة 15%' : 'VAT 15%'}</th>
+                <th className="py-3 px-3">{isAr ? 'الإجمالي (ر.س)' : 'Total (SAR)'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {invoiceItems.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
+                    {isAr ? 'لا توجد رحلات مسجلة لهذا العميل في الشهر المحدد' : 'No trips found for this customer and month'}
+                  </td>
+                </tr>
+              ) : (
+                invoiceItems.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-3 px-3 font-mono">{idx + 1}</td>
+                    <td className="py-3 px-3 font-bold text-slate-900">{item.materialType}</td>
+                    <td className="py-3 px-3 text-center text-slate-700">{item.tripsCount}</td>
+                    <td className="py-3 px-3 text-center text-slate-600">{item.loadedWeight}</td>
+                    <td className="py-3 px-3 text-center font-bold text-slate-900">{item.deliveredWeight}</td>
+                    <td className="py-3 px-3 text-center text-rose-600 font-semibold">{item.wastageWeight}</td>
+                    <td className="py-3 px-3 font-mono">{item.unitPrice}</td>
+                    <td className="py-3 px-3 font-semibold text-slate-900">{formatCurrency(item.subtotal, language)}</td>
+                    <td className="py-3 px-3 text-slate-700">{formatCurrency(item.vatAmount, language)}</td>
+                    <td className="py-3 px-3 font-black text-neutral-950">{formatCurrency(item.total, language)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Invoice Summary & ZATCA QR Code Block */}
+        <div className="mt-8 grid grid-cols-1 gap-6 border-t-2 border-slate-900 pt-6 sm:grid-cols-2">
+          {/* ZATCA QR Code & Bank Accounts */}
+          <div className="flex gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex flex-col items-center justify-center rounded-xl bg-white p-2 border border-slate-300">
+              <div className="h-24 w-24 bg-slate-900 p-1 flex items-center justify-center rounded">
+                <QrCode className="h-20 w-20 text-white" />
+              </div>
+              <span className="mt-1 text-[9px] font-mono text-slate-500">ZATCA e-Invoice QR</span>
+            </div>
+
+            <div className="space-y-1 text-[11px] text-slate-700">
+              <p className="font-bold text-slate-900">{isAr ? 'الحساب البنكي المعتمد للتحويل:' : 'Approved Bank Account:'}</p>
+              <p>{brandConfig.bankNameAr} ({brandConfig.bankNameEn})</p>
+              <p className="font-mono text-orange-950 font-bold">IBAN: {brandConfig.iban}</p>
+              <p className="text-[10px] text-slate-500 pt-1">
+                {isAr
+                  ? 'ملاحظة: يرجى تضمين رقم الفاتورة في وصف التحويل البنكي.'
+                  : 'Please include invoice number in bank transfer description.'}
+              </p>
+            </div>
+          </div>
+
+          {/* Grand Totals Calculation */}
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between text-slate-600">
+              <span>{isAr ? 'المجموع الخاضع للضريبة (الإجمالي الفرعي):' : 'Total Taxable Amount (Subtotal):'}</span>
+              <strong className="text-slate-900">{formatCurrency(subtotal, language)}</strong>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>{isAr ? 'ضريبة القيمة المضافة (15%):' : 'Value Added Tax (15%):'}</span>
+              <strong className="text-slate-900">{formatCurrency(totalVat, language)}</strong>
+            </div>
+            <div className="flex justify-between border-t-2 border-slate-900 pt-2 text-sm">
+              <span className="font-black text-slate-900">{isAr ? 'إجمالي المبلغ المستحق:' : 'Total Amount Due:'}</span>
+              <strong className="font-black text-orange-950 text-base">{formatCurrency(grandTotal, language)}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Official Digital Signatures & Corporate Stamp Area */}
+        <div className="mt-12 grid grid-cols-3 gap-4 border-t border-slate-200 pt-6 text-center text-xs text-slate-600">
+          {/* Prepared by */}
+          <div>
+            <p className="font-bold text-slate-800">{isAr ? 'إعداد المحاسب المسؤول' : 'Prepared By'}</p>
+            <p className="text-[11px] text-slate-700 font-medium mt-1">
+              {customerInvoiceObject.preparedBy || 'ياسر العتيبي'}
+            </p>
+            <div className="mt-2 text-[10px] text-slate-400 font-mono">
+              {issueDate} 09:30 AM
+            </div>
+          </div>
+
+          {/* CEO Approval & Digital Signature */}
+          <div>
+            <p className="font-bold text-slate-800">{isAr ? 'اعتماد المدير التنفيذي العام' : 'CEO Authorization'}</p>
+            <p className="text-[11px] text-neutral-950 font-bold mt-1">
+              {brandConfig.ceoNameAr} ({brandConfig.ceoTitleAr})
+            </p>
+            {isSigned ? (
+              <div className="mt-1 flex flex-col items-center">
+                <span className="text-[10px] font-mono text-emerald-700 font-black">
+                  [DIGITALLY SIGNED & VERIFIED]
+                </span>
+                <span className="text-[9px] font-mono text-slate-400">
+                  {approvalDetails.verificationHash || 'MYN-SHA256-7A8B9C0D'}
+                </span>
+              </div>
+            ) : (
+              <div className="h-10 border-b border-dashed border-amber-300 mx-auto w-32 mt-2 flex items-center justify-center text-[10px] text-amber-600">
+                {isAr ? 'بانتظار الاعتماد' : 'Pending'}
+              </div>
+            )}
+          </div>
+
+          {/* Official Stamp */}
+          <div>
+            <p className="font-bold text-slate-800">{isAr ? 'ختم الشركة الرسمي' : 'Official Seal'}</p>
+            <div className="h-16 w-16 rounded-full border-2 border-orange-600/60 border-dashed mx-auto mt-1 flex flex-col items-center justify-center text-[9px] text-orange-700 font-black shadow-xs">
+              <span>ميون للمقاولات</span>
+              <span className="text-[7px] text-orange-500 font-mono">MEAYON CO.</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Official Corporate Letterhead Footer */}
+        <OfficialLetterheadFooter brandConfig={brandConfig} isAr={isAr} />
+      </div>
+
+      {/* Advanced PDF & Bundled Attachments Export/Share Modal */}
+      <InvoiceExportShareModal
+        isOpen={isExportShareModalOpen}
+        onClose={() => setIsExportShareModalOpen(false)}
+        invoice={customerInvoiceObject}
+        matchingTrips={matchingTrips}
+        brandConfig={brandConfig}
+        customerPhone={selectedCustomer?.phone}
+        customerEmail={selectedCustomer?.email}
+        language={language}
+        invoiceElementRef={invoiceContainerRef}
+      />
+
+      {/* Dynamic Email Client Launcher Modal */}
+      <DynamicEmailLauncherModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        invoice={customerInvoiceObject}
+        customerEmail={selectedCustomer?.email || 'procurement@unibeton.sa'}
+        customerName={selectedCustomer?.customerName || ''}
+        language={language}
+      />
+
+      {/* Multi-Attachment Modal */}
+      <MultiAttachmentModal
+        isOpen={isAttachmentModalOpen}
+        onClose={() => setIsAttachmentModalOpen(false)}
+        recordTitle={isAr ? `مرفقات الفاتورة ${invoiceNumber}` : `Attachments for ${invoiceNumber}`}
+        recordType="Invoice"
+        recordId={invoiceNumber}
+        existingAttachments={invoiceAttachments}
+        onAddAttachment={(att) => {
+          const newAtt: DocumentAttachment = {
+            ...att,
+            id: `att-${Date.now()}`,
+            uploadedAt: new Date().toISOString(),
+            uploadedBy: currentUser.fullNameAr || currentUser.fullName,
+          };
+          setInvoiceAttachments((prev) => [...prev, newAtt]);
+        }}
+        onDeleteAttachment={(attId) => {
+          setInvoiceAttachments((prev) => prev.filter((a) => a.id !== attId));
+        }}
+      />
+
+      {/* Live Print Preview & Export Studio Modal */}
+      <ExportPrintModal
+        isOpen={isExportPrintModalOpen}
+        onClose={() => setIsExportPrintModalOpen(false)}
+        initialDocType="vat-invoice"
+        initialCustomerId={selectedCustomerId}
+        initialMonth={selectedMonth}
+        initialYear={selectedYear}
+      />
+    </div>
+  );
+};
