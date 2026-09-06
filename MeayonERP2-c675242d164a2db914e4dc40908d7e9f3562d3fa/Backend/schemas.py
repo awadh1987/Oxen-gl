@@ -1884,7 +1884,7 @@ class StockMovementProcessResponse(BaseModel):
 
 class PasswordRotateRequest(BaseModel):
     current_password: str | None = None
-    new_password: str = Field(min_length=8, max_length=128)
+    new_password: str | None = Field(default=None, max_length=128)
     regenerate_recovery_codes: bool = True
 
 

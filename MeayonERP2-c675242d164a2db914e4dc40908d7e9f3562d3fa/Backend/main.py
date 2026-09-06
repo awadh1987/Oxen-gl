@@ -3096,8 +3096,11 @@ def rotate_superadmin_password(
 		admin_user = current_user
 		database.add(admin_user)
 
-	admin_user.password_hash = hash_password(payload.new_password)
-	admin_user.is_active = True
+	if payload.new_password:
+		if len(payload.new_password) < 8:
+			raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="New password must be at least 8 characters")
+		admin_user.password_hash = hash_password(payload.new_password)
+		admin_user.is_active = True
 
 	recovery_codes = []
 	if payload.regenerate_recovery_codes:
