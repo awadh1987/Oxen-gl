@@ -1,0 +1,193 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@400;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800;900&display=swap');
+@import "tailwindcss";
+
+:root {
+  --primary-color: #0F172A;
+  --secondary-color: #F59E0B;
+  --font-family: 'Plus Jakarta Sans', 'Tajawal', 'Noto Kufi Arabic', system-ui, -apple-system, sans-serif;
+}
+
+html,
+body,
+#root {
+  direction: ltr;
+  min-width: 320px;
+}
+
+#root [dir="rtl"] {
+  direction: ltr !important;
+}
+
+#meayon-erp-app-root > .flex {
+  align-items: stretch;
+}
+
+#meayon-erp-app-root main > div > .space-y-5,
+#meayon-erp-app-root main > div > .space-y-6,
+#operations-log-view,
+#customer-invoicing-view,
+#financial-vouchers-view,
+#master-data-view,
+#crusher-ledger-view,
+#transporter-performance-view,
+#executive-dashboard-view {
+  animation: oxengl-view-in 180ms ease-out;
+}
+
+@keyframes oxengl-view-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@theme {
+  --color-brand-primary: #F05627;
+  --color-brand-primary-hover: #D94418;
+  --color-brand-primary-light: #FFF2ED;
+  --color-brand-dark: #1A1A1A;
+  --color-brand-dark-surface: #242424;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-family);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  html[data-theme-mode="dark"],
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html[data-theme-mode="dark"] body,
+  html.dark body {
+    background-color: #0b0f19;
+    color: #f1f5f9;
+  }
+}
+
+.export-preview-frame {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.export-preview-paper {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  overflow: hidden;
+  width: min(794px, 100%);
+  min-height: 1123px;
+  aspect-ratio: 210 / 297;
+}
+
+.export-paper-landscape {
+  width: min(1123px, 100%);
+  min-height: 794px;
+  aspect-ratio: 297 / 210;
+}
+
+/* Custom Print Styles for Official Saudi Tax Invoices, Scale Tickets & Letterheads */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm 15mm 15mm;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  header,
+  aside,
+  nav,
+  #app-sidebar-navigation,
+  #main-app-header,
+  #nav-ai-assistant-btn,
+  #nav-notifications-btn,
+  #nav-lang-toggle-btn,
+  #nav-role-switcher-btn,
+  #invoice-export-share-modal-backdrop,
+  .no-print,
+  button,
+  input,
+  select {
+    display: none !important;
+  }
+
+  /* Export Print Modal Container adjustments */
+  #export-print-modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  #export-print-modal-backdrop > div {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  #export-print-modal-backdrop > div > div:first-child,
+  #export-print-modal-backdrop > div > div > div:first-child {
+    display: none !important;
+  }
+
+  #export-print-preview-content {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    transform: none !important;
+  }
+
+  /* Page break rules for merged multi-page documents */
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+  .page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .avoid-page-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Official Containers */
+  #customer-tax-invoice-printable,
+  #public-tax-invoice-container,
+  .printable-ticket-page {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  .official-letterhead-print {
+    display: block !important;
+    border-bottom: 2px solid #0f172a !important;
+    padding-bottom: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .official-footer-print {
+    display: block !important;
+    border-top: 1.5px solid #cbd5e1 !important;
+    padding-top: 10px !important;
+    margin-top: 24px !important;
+  }
+}
