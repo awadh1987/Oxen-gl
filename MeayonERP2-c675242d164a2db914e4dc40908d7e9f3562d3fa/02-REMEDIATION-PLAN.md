@@ -234,3 +234,21 @@
 | **P1: توحيد مصدر الحقيقة** | ربط React بـ PostgreSQL، تفكيك LocalStorage للشركاء، تنظيف المخطط | 16 ساعة عمل | استرجاع كافة العملاء والعمليات من PostgreSQL ومزامنتها بين الأجهزة |
 | **P2: توحيد النموذج التشغيلي** | السندات الرسمية، القيود المزدوجة، دورة العمل اللوجستية | 16 ساعة عمل | نجاح دورة (تذكرة وزن -> قيد يومية -> فاتورة ضريبية) متوازنة 100% |
 | **P3: الامتثال السعودي** | SAR افتراضي، دقة العملات، توثيق ZATCA وPDPL | 8 ساعات عمل | فواتير متوافقة بـ SAR وشفافية الامتثال النظامي |
+
+---
+
+## 4. مصفوفة الإنجاز والتحقق الفعلي (Live Execution & Verification Matrix)
+
+| معرف المهمة | الأولوية | نطاق المعالجة | الملفات المنفذة | حالة التنفيذ | أدلة الاختبار والتحقق |
+| :--- | :---: | :--- | :--- | :---: | :--- |
+| **REM-P0-001** | **P0** | حذف وثائق وبيانات الاعتماد المسربة | `SUPERADMIN_CREDENTIALS_AND_FINDINGS.md`, `.gitignore` | **مكتملة ومحققة** | خلو المستودع من أي ملفات أسرار؛ شمول `.gitignore` |
+| **REM-P0-002** | **P0** | تعطيل مسار الباب الخلفي `/api/auth/direct-access` | `Backend/main.py`, `src/services/api.ts` | **مكتملة ومحققة** | يرجع HTTP 404 باختبار `test_direct_access_backdoor_returns_404` |
+| **REM-P0-003** | **P0** | إزالة التجاوز المبرمج في خادم Node Proxy | `server.ts` | **مكتملة ومحققة** | حظر التوكنات الوهمية؛ المصادقة الحصرية عبر FastAPI |
+| **REM-P0-004** | **P0** | تأمين مسار الشركات وحجب التراخيص والسجلات | `Backend/main.py`, `Backend/schemas.py` | **مكتملة ومحققة** | حجب `tax_id` و`license_key`؛ توفير `/api/auth/tenants-public` |
+| **REM-P1-001** | **P1** | ربط الشركاء بـ PostgreSQL وإلغاء LocalStorage | `src/context/AppContext.tsx`, `src/services/api.ts` | **مكتملة ومحققة** | حفظ الشركاء واسترجاعهم من جدول `res_partners` |
+| **REM-P1-002** | **P1** | توحيد عمليات الميزان مع Backend | `src/context/AppContext.tsx`, `src/services/api.ts` | **مكتملة ومحققة** | استدعاء `POST /api/operations/weighbridge` ومطابقة السجلات |
+| **REM-P1-003** | **P1** | تنظيف مخطط قاعدة البيانات وأرشفة الجداول المهجورة | `202609060004_cleanup_legacy_schema.py` | **مكتملة ومحققة** | حذف 6 جداول فارغة؛ أرشفة `_legacy_archive_users` بنجاح Alembic |
+| **REM-P2-001** | **P2** | إنشاء القيود المحاسبية المزدوجة للسندات المالية | `src/context/AppContext.tsx`, `src/services/api.ts` | **مكتملة ومحققة** | توليد قيد `AccountMove` متوازن في `account_moves` لكل سند معتمد |
+| **REM-P3-001** | **P3** | تثبيت العملة الافتراضية بالريال السعودي (SAR) | `Backend/models.py`, `Backend/main.py` | **مكتملة ومحققة** | تحديث الـ models و41 حساباً و5 شركات إلى عملة SAR في PostgreSQL |
+| **REM-P3-002** | **P3** | التحقق من امتثال ZATCA للمرحلتين 1 و2 | `Backend/zatca_adapter.py`, `test_audit_remediation.py` | **مكتملة ومحققة** | نجاح تشفير TLV (Tags 1-7) والهاش المتسلسل واجتياز 93 اختباراً |
+
