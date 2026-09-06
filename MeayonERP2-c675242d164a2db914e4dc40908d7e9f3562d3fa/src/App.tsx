@@ -1,28 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { ActiveTab } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { DashboardView } from './views/DashboardView';
-import { TenantLandingHubView } from './views/TenantLandingHubView';
-import { OperationsLogView } from './views/OperationsLogView';
-import { CustomerInvoicingView } from './views/CustomerInvoicingView';
-import { CrusherLedgerView } from './views/CrusherLedgerView';
-import { TransporterPerformanceView } from './views/TransporterPerformanceView';
-import { AIOperationsView } from './views/AIOperationsView';
-import { ExecutiveAdminView } from './views/ExecutiveAdminView';
-import { MasterDataView } from './views/MasterDataView';
-import { FinancialVouchersView } from './views/FinancialVouchersView';
-import { LoginView } from './views/LoginView';
-import { OxenGLCloudPortal } from './views/OxenGLCloudPortal';
-import { SuperAdminCockpitView } from './views/SuperAdminCockpitView';
-import { PublicSharedInvoiceView } from './views/PublicSharedInvoiceView';
-import { WorkflowAutomationView } from './views/WorkflowAutomationView';
-import { DesignSystemStudioView } from './views/DesignSystemStudioView';
 import { AIAssistantWidget } from './components/AIAssistantWidget';
-import { ExportPrintModal, ExportDocType } from './components/ExportPrintModal';
+import type { ExportDocType } from './components/ExportPrintModal';
 import { Building2, Cpu, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, X } from 'lucide-react';
 import { UserRole } from './types';
+
+// Code-split dynamic view imports
+const DashboardView = React.lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
+const TenantLandingHubView = React.lazy(() => import('./views/TenantLandingHubView').then(m => ({ default: m.TenantLandingHubView })));
+const OperationsLogView = React.lazy(() => import('./views/OperationsLogView').then(m => ({ default: m.OperationsLogView })));
+const CustomerInvoicingView = React.lazy(() => import('./views/CustomerInvoicingView').then(m => ({ default: m.CustomerInvoicingView })));
+const CrusherLedgerView = React.lazy(() => import('./views/CrusherLedgerView').then(m => ({ default: m.CrusherLedgerView })));
+const TransporterPerformanceView = React.lazy(() => import('./views/TransporterPerformanceView').then(m => ({ default: m.TransporterPerformanceView })));
+const AIOperationsView = React.lazy(() => import('./views/AIOperationsView').then(m => ({ default: m.AIOperationsView })));
+const ExecutiveAdminView = React.lazy(() => import('./views/ExecutiveAdminView').then(m => ({ default: m.ExecutiveAdminView })));
+const MasterDataView = React.lazy(() => import('./views/MasterDataView').then(m => ({ default: m.MasterDataView })));
+const FinancialVouchersView = React.lazy(() => import('./views/FinancialVouchersView').then(m => ({ default: m.FinancialVouchersView })));
+const OxenGLCloudPortal = React.lazy(() => import('./views/OxenGLCloudPortal').then(m => ({ default: m.OxenGLCloudPortal })));
+const SuperAdminCockpitView = React.lazy(() => import('./views/SuperAdminCockpitView').then(m => ({ default: m.SuperAdminCockpitView })));
+const PublicSharedInvoiceView = React.lazy(() => import('./views/PublicSharedInvoiceView').then(m => ({ default: m.PublicSharedInvoiceView })));
+const WorkflowAutomationView = React.lazy(() => import('./views/WorkflowAutomationView').then(m => ({ default: m.WorkflowAutomationView })));
+const DesignSystemStudioView = React.lazy(() => import('./views/DesignSystemStudioView').then(m => ({ default: m.DesignSystemStudioView })));
+const ExportPrintModal = React.lazy(() => import('./components/ExportPrintModal').then(m => ({ default: m.ExportPrintModal })));
+
+const ViewLoadingFallback = () => (
+  <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-12 text-center">
+    <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/10 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400 mb-3 animate-pulse">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+    </div>
+    <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+      جاري تحميل بيانات الشاشة... / Loading screen...
+    </p>
+  </div>
+);
 
 function AppContent() {
   const { language, currentUser, brandConfig, isDriverMode, themeMode } = useApp();
@@ -106,29 +119,37 @@ function AppContent() {
   // If a public shared invoice link was accessed, render the standalone auditor view
   if (sharedInvoiceParams) {
     return (
-      <PublicSharedInvoiceView
-        invoiceNumber={sharedInvoiceParams.invoiceNumber}
-        token={sharedInvoiceParams.token}
-        onBackToPortal={() => {
-          // Clear query params and show login/portal
-          window.history.replaceState({}, document.title, window.location.pathname);
-          setSharedInvoiceParams(null);
-        }}
-      />
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <PublicSharedInvoiceView
+          invoiceNumber={sharedInvoiceParams.invoiceNumber}
+          token={sharedInvoiceParams.token}
+          onBackToPortal={() => {
+            // Clear query params and show login/portal
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setSharedInvoiceParams(null);
+          }}
+        />
+      </Suspense>
     );
   }
 
   if (!isLoggedIn) {
-    return <OxenGLCloudPortal onLoginSuccess={() => setIsLoggedIn(true)} />;
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <OxenGLCloudPortal onLoginSuccess={() => setIsLoggedIn(true)} />
+      </Suspense>
+    );
   }
 
   if (currentUser.role === 'Super_Admin' && !inspectingWorkspace) {
     return (
-      <SuperAdminCockpitView
-        onOpenTenantOnboarding={() => setIsLoggedIn(false)}
-        onLogout={() => setIsLoggedIn(false)}
-        onInspectTenantWorkspace={() => { setInspectingWorkspace(true); setActiveTab('hub'); }}
-      />
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <SuperAdminCockpitView
+          onOpenTenantOnboarding={() => setIsLoggedIn(false)}
+          onLogout={() => setIsLoggedIn(false)}
+          onInspectTenantWorkspace={() => { setInspectingWorkspace(true); setActiveTab('hub'); }}
+        />
+      </Suspense>
     );
   }
 
@@ -215,17 +236,23 @@ function AppContent() {
               onRequireLogin={leaveWorkspace}
               onNavigateHome={() => setActiveTab('dashboard')}
             >
-              {renderActiveViewContent()}
+              <Suspense fallback={<ViewLoadingFallback />}>
+                {renderActiveViewContent()}
+              </Suspense>
             </ProtectedRoute>
           </div>
       </main>
 
       {/* Global Live Preview & Print/Export Modal */}
-      <ExportPrintModal
-        isOpen={isExportPrintModalOpen}
-        onClose={() => setIsExportPrintModalOpen(false)}
-        initialDocType={defaultDocTypeForTab}
-      />
+      {isExportPrintModalOpen && (
+        <Suspense fallback={null}>
+          <ExportPrintModal
+            isOpen={isExportPrintModalOpen}
+            onClose={() => setIsExportPrintModalOpen(false)}
+            initialDocType={defaultDocTypeForTab}
+          />
+        </Suspense>
+      )}
 
       {/* Persistent AI Assistant Widget */}
       <AIAssistantWidget
