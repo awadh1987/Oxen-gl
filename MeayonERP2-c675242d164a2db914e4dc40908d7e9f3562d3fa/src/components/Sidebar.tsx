@@ -23,7 +23,9 @@ export type ActiveTab =
   | 'transporters'
   | 'ai-insights'
   | 'executive-admin'
-  | 'master-data';
+  | 'master-data'
+  | 'workflow-builder'
+  | 'design-studio';
 
 interface SidebarProps {
   activeTab: ActiveTab;

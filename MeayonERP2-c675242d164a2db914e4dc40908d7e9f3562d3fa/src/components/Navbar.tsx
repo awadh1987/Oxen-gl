@@ -16,6 +16,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { UserRole } from '../types';
+import { ThemeDensityToolbar } from './design-system/ThemeDensityToolbar';
 
 interface NavbarProps {
   onOpenAIModal?: () => void;
@@ -38,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAIModal, onOpenExportPrint
     companies,
     setCurrentCompany,
     brandConfig,
+    themeMode,
   } = useApp();
 
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
@@ -95,7 +97,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAIModal, onOpenExportPrint
   return (
     <header
       id="main-app-header"
-      className="sticky top-0 z-30 flex h-18 w-full items-center justify-between border-b border-neutral-200/80 bg-white/95 px-4 backdrop-blur-md transition-all sm:px-6"
+      className={`sticky top-0 z-30 flex h-18 w-full items-center justify-between border-b px-4 backdrop-blur-md transition-all sm:px-6 ${
+        themeMode === 'dark'
+          ? 'border-slate-800 bg-[#0e1324]/95 text-slate-100'
+          : 'border-neutral-200/80 bg-white/95 text-neutral-900'
+      }`}
     >
       {/* Brand Header */}
       <div className="flex items-center gap-3">
@@ -103,6 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAIModal, onOpenExportPrint
           size="md"
           showText={true}
           horizontal={true}
+          theme={themeMode === 'dark' ? 'dark' : 'light'}
           customLogoUrl={currentCompany?.uiLogoUrl || undefined}
           companyNameEn={currentCompany?.name || brandConfig.companyNameEn}
           companyNameAr={currentCompany?.name || brandConfig.companyNameAr}
@@ -135,6 +142,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAIModal, onOpenExportPrint
             {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
           </select>
         )}
+        {/* Unified Design System Theme & Density Toolbar */}
+        <ThemeDensityToolbar />
         {/* Offline / Quarry Sync Indicator */}
         {!isOnline ? (
           <div

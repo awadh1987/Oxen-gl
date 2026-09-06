@@ -37,52 +37,41 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Firebase Auth Verification & Role Resolution Endpoint
-app.post('/api/auth/verify', async (req, res) => {
+// Authoritative API Proxy to FastAPI Backend (port 8000) for all non-AI ERP domains
+app.use('/api', async (req, res, next) => {
+  if (req.path.startsWith('/ai')) {
+    return next();
+  }
   try {
-    const { email, name, uid, photoURL } = req.body;
+    const targetUrl = `http://127.0.0.1:8000${req.originalUrl}`;
+    const forwardHeaders: Record<string, string> = {
+      'content-type': 'application/json',
+    };
+    if (req.headers.cookie) forwardHeaders['cookie'] = String(req.headers.cookie);
+    if (req.headers['x-company-id']) forwardHeaders['x-company-id'] = String(req.headers['x-company-id']);
+    if (req.headers['authorization']) forwardHeaders['authorization'] = String(req.headers['authorization']);
 
-    // Do not trust client-supplied identity claims until Firebase Admin token
-    // verification and server-managed role assignment are implemented.
-    const userEmail = (email || '').toLowerCase().trim();
-    const userName = name || userEmail.split('@')[0] || 'User';
-    const userUid = uid || 'uid_' + Date.now();
-    const bootstrapAdmins = new Set(['awadh.a.1987@gmail.com']);
-
-    if (bootstrapAdmins.has(userEmail)) {
-      return res.status(200).json({
-        message: 'تم تفعيل حساب المدير بنجاح',
-        status: 'Active',
-        user: {
-          id: userUid,
-          email: userEmail,
-          fullName: userName,
-          fullNameAr: userName,
-          role: 'Admin',
-          status: 'Active',
-          avatar: photoURL || undefined,
-          firebaseUid: userUid,
-        },
-      });
+    let requestBody: string | undefined = undefined;
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.body) {
+      requestBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     }
-
-    return res.status(200).json({
-      message: 'الحساب قيد المراجعة الإدارية قبل منح أي صلاحيات',
-      status: 'Pending',
-      user: {
-        id: userUid,
-        email: userEmail,
-        fullName: userName,
-        fullNameAr: userName,
-        role: 'Guest',
-        status: 'Pending',
-        avatar: photoURL || undefined,
-        firebaseUid: userUid,
-      },
+    const backendRes = await fetch(targetUrl, {
+      method: req.method,
+      headers: forwardHeaders,
+      body: requestBody,
     });
+
+    res.status(backendRes.status);
+    backendRes.headers.forEach((val, key) => {
+      if (key.toLowerCase() !== 'content-encoding' && key.toLowerCase() !== 'content-length') {
+        res.setHeader(key, val);
+      }
+    });
+    const buffer = await backendRes.arrayBuffer();
+    return res.send(Buffer.from(buffer));
   } catch (error) {
-    console.error('Authentication Verification Error:', error);
-    return res.status(401).json({ message: 'فشل في التحقق من المصادقة' });
+    console.error('FastAPI Backend proxy error:', error);
+    return res.status(502).json({ message: 'فشل الاتصال بخادم المحاسبة والـ API المركزي' });
   }
 });
 

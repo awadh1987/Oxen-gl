@@ -60,9 +60,84 @@ body,
 
   html[data-theme-mode="dark"] body,
   html.dark body {
-    background-color: #0b0f19;
+    background: #0b0d19;
     color: #f1f5f9;
   }
+}
+
+/* ==========================================================================
+   OxenGL Enterprise Design System Custom Utilities & Keyframes
+   ========================================================================== */
+
+:root {
+  --tenant-primary: #f97316;
+  --tenant-primary-hover: #ea580c;
+  --tenant-primary-light: #fff7ed;
+  --tenant-secondary: #f59e0b;
+  --tenant-glow: rgba(249, 115, 22, 0.4);
+  --tenant-surface: rgba(249, 115, 22, 0.12);
+  --tenant-border: rgba(249, 115, 22, 0.35);
+  --bg-deep-dark: #0b0d19;
+  --bg-deep-surface: #141726;
+  --bg-deep-elevated: #1a1f33;
+}
+
+/* Glassmorphism Card Surface */
+.oxengl-glass-card {
+  background: rgba(20, 23, 38, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(255, 255, 255, 0.05);
+  transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.oxengl-glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+html[data-theme-mode="light"] .oxengl-glass-card {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: #e2e8f0;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+}
+
+/* Dotted Canvas Background for Workflow Builder */
+.canvas-dotted-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+html[data-theme-mode="light"] .canvas-dotted-grid {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.15) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+/* Workflow Animated Directional Connector Pulses */
+@keyframes oxengl-pulse-flow {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-pulse-flow {
+  stroke-dasharray: 8 16;
+  animation: oxengl-pulse-flow 1.8s linear infinite;
+}
+
+/* Glowing Neon Borders */
+.glow-border-tenant {
+  box-shadow: 0 0 15px -2px var(--tenant-glow);
+  border-color: var(--tenant-primary);
+}
+
+/* Monospace Telemetry Digital Value */
+.telemetry-val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: -0.02em;
 }
 
 .export-preview-frame {
