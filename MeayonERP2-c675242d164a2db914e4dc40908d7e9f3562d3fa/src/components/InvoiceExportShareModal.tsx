@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CustomerInvoice, OperationRecord, BrandConfig } from '../types';
+import { useApp } from '../context/AppContext';
 import {
   FileText,
   Download,
@@ -51,7 +52,19 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
   language,
   invoiceElementRef,
 }) => {
+  const { showToast } = useApp();
   const isAr = language === 'ar';
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   // Selection of trips to bundle
   const [selectedTripIds, setSelectedTripIds] = useState<string[]>(() =>
@@ -136,7 +149,7 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
   const handleDownloadMergedPdf = async (): Promise<Blob | null> => {
     const invoiceEl = invoiceElementRef?.current || document.getElementById('customer-tax-invoice-printable');
     if (!invoiceEl) {
-      alert(isAr ? 'لم يتم العثور على حاوية الفاتورة الضريبية.' : 'Invoice container not found.');
+      showToast(isAr ? 'لم يتم العثور على حاوية الفاتورة الضريبية.' : 'Invoice container not found.', 'error');
       return null;
     }
 
@@ -160,11 +173,12 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
 
       const filename = `${invoice.invoiceNumber}_Official_Merged_Tax_Invoice.pdf`;
       downloadBlob(mergedPdfBlob, filename);
+      showToast(isAr ? 'تم تصدير وتحميل ملف PDF المدمج بنجاح' : 'Merged PDF exported successfully', 'success');
 
       return mergedPdfBlob;
     } catch (err) {
       console.error('Error generating merged PDF:', err);
-      alert(isAr ? 'حدث خطأ أثناء توليد ملف PDF المدمج.' : 'Error generating merged PDF.');
+      showToast(isAr ? 'حدث خطأ أثناء توليد ملف PDF المدمج.' : 'Error generating merged PDF.', 'error');
       return null;
     } finally {
       setIsProcessing(false);
@@ -175,7 +189,7 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
   const handleDownloadZipArchive = async (): Promise<Blob | null> => {
     const invoiceEl = invoiceElementRef?.current || document.getElementById('customer-tax-invoice-printable');
     if (!invoiceEl) {
-      alert(isAr ? 'لم يتم العثور على حاوية الفاتورة الضريبية.' : 'Invoice container not found.');
+      showToast(isAr ? 'لم يتم العثور على حاوية الفاتورة الضريبية.' : 'Invoice container not found.', 'error');
       return null;
     }
 
@@ -198,11 +212,12 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
 
       const filename = `${invoice.invoiceNumber}_Complete_Invoice_Bundle.zip`;
       downloadBlob(zipBlob, filename);
+      showToast(isAr ? 'تم تجهيز وتحميل أرشيف ZIP بنجاح' : 'ZIP archive downloaded successfully', 'success');
 
       return zipBlob;
     } catch (err) {
       console.error('Error generating ZIP:', err);
-      alert(isAr ? 'حدث خطأ أثناء إنشاء الأرشيف المضغوط.' : 'Error generating ZIP archive.');
+      showToast(isAr ? 'حدث خطأ أثناء إنشاء الأرشيف المضغوط.' : 'Error generating ZIP archive.', 'error');
       return null;
     } finally {
       setIsProcessing(false);
@@ -300,21 +315,24 @@ IBAN: ${brandConfig.iban}
   return (
     <div
       id="invoice-export-share-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="invoice-export-share-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs overflow-y-auto"
     >
       <div
         id="invoice-export-share-modal"
-        className="relative my-8 w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200"
+        className="relative my-8 w-full max-w-4xl overflow-hidden rounded-3xl bg-white dark:bg-[#141726] shadow-2xl border border-slate-200 dark:border-slate-800 transition-colors"
       >
         {/* Modal Top Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-900 px-6 py-5 text-white">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-slate-900 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-md shadow-orange-600/30">
               <Layers className="h-6 w-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-black">
+                <h2 id="invoice-export-share-title" className="text-base font-black">
                   {isAr ? 'حزمة التصدير والمشاركة المعتمدة للفاتورة' : 'Export & Share Approved Invoice Bundle'}
                 </h2>
                 <span className="rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-black text-emerald-300 border border-emerald-500/30">
@@ -339,7 +357,7 @@ IBAN: ${brandConfig.iban}
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           {/* 1. Bundling Format Selection Box */}
           <div>
-            <label className="mb-2 block text-xs font-bold text-slate-900 uppercase tracking-wider">
+            <label className="mb-2 block text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">
               {isAr ? '١. اختيار صيغة تجميع ودمج المستندات *' : '1. Select Document Bundling Format *'}
             </label>
 

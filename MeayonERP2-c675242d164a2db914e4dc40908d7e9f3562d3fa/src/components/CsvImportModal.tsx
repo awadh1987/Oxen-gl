@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -40,7 +40,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   defaultEntityType = 'customers',
   onImportComplete,
 }) => {
-  const { language, batchAddCustomers, batchAddCrushers, batchAddTransporters, customers, crushers, transporters } =
+  const { language, batchAddCustomers, batchAddCrushers, batchAddTransporters, customers, crushers, transporters, showToast } =
     useApp();
   const isAr = language === 'ar';
 
@@ -55,6 +55,17 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const [filterStatus, setFilterStatus] = useState<'all' | 'valid' | 'warning' | 'error'>('all');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -229,7 +240,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     const cleanText = text.replace(/^\uFEFF/, '');
     const lines = cleanText.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length < 2) {
-      alert(isAr ? 'الملف لا يحتوي على بيانات كافية (مطلوب سطر الترويسة وسطر بيانات على الأقل)' : 'File has insufficient data');
+      showToast(isAr ? 'الملف لا يحتوي على بيانات كافية (مطلوب سطر الترويسة وسطر بيانات على الأقل)' : 'File has insufficient data', 'warning');
       return;
     }
 
@@ -419,7 +430,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const handleExecuteImport = () => {
     const validRows = parsedRows.filter((r) => r.status !== 'error').map((r) => r.mapped);
     if (validRows.length === 0) {
-      alert(isAr ? 'لا توجد سجلات صالحة للاستيراد' : 'No valid records to import');
+      showToast(isAr ? 'لا توجد سجلات صالحة للاستيراد' : 'No valid records to import', 'warning');
       return;
     }
 
@@ -437,6 +448,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
       setImportSummary({ added: result.addedCount, updated: result.updatedCount });
       setIsProcessing(false);
+      showToast(
+        isAr
+          ? `تم استيراد ${result.addedCount} سجل جديد وتحديث ${result.updatedCount} سجل بنجاح`
+          : `Successfully imported ${result.addedCount} new records and updated ${result.updatedCount}`,
+        'success'
+      );
 
       if (onImportComplete) {
         onImportComplete({
@@ -458,20 +475,25 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="csv-import-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md animate-in fade-in duration-200"
+    >
       <div
-        className="relative flex max-h-[92vh] w-full max-w-4xl flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
+        className="relative flex max-h-[92vh] w-full max-w-4xl flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] shadow-2xl overflow-hidden transition-colors"
         id="csv-import-modal-container"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-orange-950 via-neutral-950 to-slate-900 px-6 py-5 text-white">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-orange-950 via-neutral-950 to-slate-900 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500/20 text-orange-300 ring-1 ring-orange-400/30">
               <FileSpreadsheet className="h-5 w-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-black tracking-tight">
+                <h2 id="csv-import-title" className="text-base font-black tracking-tight">
                   {isAr ? 'استيراد البيانات الجماعية عبر CSV / Excel' : 'Batch CSV / Excel Data Importer'}
                 </h2>
                 <span className="rounded-full bg-orange-500/30 px-2.5 py-0.5 text-[10px] font-bold text-orange-200 border border-orange-400/20">
@@ -495,7 +517,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
         </div>
 
         {/* Entity Type Switcher & Top Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/90 px-6 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 px-6 py-3">
           {/* Target Select */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-500">{isAr ? 'نوع البيانات المستهدفة:' : 'Target Entity:'}</span>

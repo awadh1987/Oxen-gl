@@ -193,11 +193,34 @@ interface AppContextType {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   isolationTelemetry: IsolationTelemetry;
+  toasts: ToastMessage[];
+  showToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
+  dismissToast: (id: string) => void;
+}
+
+export interface ToastMessage {
+  id: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const showToast = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setToasts((prev) => [...prev.slice(-4), { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
   const [language, setLanguageState] = useState<'ar' | 'en'>(() => {
     return (localStorage.getItem('oxengl_language') as 'ar' | 'en') || 'ar';
   });
@@ -2209,9 +2232,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         themeMode,
         setThemeMode,
         isolationTelemetry,
+        toasts,
+        showToast,
+        dismissToast,
       }}
     >
       {children}
+      {toasts.length > 0 && (
+        <div
+          role="region"
+          aria-live="polite"
+          id="oxengl-toast-container"
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 max-w-md w-full px-4 pointer-events-none"
+        >
+          {toasts.map((t) => (
+            <div
+              key={t.id}
+              className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-md transition-all ${
+                t.type === 'error'
+                  ? 'bg-rose-950/95 border-rose-700 text-white shadow-rose-950/50'
+                  : t.type === 'warning'
+                  ? 'bg-amber-950/95 border-amber-700 text-white shadow-amber-950/50'
+                  : t.type === 'success'
+                  ? 'bg-emerald-950/95 border-emerald-700 text-white shadow-emerald-950/50'
+                  : 'bg-slate-900/95 border-slate-700 text-white shadow-black/50'
+              }`}
+            >
+              <span className="text-xs font-bold leading-relaxed">{t.message}</span>
+              <button
+                type="button"
+                onClick={() => dismissToast(t.id)}
+                className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 shrink-0 text-xs font-mono"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </AppContext.Provider>
   );
 };

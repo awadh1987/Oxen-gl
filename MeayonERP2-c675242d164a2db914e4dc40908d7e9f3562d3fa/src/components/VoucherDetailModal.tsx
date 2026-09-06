@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { FinancialVoucher } from '../types';
 import { OfficialVoucherDocument } from './OfficialVoucherDocument';
@@ -32,9 +32,21 @@ export const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
     isAdmin,
     isCOO,
     canDeleteRecords,
+    showToast,
   } = useApp();
 
   const isAr = language === 'ar';
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !voucher) return null;
 
@@ -44,6 +56,7 @@ export const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
 
   const handleApprove = () => {
     approveVoucher(voucher.id, 'اعتماد رسمي صادر من لوحة مراجعة السندات المالية');
+    showToast(isAr ? 'تم اعتماد السند المالي بنجاح' : 'Voucher approved successfully', 'success');
   };
 
   const handleDelete = () => {
@@ -55,6 +68,7 @@ export const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
       )
     ) {
       deleteVoucher(voucher.id);
+      showToast(isAr ? 'تم حذف السند المالي بنجاح' : 'Voucher deleted successfully', 'info');
       onClose();
     }
   };
@@ -64,7 +78,12 @@ export const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
       id="voucher-detail-modal-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/80 p-2 sm:p-6 backdrop-blur-xs"
     >
-      <div className="relative flex max-h-[96vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isAr ? `معاينة سند: ${voucher.voucherNumber}` : `Voucher Details: ${voucher.voucherNumber}`}
+        className="relative flex max-h-[96vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden"
+      >
         {/* Top Control Bar (Non-Printable) */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/90 px-6 py-3.5 text-white no-print">
           <div className="flex items-center gap-3">
