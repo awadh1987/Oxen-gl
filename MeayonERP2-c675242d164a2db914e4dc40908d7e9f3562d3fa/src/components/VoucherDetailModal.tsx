@@ -30,7 +30,7 @@ export const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
     approveVoucher,
     deleteVoucher,
     isAdmin,
-    isCOO,
+    canApproveVouchers,
     canDeleteRecords,
     showToast,
   } = useApp();
@@ -110,7 +110,7 @@ export const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
 
           <div className="flex items-center gap-2">
             {/* CEO Approval Action */}
-            {voucher.status !== 'Approved' && (isAdmin || isCOO) && (
+            {voucher.status !== 'Approved' && canApproveVouchers && (
               <button
                 onClick={handleApprove}
                 className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-black text-white shadow-xs hover:bg-emerald-700"

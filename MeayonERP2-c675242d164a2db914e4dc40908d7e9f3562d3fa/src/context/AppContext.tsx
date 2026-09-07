@@ -103,8 +103,9 @@ function mapBackendRoleToFrontend(role?: string): UserRole {
   if (r === 'admin' || r === 'platform_admin') return 'Admin';
   if (r === 'coo') return 'COO';
   if (r === 'accountant') return 'Accountant';
-  if (r === 'data_entry') return 'Data_Entry';
-  return 'Admin';
+  if (r === 'data_entry' || r === 'user') return 'Data_Entry';
+  if (r === 'guest_user' || r === 'guest') return 'Guest';
+  return 'Guest'; // Least-privilege fallback
 }
 
 
@@ -224,6 +225,7 @@ interface AppContextType {
   isExecutive: boolean;
   canApproveEdits: boolean;
   canApproveInvoices: boolean;
+  canApproveVouchers: boolean;
   canEditBranding: boolean;
   isGuestUser: boolean;
   assignedCustomerId?: string | null;
@@ -944,6 +946,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const canEditOperations = isAdmin || isCOO || currentUser.role === 'Accountant' || currentUser.role === 'Data_Entry';
   const canApproveEdits = isAdmin || isCOO;
   const canApproveInvoices = isAdmin; // strictly CEO/Admin
+  const canApproveVouchers = isAdmin; // strictly CEO/Admin for PV & RV
   const canEditBranding = isAdmin; // strictly CEO/Admin
   const canDeleteRecords = isAdmin || isCOO;
   const canManageSettings = isAdmin;
@@ -2453,6 +2456,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isExecutive,
         canApproveEdits,
         canApproveInvoices,
+        canApproveVouchers,
         canEditBranding,
         isGuestUser,
         assignedCustomerId,

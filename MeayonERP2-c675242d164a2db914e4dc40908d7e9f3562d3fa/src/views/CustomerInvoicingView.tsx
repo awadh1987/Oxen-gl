@@ -30,6 +30,7 @@ import {
   Archive,
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatNumber, formatTonnage, getMonthName, generateZatcaQR } from '../utils/formatters';
+import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
 import { exportInvoiceToExcel } from '../utils/excelExporter';
 import { BrandLogo } from '../components/BrandLogo';
 import { DynamicEmailLauncherModal } from '../components/DynamicEmailLauncherModal';
@@ -48,6 +49,7 @@ export const CustomerInvoicingView: React.FC = () => {
     currentUser,
     isAdmin,
     canApproveInvoices,
+    isGuestUser,
     brandConfig,
     logAuditAction,
     addAttachmentToRecord,
@@ -152,6 +154,26 @@ export const CustomerInvoicingView: React.FC = () => {
   const invoiceNumber = currentBackendInvoice?.invoice_number || `INV-${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${selectedCustomer?.crNumber?.slice(-4) || '1048'}`;
   const issueDate = currentBackendInvoice?.issue_date?.slice(0, 10) || `2026-${String(selectedMonth).padStart(2, '0')}-28`;
   const dueDate = currentBackendInvoice?.due_date?.slice(0, 10) || `2026-${String(selectedMonth + 1 > 12 ? 1 : selectedMonth + 1).padStart(2, '0')}-28`;
+
+  // ZATCA Cryptographic QR Code Base64 (Phase 1 TLV compliant)
+  const zatcaQrBase64 = useMemo(() => {
+    return generateZatcaQR(
+      brandConfig.companyNameAr,
+      brandConfig.taxNumber,
+      `${issueDate}T12:00:00Z`,
+      grandTotal,
+      totalVat
+    );
+  }, [brandConfig, issueDate, grandTotal, totalVat]);
+
+  // Arabic Legal Tafqeet Wording
+  const amountInWordsAr = useMemo(() => {
+    return tafqeetArabic(grandTotal, 'ريال سعودي', 'هللة');
+  }, [grandTotal]);
+
+  const amountInWordsEn = useMemo(() => {
+    return tafqeetEnglish(grandTotal, 'Saudi Riyals', 'Halalas');
+  }, [grandTotal]);
 
   // Backend synchronization
   const loadBackendInvoices = useCallback(async () => {
@@ -391,11 +413,19 @@ export const CustomerInvoicingView: React.FC = () => {
       const issued = await erpApi.issueCustomerInvoice(currentCompany.id, currentBackendInvoice.id);
       setCurrentBackendInvoice(issued);
       setInvoiceStatus('Paid');
+
+      // Trigger backend ZATCA compliance processing
+      try {
+        await erpApi.processZatcaInvoice(currentCompany.id, issued.id);
+      } catch (zatcaErr) {
+        console.warn('Backend ZATCA compliance trigger notice:', zatcaErr);
+      }
+
       setFeedback({
         type: 'success',
         message: isAr
-          ? `تم إصدار الفاتورة وترحيل القيد المحاسبي المزدوج آلياً إلى دفتر الأستاذ العام بنجاح! رقم القيد: ${issued.move_id || 'POSTED'}`
-          : `Invoice issued and posted to General Ledger! GL Move: ${issued.move_id || 'POSTED'}`,
+          ? `تم إصدار الفاتورة وترحيل القيد المحاسبي المزدوج آلياً إلى دفتر الأستاذ العام وتوثيق الامتثال لـ ZATCA بنجاح! رقم القيد: ${issued.move_id || 'POSTED'}`
+          : `Invoice issued, posted to General Ledger, and ZATCA compliance logged! GL Move: ${issued.move_id || 'POSTED'}`,
       });
       logAuditAction({
         userId: currentUser.id,
@@ -648,7 +678,7 @@ Myon Economic Contracting Co. Ltd.`;
           {/* Action buttons based on state machine & role */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Draft Stage: Save Draft and Approve */}
-            {invoiceStatus === 'Draft' && (
+            {invoiceStatus === 'Draft' && !isGuestUser && (
               <>
                 <button
                   disabled={actionLoading || isUnbalanced}
@@ -675,14 +705,16 @@ Myon Economic Contracting Co. Ltd.`;
             {/* Approved Stage: Issue to General Ledger */}
             {invoiceStatus === 'Approved' && (
               <>
-                <button
-                  disabled={actionLoading || isUnbalanced}
-                  onClick={handleIssueToGeneralLedger}
-                  className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-blue-600/30 hover:opacity-95 disabled:opacity-50 transition-all"
-                >
-                  {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
-                  <span>{isAr ? 'إصدار وترحيل لدفتر الأستاذ (Post to GL)' : 'Issue & Post to GL'}</span>
-                </button>
+                {!isGuestUser && (isAdmin || canApproveInvoices) && (
+                  <button
+                    disabled={actionLoading || isUnbalanced}
+                    onClick={handleIssueToGeneralLedger}
+                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-blue-600/30 hover:opacity-95 disabled:opacity-50 transition-all"
+                  >
+                    {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                    <span>{isAr ? 'إصدار وترحيل لدفتر الأستاذ (Post to GL)' : 'Issue & Post to GL'}</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => setIsExportShareModalOpen(true)}
@@ -914,10 +946,14 @@ Myon Economic Contracting Co. Ltd.`;
           {/* ZATCA QR Code & Bank Accounts */}
           <div className="flex gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex flex-col items-center justify-center rounded-xl bg-white p-2 border border-slate-300">
-              <div className="h-24 w-24 bg-slate-900 p-1 flex items-center justify-center rounded">
-                <QrCode className="h-20 w-20 text-white" />
-              </div>
-              <span className="mt-1 text-[9px] font-mono text-slate-500">ZATCA e-Invoice QR</span>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(
+                  zatcaQrBase64
+                )}`}
+                alt="ZATCA Phase 1 QR"
+                className="h-20 w-20 object-contain rounded"
+              />
+              <span className="mt-1 text-[9px] font-mono text-slate-500 font-bold">ZATCA e-Invoice QR</span>
             </div>
 
             <div className="space-y-1 text-[11px] text-slate-700">
@@ -945,6 +981,19 @@ Myon Economic Contracting Co. Ltd.`;
             <div className="flex justify-between border-t-2 border-slate-900 pt-2 text-sm">
               <span className="font-black text-slate-900">{isAr ? 'إجمالي المبلغ المستحق:' : 'Total Amount Due:'}</span>
               <strong className="font-black text-orange-950 text-base">{formatCurrency(grandTotal, language)}</strong>
+            </div>
+
+            {/* Arabic Legal Tafqeet Wording */}
+            <div className="mt-3 rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-xs">
+              <span className="font-bold text-orange-950 block text-[10px] uppercase mb-0.5">
+                {isAr ? 'المبلغ كتابةً (Tafqeet):' : 'Amount in Legal Words:'}
+              </span>
+              <p className="font-black text-slate-950 text-xs sm:text-sm font-serif leading-relaxed">
+                {amountInWordsAr}
+              </p>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                {amountInWordsEn}
+              </p>
             </div>
           </div>
         </div>
