@@ -20,8 +20,8 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from Backend import models
-from Backend.schemas import AccountMoveCreate
+from backend import models
+from backend.schemas import AccountMoveCreate
 
 logger = logging.getLogger(__name__)
 

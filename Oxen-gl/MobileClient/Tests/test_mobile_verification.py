@@ -22,9 +22,9 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from fastapi.testclient import TestClient
 
-from Backend.main import app, get_active_company_id, get_authenticated_user
-from Backend.database import SessionLocal
-from Backend.models import (
+from backend.main import app, get_active_company_id, get_authenticated_user
+from backend.database import SessionLocal
+from backend.models import (
     DeviceRegistration,
     FarmGateWeighment,
     MaintenanceWorkOrder,
@@ -244,7 +244,7 @@ def test_net_weight_validation_and_financial_approval_lockdown():
             raise PermissionError("Financial and inventory balance approvals cannot be executed offline. An active ERP server connection is required.")
 
 # ---------------------------------------------------------------------------
-# Test 5: End-to-End Sync Engine Integration with Backend
+# Test 5: End-to-End Sync Engine Integration with backend
 # ---------------------------------------------------------------------------
 
 def test_sync_engine_e2e_flow():

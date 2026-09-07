@@ -11,8 +11,8 @@ APP_ROOT = Path(__file__).resolve().parents[2]
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
-from Backend.database import DATABASE_URL, Base  # noqa: E402
-from Backend import models  # noqa: F401,E402
+from backend.database import DATABASE_URL, Base  # noqa: E402
+from backend import models  # noqa: F401,E402
 
 config = context.config
 

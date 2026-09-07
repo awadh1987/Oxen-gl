@@ -16,8 +16,8 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from Backend.database import SessionLocal
-from Backend import models
+from backend.database import SessionLocal
+from backend import models
 
 logger = logging.getLogger(__name__)
 

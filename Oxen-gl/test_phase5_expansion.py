@@ -79,8 +79,8 @@ def run_phase5_verification():
     print(f"[1.2] Tenant Admin Login: 200 OK (tier={b_t_login.get('tier')}, role={b_t_login.get('role')})")
 
     # Fetch company ID for horizon-logistics
-    from Backend.database import SessionLocal
-    from Backend.models import MasterTenant, ResCompany, ResUser
+    from backend.database import SessionLocal
+    from backend.models import MasterTenant, ResCompany, ResUser
     from sqlalchemy import select
 
     db = SessionLocal()
@@ -108,8 +108,8 @@ def run_phase5_verification():
     print(f"[2.1] Subscription Plans Catalog: {len(b_plans)} tiers listed (starter, standard, growth, enterprise)")
 
     # Find master tenant ID for horizon-logistics
-    from Backend.database import SessionLocal
-    from Backend.models import MasterTenant
+    from backend.database import SessionLocal
+    from backend.models import MasterTenant
     from sqlalchemy import select
 
     db = SessionLocal()

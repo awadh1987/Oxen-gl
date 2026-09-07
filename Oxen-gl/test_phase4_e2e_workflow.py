@@ -93,8 +93,8 @@ def run_phase4_e2e_verification():
     # STEP 2: Database Setup & Company Context for Logistics
     # -------------------------------------------------------------------------
     print('\n--- STEP 2: Company Context & Master Data Initialization ---')
-    from Backend.database import SessionLocal
-    from Backend import models
+    from backend.database import SessionLocal
+    from backend import models
     from sqlalchemy import select
 
     db = SessionLocal()
@@ -356,8 +356,8 @@ def run_phase4_e2e_verification():
     # STEP 7: Granular RBAC & Role Permission Enforcement
     # -------------------------------------------------------------------------
     print('\n--- STEP 7: Granular RBAC Permission Enforcement ---')
-    from Backend.two_tier_auth import create_access_token
-    from Backend.models import MasterTenant
+    from backend.two_tier_auth import create_access_token
+    from backend.models import MasterTenant
 
     db = SessionLocal()
     try:

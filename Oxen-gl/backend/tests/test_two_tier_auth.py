@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from fastapi import HTTPException
-from Backend.database import SessionLocal
-from Backend.main import app
-from Backend.models import (
+from backend.database import SessionLocal
+from backend.main import app
+from backend.models import (
     MasterTenant,
     TenantDatabase,
     MasterUser,
@@ -19,7 +19,7 @@ from Backend.models import (
     TenantUser,
     TenantPasswordReset,
 )
-from Backend.two_tier_auth import (
+from backend.two_tier_auth import (
     normalize_identifier,
     hash_password,
     verify_password,

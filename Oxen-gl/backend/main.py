@@ -11,7 +11,7 @@ from hmac import compare_digest
 from os import getenv
 from typing import Generator, Optional
 
-from Backend.schemas import AccountMoveLineCreate
+from backend.schemas import AccountMoveLineCreate
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
@@ -147,7 +147,7 @@ except ImportError:
 
 
 app = FastAPI(
-	title="Meayon ERP Backend API",
+	title="Meayon ERP backend API",
 	version="1.0.0",
 	description="نظام إدارة عمليات النقل والشحن والمالية لشركة ميون",
 )
@@ -333,7 +333,7 @@ def get_authenticated_user(request: Request, database: Session = Depends(get_db)
 		try:
 			from .two_tier_auth import verify_two_tier_jwt
 		except ImportError:
-			from Backend.two_tier_auth import verify_two_tier_jwt
+			from backend.two_tier_auth import verify_two_tier_jwt
 		try:
 			claims = verify_two_tier_jwt(token, expected_tier="tenant")
 		except Exception:
@@ -552,7 +552,7 @@ def check_cross_tenant_idor(
 async def root():
 	return {
 		"status": "online",
-		"message": "Meayon ERP Backend API is running successfully",
+		"message": "Meayon ERP backend API is running successfully",
 		"documentation": "/docs",
 	}
 

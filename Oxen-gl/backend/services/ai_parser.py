@@ -18,9 +18,9 @@ from typing import Any, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from Backend import models
-from Backend.schemas import ParsedInvoiceData, ParsedInvoiceLineItem
-from Backend.services.ai_governance import ai_governance_engine
+from backend import models
+from backend.schemas import ParsedInvoiceData, ParsedInvoiceLineItem
+from backend.services.ai_governance import ai_governance_engine
 
 logger = logging.getLogger(__name__)
 
@@ -296,7 +296,7 @@ class AIDocumentParser:
         - Credit: Accounts Payable (grand_total)
         """
         # Resolve standard chart of accounts
-        from Backend.main import account_by_code, journal_by_code
+        from backend.main import account_by_code, journal_by_code
 
         expense_acc = account_by_code(db, company_id, "501000", "Cost of Goods Sold - Materials", "expense")
         vat_acc = account_by_code(db, company_id, "203000", "VAT Payable", "liability")

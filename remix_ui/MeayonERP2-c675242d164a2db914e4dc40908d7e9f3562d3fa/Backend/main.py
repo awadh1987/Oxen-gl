@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, UUID4
 
 
 app = FastAPI(
-	title="Meayon ERP Backend API",
+	title="Meayon ERP backend API",
 	version="1.0.0",
 	description="نظام إدارة عمليات النقل والشحن والمالية لشركة ميون",
 )
@@ -59,7 +59,7 @@ fake_db_operations: List[OperationResponse] = []
 async def root():
 	return {
 		"status": "online",
-		"message": "Meayon ERP Backend API is running successfully",
+		"message": "Meayon ERP backend API is running successfully",
 		"documentation": "/docs",
 	}
 
