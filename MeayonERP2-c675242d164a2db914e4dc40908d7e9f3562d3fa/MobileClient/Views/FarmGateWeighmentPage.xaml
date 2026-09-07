@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OxenGL.Mobile.ViewModels"
+             x:Class="OxenGL.Mobile.Views.FarmGateWeighmentPage"
+             Title="{Binding Title}"
+             BackgroundColor="#0F172A">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+
+            <Label Text="Farm-Gate Weighment Form" 
+                   FontSize="22" 
+                   FontAttributes="Bold" 
+                   TextColor="White"/>
+            
+            <Label Text="Capture agricultural scale tickets at harvest origin without network dependency." 
+                   FontSize="12" 
+                   TextColor="#94A3B8"/>
+
+            <!-- Financial Approval Lockdown Banner -->
+            <Border StrokeThickness="1" 
+                    Stroke="#F59E0B" 
+                    BackgroundColor="#78350F" 
+                    Padding="12" 
+                    StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="🛡️ Compliance Warning: Offline Financial Lockdown" 
+                           TextColor="#FCD34D" 
+                           FontAttributes="Bold" 
+                           FontSize="13"/>
+                    <Label Text="{Binding FinancialApprovalWarning}" 
+                           TextColor="#FEF3C7" 
+                           FontSize="12"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Crop Cycle & Location -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Crop Cycle ID" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding CropCycleId}" Keyboard="Numeric" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                    <Label Text="Field Location" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding FieldLocationName}" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+            </Grid>
+
+            <!-- Weight Scale Readings -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Gross Weight (KG)" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding GrossWeight}" Keyboard="Numeric" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                    <Label Text="Tare Weight (KG)" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding TareWeight}" Keyboard="Numeric" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+            </Grid>
+
+            <!-- Computed Net Weight Card -->
+            <Border StrokeThickness="1" Stroke="#0284C7" BackgroundColor="#0F2B48" Padding="14" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Calculated Net Weight (Enforced: Gross - Tare)" TextColor="#38BDF8" FontSize="12"/>
+                    <Label Text="{Binding NetWeight, StringFormat='{0:N2} KG'}" TextColor="White" FontSize="26" FontAttributes="Bold"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Notes -->
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Field Notes &amp; Moisture Reading" TextColor="#CBD5E1" FontSize="12"/>
+                <Editor Text="{Binding Notes}" HeightRequest="70" TextColor="White" BackgroundColor="#1E293B"/>
+            </VerticalStackLayout>
+
+            <!-- Action Buttons -->
+            <Button Text="Queue Weighment (Draft Status)" 
+                    Command="{Binding QueueSubmissionCommand}" 
+                    BackgroundColor="#0284C7" 
+                    TextColor="White" 
+                    FontAttributes="Bold" 
+                    CornerRadius="8" 
+                    HeightRequest="46"/>
+
+            <!-- Explicitly Disabled Financial Approval Button -->
+            <Button Text="Approve &amp; Post to General Ledger (Offline Disabled)" 
+                    Command="{Binding AttemptApprovalCommand}" 
+                    BackgroundColor="#334155" 
+                    TextColor="#94A3B8" 
+                    CornerRadius="8" 
+                    HeightRequest="42"/>
+
+            <Label Text="{Binding StatusMessage}" 
+                   TextColor="#F87171" 
+                   FontSize="13" 
+                   HorizontalTextAlignment="Center"/>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
