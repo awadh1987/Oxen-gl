@@ -212,6 +212,10 @@ def verify_two_tier_jwt(token: str, expected_tier: Literal["master", "tenant"]) 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Authentication token invalid: {err}")
 
 
+decode_dual_plane_token = verify_two_tier_jwt
+create_access_token = issue_two_tier_jwt
+
+
 def extract_token_from_request(request: Request) -> str:
     """Extracts bearer token from Authorization header or cookie."""
     auth_header = request.headers.get("Authorization")
@@ -373,8 +377,19 @@ def require_tenant_auth(
 
     conn_mgr = TenantConnectionManager(master_db.get_bind())
     with conn_mgr.session_scope(tenant.id, db=master_db) as tenant_db:
-        user = tenant_db.scalar(select(TenantUser).where(TenantUser.id == user_id, TenantUser.is_active.is_(True)))
-        if not user:
+        db_user = tenant_db.scalar(select(TenantUser).where(TenantUser.id == user_id, TenantUser.is_active.is_(True)))
+        if db_user:
+            user = TenantUser(
+                id=db_user.id,
+                email=db_user.email,
+                mobile_number=db_user.mobile_number,
+                first_name=db_user.first_name,
+                last_name=db_user.last_name,
+                role=db_user.role,
+                password_hash=db_user.password_hash,
+                is_active=db_user.is_active,
+            )
+        else:
             user = TenantUser(
                 id=user_id,
                 email=claims.get("identity", f"user@{tenant.slug}.com"),

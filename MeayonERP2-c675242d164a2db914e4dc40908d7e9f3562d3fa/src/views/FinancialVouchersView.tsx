@@ -29,7 +29,7 @@ export const FinancialVouchersView: React.FC = () => {
     approveVoucher,
     deleteVoucher,
     isAdmin,
-    isCOO,
+    canApproveVouchers,
     canDeleteRecords,
     canAccessFinancials,
   } = useApp();
@@ -446,7 +446,7 @@ export const FinancialVouchersView: React.FC = () => {
                           </button>
 
                           {/* Quick CEO Approve if Pending */}
-                          {vch.status !== 'Approved' && (isAdmin || isCOO) && (
+                          {vch.status !== 'Approved' && canApproveVouchers && (
                             <button
                               onClick={() => approveVoucher(vch.id, 'اعتماد سريع من جدول السندات المالية')}
                               className="flex h-8 items-center gap-1 rounded-lg bg-emerald-600 px-2 text-xs font-bold text-white shadow-2xs hover:bg-emerald-700"

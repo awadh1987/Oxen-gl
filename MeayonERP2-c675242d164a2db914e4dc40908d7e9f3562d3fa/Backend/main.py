@@ -311,17 +311,58 @@ def get_request_id(request: Request) -> str:
 def get_authenticated_user(request: Request, database: Session = Depends(get_db)) -> models.ResUser:
 	token = request.cookies.get(SESSION_COOKIE_NAME)
 	if not token:
+		auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
+		if auth_header and auth_header.startswith("Bearer "):
+			token = auth_header.split(" ", 1)[1].strip()
+	if not token:
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication session is required")
+	claims = None
 	try:
 		claims = decode_session_token(token)
-	except Exception as error:
-		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session") from error
-	email = str(claims.get("sub") or "").lower().strip()
+	except Exception:
+		try:
+			from .two_tier_auth import verify_two_tier_jwt
+		except ImportError:
+			from Backend.two_tier_auth import verify_two_tier_jwt
+		try:
+			claims = verify_two_tier_jwt(token, expected_tier="tenant")
+		except Exception:
+			try:
+				claims = verify_two_tier_jwt(token, expected_tier="master")
+			except Exception as error:
+				raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session") from error
+
+	email = str(claims.get("identity") or claims.get("sub") or "").lower().strip()
 	if not email:
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is missing an authenticated subject")
+	tenant_slug = claims.get("tenant_slug") or request.headers.get("x-tenant-slug")
+	target_company = None
+	if tenant_slug:
+		target_company = database.scalar(select(models.ResCompany).where(models.ResCompany.slug == tenant_slug))
+	if target_company is None:
+		target_company = database.scalar(select(models.ResCompany).limit(1))
+
 	user = database.scalar(select(models.ResUser).where(models.ResUser.email == email, models.ResUser.is_active.is_(True)))
+	if user is not None and target_company and (user.company_id is None or (tenant_slug and user.company_id != target_company.id)):
+		user.company_id = target_company.id
+		database.commit()
+		database.refresh(user)
+
 	if user is None:
-		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authenticated user was not found")
+		raw_role = str(claims.get("role") or "User").lower()
+		mapped_role = "Admin" if ("admin" in raw_role or claims.get("tier") == "master") else ("Guest" if "guest" in raw_role else "Data_Entry")
+		user = models.ResUser(
+			firebase_uid=f"auth-{uuid.uuid4().hex[:12]}",
+			email=email,
+			full_name=claims.get("full_name") or email.split("@")[0],
+			company_id=target_company.id if target_company else None,
+			role=mapped_role,
+			is_active=True,
+		)
+		database.add(user)
+		database.commit()
+		database.refresh(user)
+
 	claim_company_id = claims.get("company_id")
 	if claim_company_id and user.role != "Super_Admin":
 		try:
@@ -334,21 +375,16 @@ def get_authenticated_user(request: Request, database: Session = Depends(get_db)
 
 
 def get_optional_authenticated_user(request: Request, database: Session = Depends(get_db)) -> models.ResUser | None:
-	token = request.cookies.get(SESSION_COOKIE_NAME)
-	if not token:
-		return None
 	try:
-		claims = decode_session_token(token)
-		email = str(claims.get("sub") or "").lower().strip()
-		if not email:
-			return None
-		return database.scalar(select(models.ResUser).where(models.ResUser.email == email, models.ResUser.is_active.is_(True)))
+		return get_authenticated_user(request, database)
 	except Exception:
 		return None
 
 
 def get_active_company_id(request: Request, x_company_id: str | None = Header(default=None), database: Session = Depends(get_db), current_user: models.ResUser = Depends(get_authenticated_user)) -> uuid.UUID:
 	if not x_company_id:
+		if current_user.company_id:
+			return current_user.company_id
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Company-ID is required")
 	try:
 		company_id = uuid.UUID(x_company_id)
@@ -356,7 +392,16 @@ def get_active_company_id(request: Request, x_company_id: str | None = Header(de
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Company-ID must be a UUID") from error
 	if database.get(models.ResCompany, company_id) is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active company was not found")
-	if current_user.role != "Super_Admin" and company_id != current_user.company_id:
+	if current_user.role != "Super_Admin" and current_user.company_id and company_id != current_user.company_id:
+		# Check if request has matching tenant slug
+		slug_header = request.headers.get("x-tenant-slug")
+		if slug_header:
+			comp = database.scalar(select(models.ResCompany).where(models.ResCompany.slug == slug_header))
+			if comp and comp.id == company_id:
+				current_user.company_id = company_id
+				database.commit()
+				return company_id
+
 		record_security_event(
 			database,
 			event_type="idor_attempt",
@@ -933,7 +978,8 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 	reference = f"WB-{datetime.now(timezone.utc):%Y%m%d%H%M%S}-{uuid.uuid4().hex[:8]}"
 	ticket_number = f"TKT-{uuid.uuid4().hex[:12].upper()}"
 	try:
-		with database.begin():
+		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
+		with tx_ctx:
 			partner = database.scalar(select(models.ResPartner).where(models.ResPartner.id == payload.partner_id, models.ResPartner.company_id == company_id))
 			product = database.scalar(select(models.ProductProduct).where(models.ProductProduct.id == payload.product_id, models.ProductProduct.company_id == company_id))
 			source = database.scalar(select(models.StockLocation).where(models.StockLocation.id == payload.source_location_id, models.StockLocation.company_id == company_id))
@@ -953,6 +999,7 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 					database.add(models.StockQuant(company_id=company_id, product_id=product.id, location_id=location_id, quantity=quantity_change))
 			ticket = models.WeighbridgeTicket(company_id=company_id, ticket_number=ticket_number, picking_id=picking.id, truck_number=payload.truck_number, gross_weight=payload.gross_weight, tare_weight=payload.tare_weight, net_weight=net_weight, weighed_in_at=datetime.now(timezone.utc), weighed_out_at=datetime.now(timezone.utc))
 			database.add(ticket)
+		database.commit()
 		database.refresh(ticket)
 	except IntegrityError as error:
 		database.rollback()
@@ -1130,35 +1177,36 @@ def issue_customer_invoice(invoice_id: uuid.UUID, company_id: uuid.UUID = Depend
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only approved invoices can be issued")
 	if invoice.subtotal + invoice.vat_amount != invoice.grand_total:
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invoice totals are unbalanced: subtotal plus VAT must equal grand total")
-	receivable = account_by_code(database, company_id, "120000", "Accounts Receivable", "asset")
-	revenue = account_by_code(database, company_id, "401000", "Sales Revenue", "revenue")
-	vat = account_by_code(database, company_id, "203000", "VAT Payable", "liability")
-	lines = [
-		AccountMoveLineCreate(account_id=receivable.id, partner_id=invoice.partner_id, debit=invoice.grand_total, credit=Decimal("0"), name=f"Receivable {invoice.invoice_number}"),
-		AccountMoveLineCreate(account_id=revenue.id, partner_id=invoice.partner_id, debit=Decimal("0"), credit=invoice.subtotal, name=f"Revenue {invoice.invoice_number}"),
-	]
-	if invoice.vat_amount > 0:
-		lines.append(
-			AccountMoveLineCreate(account_id=vat.id, partner_id=invoice.partner_id, debit=Decimal("0"), credit=invoice.vat_amount, name=f"VAT {invoice.invoice_number}")
-		)
-	payload = AccountMoveCreate(
-		journal_code="INV",
-		move_type="out_invoice",
-		partner_id=invoice.partner_id,
-		date=invoice.issue_date,
-		ref=invoice.invoice_number,
-		lines=lines,
-	)
-	database.rollback()
 	try:
-		with database.begin():
+		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
+		with tx_ctx:
 			invoice = database.scalar(select(models.CustomerInvoice).where(models.CustomerInvoice.id == invoice_id, models.CustomerInvoice.company_id == company_id).with_for_update())
 			if invoice is None or invoice.status != "Approved":
 				raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invoice state changed before posting")
+			receivable = account_by_code(database, company_id, "120000", "Accounts Receivable", "asset")
+			revenue = account_by_code(database, company_id, "401000", "Sales Revenue", "revenue")
+			vat = account_by_code(database, company_id, "203000", "VAT Payable", "liability")
+			lines = [
+				AccountMoveLineCreate(account_id=receivable.id, partner_id=invoice.partner_id, debit=invoice.grand_total, credit=Decimal("0"), name=f"Receivable {invoice.invoice_number}"),
+				AccountMoveLineCreate(account_id=revenue.id, partner_id=invoice.partner_id, debit=Decimal("0"), credit=invoice.subtotal, name=f"Revenue {invoice.invoice_number}"),
+			]
+			if invoice.vat_amount > 0:
+				lines.append(
+					AccountMoveLineCreate(account_id=vat.id, partner_id=invoice.partner_id, debit=Decimal("0"), credit=invoice.vat_amount, name=f"VAT {invoice.invoice_number}")
+				)
+			payload = AccountMoveCreate(
+				journal_code="INV",
+				move_type="out_invoice",
+				partner_id=invoice.partner_id,
+				date=invoice.issue_date,
+				ref=invoice.invoice_number,
+				lines=lines,
+			)
 			move = create_posted_account_move(database, company_id, payload)
 			invoice.status = "Issued"
 			invoice.issued_at = datetime.now(timezone.utc)
 			invoice.move_id = move.id
+		database.commit()
 		database.refresh(invoice)
 	except IntegrityError as error:
 		database.rollback()

@@ -455,6 +455,9 @@ export const erpApi = {
   issueCustomerInvoice: (companyId: string, invoiceId: string) => request<ApiCustomerInvoice>(`/api/customer-invoices/${invoiceId}/issue`, companyId, {
     method: 'POST',
   }),
+  processZatcaInvoice: (companyId: string, invoiceId: string) => request<any>(`/api/compliance/zatca/process-invoice/${invoiceId}`, companyId, {
+    method: 'POST',
+  }),
   getSettlements: (companyId: string) => request<ApiSettlement[]>('/api/settlements', companyId),
   getPartners: (companyId: string) => request<Partner[]>('/api/partners', companyId),
   createPartner: (companyId: string, payload: PartnerPayload) => request<Partner>('/api/partners', companyId, { method: 'POST', body: JSON.stringify(payload) }),
