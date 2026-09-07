@@ -9,7 +9,7 @@ from typing import Optional
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, event, func, inspect
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -1430,4 +1430,170 @@ class AIGovernanceLog(TimestampMixin, Base):
         ),
         CheckConstraint("confidence_score >= 0.0 AND confidence_score <= 1.0", name="ck_ai_gov_log_confidence"),
         Index("ix_ai_gov_log_company_created", "company_id", "created_at"),
+    )
+
+
+# ==============================================================================
+# Two-Tier Authentication and Identity Subsystem Models
+# Level 1: Control Plane (Master Portal) & Level 2: Tenant Plane
+# ==============================================================================
+
+class MasterTenant(TimestampMixin, Base):
+    """Level 1: Central Control Plane master tenant directory."""
+    __tablename__ = "master_tenants"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    custom_domain: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True)
+    owner_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    owner_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    owner_mobile: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    subscription_tier: Mapped[str] = mapped_column(String(32), default="standard", nullable=False)
+    max_users: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+
+    database_config: Mapped["TenantDatabase"] = relationship(
+        "TenantDatabase", back_populates="tenant", uselist=False, cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        CheckConstraint("status IN ('provisioning', 'active', 'suspended', 'deprovisioned')", name="ck_master_tenant_status"),
+        CheckConstraint("subscription_tier IN ('starter', 'standard', 'growth', 'enterprise')", name="ck_master_tenant_tier"),
+    )
+
+
+class TenantDatabase(Base):
+    """Level 1: Dedicated database routing and encrypted DSN store for tenant physical isolation."""
+    __tablename__ = "tenant_databases"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("master_tenants.id", ondelete="CASCADE"), unique=True, nullable=False)
+    database_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    encrypted_dsn: Mapped[str] = mapped_column(Text, nullable=False)
+    host: Mapped[str] = mapped_column(String(255), default="localhost", nullable=False)
+    port: Mapped[int] = mapped_column(Integer, default=5432, nullable=False)
+    residency_region: Mapped[str] = mapped_column(String(64), default="sa-central-1", nullable=False)
+    pool_size: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    max_overflow: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    tenant: Mapped[MasterTenant] = relationship("MasterTenant", back_populates="database_config")
+
+    __table_args__ = (
+        Index("ix_tenant_databases_active", "tenant_id", "is_active"),
+    )
+
+
+class MasterUser(TimestampMixin, Base):
+    """Level 1: Control Plane staff and platform operators (isolated from tenant users)."""
+    __tablename__ = "master_users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    mobile_number: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), default="user", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint("role IN ('super_admin', 'admin', 'user')", name="ck_master_user_role"),
+    )
+
+
+class MasterPasswordReset(Base):
+    """Level 1: Control Plane self-service OTP and password reset requests."""
+    __tablename__ = "master_password_resets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("master_users.id", ondelete="CASCADE"), nullable=False)
+    identifier: Mapped[str] = mapped_column(String(255), nullable=False)
+    otp_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    reset_token: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class MasterAuditLog(Base):
+    """Level 1: Immutable audit trail for Control Plane operations and tenant provisioning."""
+    __tablename__ = "master_audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True))
+    actor_identifier: Mapped[str] = mapped_column(String(255), nullable=False)
+    action: Mapped[str] = mapped_column(String(120), nullable=False)
+    target_tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("master_tenants.id", ondelete="SET NULL"))
+    endpoint: Mapped[str] = mapped_column(String(255), nullable=False)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45))
+    user_agent: Mapped[Optional[str]] = mapped_column(String(512))
+    outcome: Mapped[str] = mapped_column(String(32), default="SUCCESS", nullable=False)
+    details: Mapped[Optional[dict]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_master_audit_action_time", "action", "created_at"),
+    )
+
+
+class TenantUser(TimestampMixin, Base):
+    """Level 2: Tenant-specific company employees and operators."""
+    __tablename__ = "tenant_users"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    mobile_number: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    first_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), default="user", nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    department: Mapped[Optional[str]] = mapped_column(String(128))
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    invited_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tenant_users.id", ondelete="SET NULL"))
+    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'user', 'guest_user')", name="ck_tenant_user_role"),
+    )
+
+
+class TenantPasswordReset(Base):
+    """Level 2: Tenant-specific self-service OTP and password reset requests."""
+    __tablename__ = "tenant_password_resets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant_users.id", ondelete="CASCADE"), nullable=False)
+    identifier: Mapped[str] = mapped_column(String(255), nullable=False)
+    otp_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    reset_token: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    is_used: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TenantUserInvitation(Base):
+    """Level 2: Tenant user invitation tokens."""
+    __tablename__ = "tenant_user_invitations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
+    mobile_number: Mapped[Optional[str]] = mapped_column(String(64))
+    role: Mapped[str] = mapped_column(String(32), default="user", nullable=False)
+    invited_by_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenant_users.id", ondelete="CASCADE"), nullable=False)
+    invite_token: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    is_accepted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'user', 'guest_user')", name="ck_tenant_invite_role"),
     )

@@ -76,6 +76,7 @@ try:
 	from .services.ai_governance import ai_governance_engine
 	from .services.ai_parser import ai_document_parser
 	from .services.ai_forecasting import ai_forecasting_service
+	from .two_tier_auth import router as two_tier_auth_router
 except ImportError:
 	from database import SessionLocal
 	import models  # type: ignore[no-redef]
@@ -132,6 +133,7 @@ except ImportError:
 	from services.ai_governance import ai_governance_engine  # type: ignore[no-redef]
 	from services.ai_parser import ai_document_parser  # type: ignore[no-redef]
 	from services.ai_forecasting import ai_forecasting_service  # type: ignore[no-redef]
+	from two_tier_auth import router as two_tier_auth_router  # type: ignore[no-redef]
 
 
 app = FastAPI(
@@ -226,6 +228,8 @@ app.add_middleware(
 	allow_methods=["*"],
 	allow_headers=["*"],
 )
+
+app.include_router(two_tier_auth_router)
 
 def get_db() -> Generator[Session, None, None]:
 	database = SessionLocal()
