@@ -21,6 +21,7 @@ interface ProtectedRouteProps {
   isLoggedIn: boolean;
   onRequireLogin: () => void;
   onNavigateHome?: () => void;
+  tier?: 'master' | 'tenant';
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -29,8 +30,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   isLoggedIn,
   onRequireLogin,
   onNavigateHome,
+  tier,
 }) => {
-  const { currentUser, language, brandConfig, users, setCurrentUser } = useApp();
+  const { currentUser, language, brandConfig, users, setCurrentUser, authTier } = useApp();
   const isAr = language === 'ar';
 
   // 1. Check Authentication Status
@@ -44,10 +46,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-50 text-orange-600 ring-1 ring-orange-200">
           <Lock className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-black text-neutral-900">
+        <h2 className="text-xl font-black text-neutral-900 dark:text-white">
           {isAr ? 'جلسة العمل غير نشطة' : 'Authentication Required'}
         </h2>
-        <p className="mt-2 max-w-md text-xs text-neutral-600">
+        <p className="mt-2 max-w-md text-xs text-neutral-600 dark:text-neutral-400">
           {isAr
             ? 'يرجى تسجيل الدخول بحساب معتمد للوصول إلى بيانات المنظومة التشغيلية.'
             : 'Please sign in with verified credentials to access the ERP platform.'}
@@ -59,6 +61,66 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           <span>{isAr ? 'الانتقال إلى بوابة الدخول' : 'Go to Login Portal'}</span>
           <ArrowRight className="h-4 w-4" />
         </button>
+      </div>
+    );
+  }
+
+  // 1.5. Two-Tier Plane Isolation Guard
+  if (tier && authTier && authTier !== tier) {
+    const isMasterViolation = tier === 'master' && authTier === 'tenant';
+    return (
+      <div
+        id="cross-plane-isolation-violation"
+        dir={isAr ? 'rtl' : 'ltr'}
+        className="flex min-h-[70vh] flex-col items-center justify-center p-6 text-center"
+      >
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500 ring-1 ring-rose-500/30">
+          <ShieldAlert className="h-8 w-8" />
+        </div>
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3 py-1 text-[11px] font-bold text-rose-400 border border-rose-500/20">
+          <Lock className="h-3 w-3" />
+          <span>{isAr ? 'انتهاك حاجز العزل الثنائي (Cross-Plane Isolation)' : 'Two-Tier Plane Isolation Violation'}</span>
+        </div>
+        <h2 className="mt-3 text-xl font-black text-neutral-900 dark:text-white">
+          {isMasterViolation
+            ? (isAr ? 'غير مصرح بالوصول إلى لوحة التحكم الرئيسية (Master Plane)' : 'Control Plane Access Denied')
+            : (isAr ? 'غير مصرح بالوصول إلى مساحة عمل المستأجر (Tenant Plane)' : 'Tenant Workspace Access Restricted')}
+        </h2>
+        <p className="mt-2 max-w-md text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
+          {isMasterViolation
+            ? (isAr
+                ? 'أنت مسجل الدخول حالياً برمز وصول مستأجر (Tenant Token). يمنع نظام الأمان الصارم وصول حسابات المستأجرين إلى لوحة تحكم المنصة المركزية.'
+                : 'You are currently authenticated with a Tenant Token. Platform security strictly forbids tenant sessions from escalating into the Control Plane.')
+            : (isAr
+                ? 'أنت مسجل الدخول برمز تحكم رئيسي (Master Token). تتطلب وحدات ERP الميدانية للمستأجر جلسة عمل مخصصة بقاعدة بيانات المنشأة.'
+                : 'You are authenticated with a Master token. Access to tenant ERP modules requires an authenticated tenant token to preserve database isolation.')}
+        </p>
+
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/60 px-4 py-2 text-xs text-neutral-600 dark:text-neutral-300">
+          <span className="font-semibold">{isAr ? 'الطبقة المطلوبة:' : 'Required Tier:'}</span>
+          <span className="font-mono font-black uppercase text-orange-500">{tier}</span>
+          <span className="text-neutral-400">|</span>
+          <span className="font-semibold">{isAr ? 'طبقتك الحالية:' : 'Current Tier:'}</span>
+          <span className="font-mono font-black uppercase text-rose-500">{authTier}</span>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          {onNavigateHome && (
+            <button
+              onClick={onNavigateHome}
+              className="inline-flex items-center gap-2 rounded-xl bg-neutral-900 dark:bg-neutral-800 px-5 py-2.5 text-xs font-bold text-white hover:bg-neutral-800 dark:hover:bg-neutral-700 transition-all"
+            >
+              <span>{isAr ? 'العودة إلى لوحتي المصرح بها' : 'Return to Accessible View'}</span>
+            </button>
+          )}
+          <button
+            onClick={onRequireLogin}
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-orange-500/20 hover:from-orange-700 hover:to-amber-700 transition-all"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>{isAr ? 'التبديل إلى الحساب المطلوب' : 'Sign in to Required Tier'}</span>
+          </button>
+        </div>
       </div>
     );
   }

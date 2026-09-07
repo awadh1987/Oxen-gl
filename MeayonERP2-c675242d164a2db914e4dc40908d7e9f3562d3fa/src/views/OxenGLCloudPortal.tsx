@@ -27,6 +27,10 @@ import { Company, User } from '../types';
 import { erpApi } from '../services/api';
 import { LoginButton } from '../components/LoginButton';
 import { ThemeDensityToolbar } from '../components/design-system/ThemeDensityToolbar';
+import { MasterLoginForm } from '../components/auth/MasterLoginForm';
+import { TenantLoginForm } from '../components/auth/TenantLoginForm';
+import { TenantRegistrationForm } from '../components/auth/TenantRegistrationForm';
+import { PasswordRecoveryModal } from '../components/auth/PasswordRecoveryModal';
 
 interface OxenGLCloudPortalProps {
   onLoginSuccess: () => void;
@@ -58,6 +62,9 @@ export const OxenGLCloudPortal: React.FC<OxenGLCloudPortalProps> = ({ onLoginSuc
   const [showMasterLogin, setShowMasterLogin] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [recoveryModalOpen, setRecoveryModalOpen] = useState(false);
+  const [recoveryPlane, setRecoveryPlane] = useState<'master' | 'tenant'>('tenant');
+  const [recoverySlug, setRecoverySlug] = useState<string>('');
   const forcedNavigationRef = useRef<number | null>(null);
 
   useEffect(() => () => {
@@ -195,44 +202,130 @@ export const OxenGLCloudPortal: React.FC<OxenGLCloudPortalProps> = ({ onLoginSuc
 
   if (showMasterLogin) {
     return (
-      <main dir="ltr" className="relative flex min-h-screen flex-col justify-between overflow-hidden bg-slate-950 px-4 text-slate-100">
+      <main dir={isAr ? 'rtl' : 'ltr'} className="relative flex min-h-screen flex-col justify-between overflow-hidden bg-slate-950 px-4 text-slate-100">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-30" />
         <div className="pointer-events-none absolute -right-32 -top-24 h-96 w-96 rounded-full bg-amber-500/10 blur-3xl" />
-        <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between py-6"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-300 bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/25"><Crown className="h-6 w-6" /></div><div><div className="flex items-center gap-2"><strong className="text-lg font-black">OxenGL Master</strong><span className="rounded-md border border-amber-400/30 bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-black text-amber-300">Super-Admin</span></div><p className="text-[11px] text-slate-400">Platform Super-Admin Master Console</p></div></div><button onClick={() => { setLoginError(null); setShowMasterLogin(false); }} className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-2 text-xs font-bold text-indigo-300 hover:bg-slate-800 hover:text-white"><Layers className="h-3.5 w-3.5" />Portal</button></header>
+        <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between py-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-300 bg-gradient-to-tr from-amber-500 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/25">
+              <Crown className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <strong className="text-lg font-black">OxenGL Master</strong>
+                <span className="rounded-md border border-amber-400/30 bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-black text-amber-300">Control Plane</span>
+              </div>
+              <p className="text-[11px] text-slate-400">Platform Super-Admin Master Console</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setLoginError(null); setShowMasterLogin(false); }}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-2 text-xs font-bold text-indigo-300 hover:bg-slate-800 hover:text-white"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span>{isAr ? 'العودة للبوابة' : 'Portal'}</span>
+          </button>
+        </header>
+
         <section className="relative z-10 mx-auto my-8 w-full max-w-xl rounded-3xl border border-slate-800/80 bg-slate-900/80 p-6 shadow-2xl shadow-black/80 backdrop-blur-2xl sm:p-10">
-          <div className="flex flex-col items-center text-center"><div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-300 bg-gradient-to-tr from-amber-500 to-amber-300 text-slate-950 shadow-lg shadow-amber-500/25"><Crown className="h-6 w-6" /></div><span className="mt-5 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-950/50 px-3 py-1 text-xs font-bold text-amber-300"><Crown className="h-3.5 w-3.5" />OxenGL Master Super-Admin Console</span><h1 className="mt-4 text-2xl font-black text-white sm:text-3xl">OxenGL Platform Master Login</h1><p className="mt-2 max-w-md text-sm leading-6 text-slate-400">Direct access to cloud licensing, tenant metrics, and cross-organization supervision.</p></div>
-          <div className="mt-7 rounded-xl border border-amber-500/35 bg-amber-950/25 p-4"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black text-white">Target Scope: OxenGL Master Console</p><p className="mt-1 font-mono text-[10px] text-amber-300/80">Super-Admin permissions · Platform-wide oversight</p></div><span className="border border-amber-400/30 bg-amber-400/15 px-2 py-1 text-[10px] font-black text-amber-300">MASTER</span></div></div>
-          {loginError && <div dir="ltr" className="mt-5 flex gap-3 rounded-xl border border-rose-500/30 bg-rose-950/40 p-4 text-left text-xs font-semibold text-rose-200"><LockKeyhole className="h-4 w-4 shrink-0" />{loginError}</div>}
-          <div className="mt-6"><LoginButton variant="dark" text="Sign in with email and password" onError={setLoginError} onSuccess={onLoginSuccess} /></div>
+          <MasterLoginForm
+            onSuccess={onLoginSuccess}
+            onForgotPassword={() => {
+              setRecoveryPlane('master');
+              setRecoverySlug('');
+              setRecoveryModalOpen(true);
+            }}
+            onSwitchToTenant={() => setShowMasterLogin(false)}
+          />
           {directAccessControls('master')}
-          <p className="mt-4 text-center text-[11px] leading-5 text-slate-500">Use the registered platform administrator email and password. Sessions are stored in a secure HttpOnly cookie.</p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-5 border-t border-slate-800 pt-6 text-[11px] text-slate-400"><span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-indigo-400" />Strict Multi-Tenant Row Isolation</span><span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" />ZATCA Phase 2 E-Invoicing Ready</span><span className="inline-flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-amber-400" />256-Bit Encryption</span></div>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-5 border-t border-slate-800 pt-6 text-[11px] text-slate-400">
+            <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-amber-400" />Strict Two-Tier Isolation</span>
+            <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" />Argon2id Memory Hardened</span>
+            <span className="inline-flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-amber-400" />256-Bit Cryptography</span>
+          </div>
         </section>
-        <footer className="relative z-10 py-4 text-center text-xs text-slate-500">OxenGL Enterprise Cloud Platform © 2026. All rights reserved.</footer>
+
+        <footer className="relative z-10 py-4 text-center text-xs text-slate-500">
+          OxenGL Enterprise Cloud Platform © 2026. All rights reserved.
+        </footer>
+
+        <PasswordRecoveryModal
+          isOpen={recoveryModalOpen}
+          onClose={() => setRecoveryModalOpen(false)}
+          initialPlane={recoveryPlane}
+          initialTenantSlug={recoverySlug}
+          onSuccess={() => setRecoveryModalOpen(false)}
+        />
       </main>
     );
   }
 
   if (selectedCompany) {
     return (
-      <main dir="ltr" className="relative flex min-h-screen flex-col justify-between overflow-hidden bg-slate-950 px-4 text-slate-100"><div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-25" />
-        <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between py-6"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-lg shadow-indigo-600/30"><Building2 className="h-6 w-6 text-indigo-100" /></div><div><div className="flex items-center gap-2"><strong className="text-lg font-black">{selectedCompany.name}</strong><span className="rounded-md border border-indigo-500/30 bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-black text-indigo-300">Isolated Tenant</span></div><p className="font-mono text-[11px] text-slate-400">{selectedCompany.slug} · Dedicated Enterprise Workspace</p></div></div><button onClick={() => setSelectedCompany(null)} className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-2 text-xs font-bold text-indigo-300 hover:bg-slate-800 hover:text-white"><Layers className="h-3.5 w-3.5" />Portal</button></header>
+      <main dir={isAr ? 'rtl' : 'ltr'} className="relative flex min-h-screen flex-col justify-between overflow-hidden bg-slate-950 px-4 text-slate-100">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-25" />
+        <header className="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between py-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-lg shadow-indigo-600/30">
+              <Building2 className="h-6 w-6 text-indigo-100" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <strong className="text-lg font-black">{selectedCompany.name}</strong>
+                <span className="rounded-md border border-indigo-500/30 bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-black text-indigo-300">Isolated Tenant</span>
+              </div>
+              <p className="font-mono text-[11px] text-slate-400">{selectedCompany.slug} · Dedicated Enterprise Workspace</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSelectedCompany(null)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-2 text-xs font-bold text-indigo-300 hover:bg-slate-800 hover:text-white"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span>{isAr ? 'العودة للبوابة' : 'Portal'}</span>
+          </button>
+        </header>
+
         <section className="relative z-10 mx-auto my-8 grid w-full max-w-xl flex-1 place-items-center">
           <div className="w-full rounded-3xl border border-slate-800/80 bg-slate-900/80 p-7 shadow-2xl shadow-black/80 backdrop-blur-2xl sm:p-9">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-indigo-400/30 bg-gradient-to-tr from-blue-600 to-indigo-600 text-lg font-black text-white shadow-lg shadow-indigo-600/30"><Building2 className="h-6 w-6" /></div>
-            <p className="mt-5 text-[10px] font-black uppercase tracking-[0.2em] text-violet-300">Dedicated Tenant Login</p>
-            <h1 className="mt-2 text-2xl font-black text-white">{selectedCompany.name}</h1>
-            <p className="mt-1 font-mono text-xs text-slate-500">{selectedCompany.slug}</p>
-            <dl dir="ltr" className="mt-6 divide-y divide-slate-800 border-y border-slate-800 text-xs"><div className="grid grid-cols-2 gap-3 py-3"><dt className="text-left text-slate-500">Commercial Reg</dt><dd className="text-right font-medium text-white">{selectedCompany.commercialRegistration || 'Not configured'}</dd></div><div className="grid grid-cols-2 gap-3 py-3"><dt className="text-left text-slate-500">Tax Number</dt><dd className="text-right font-medium text-white">{selectedCompany.taxId || 'Not configured'}</dd></div><div className="grid grid-cols-2 gap-3 py-3"><dt className="text-left text-slate-500">Security Barrier</dt><dd className="text-right font-bold text-emerald-300">Strict Isolated</dd></div></dl>
-            <div className="mt-5 flex items-center gap-2 border border-violet-400/30 bg-violet-400/10 px-3 py-2 text-xs font-bold text-violet-100"><ShieldCheck className="h-4 w-4" />Schema RLS L3 · Tenant data isolation active</div>
-            {loginError && <div dir="ltr" className="mt-5 flex gap-3 rounded-xl border border-rose-500/30 bg-rose-950/40 p-4 text-left text-xs font-semibold text-rose-200"><LockKeyhole className="h-4 w-4 shrink-0" />{loginError}</div>}
-            <div className="mt-6"><LoginButton variant="dark" text="Sign in to workspace" onError={setLoginError} onSuccess={onLoginSuccess} /></div>
+            <TenantLoginForm
+              selectedCompany={selectedCompany}
+              initialTenantSlug={selectedCompany.slug}
+              onSuccess={onLoginSuccess}
+              onForgotPassword={(slug) => {
+                setRecoveryPlane('tenant');
+                setRecoverySlug(slug || selectedCompany.slug);
+                setRecoveryModalOpen(true);
+              }}
+              onRegisterNew={() => {
+                setSelectedCompany(null);
+                setShowRegistration(true);
+              }}
+              onSwitchToMaster={() => {
+                setSelectedCompany(null);
+                setShowMasterLogin(true);
+              }}
+            />
             {directAccessControls('tenant')}
-            <p className="mt-4 text-center text-[11px] leading-5 text-slate-500">Dedicated organization authentication. Allow pop-ups for this domain if the secure sign-in window does not open.</p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-5 border-t border-slate-800 pt-6 text-[11px] text-slate-400"><span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-indigo-400" />Strict Row Isolation</span><span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" />ZATCA Ready</span><span className="inline-flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-amber-400" />256-Bit Encryption</span></div>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-5 border-t border-slate-800 pt-6 text-[11px] text-slate-400">
+              <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-indigo-400" />Schema Isolation Active</span>
+              <span className="inline-flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" />ZATCA Stage-2 Ready</span>
+              <span className="inline-flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-amber-400" />Dual-Plane Auth Barrier</span>
+            </div>
           </div>
         </section>
-        <footer className="relative z-10 py-4 text-center text-xs text-slate-500">OxenGL Enterprise Cloud Platform © 2026. All rights reserved.</footer>
+
+        <footer className="relative z-10 py-4 text-center text-xs text-slate-500">
+          OxenGL Enterprise Cloud Platform © 2026. All rights reserved.
+        </footer>
+
+        <PasswordRecoveryModal
+          isOpen={recoveryModalOpen}
+          onClose={() => setRecoveryModalOpen(false)}
+          initialPlane={recoveryPlane}
+          initialTenantSlug={recoverySlug}
+          onSuccess={() => setRecoveryModalOpen(false)}
+        />
       </main>
     );
   }
@@ -346,7 +439,28 @@ export const OxenGLCloudPortal: React.FC<OxenGLCloudPortalProps> = ({ onLoginSuc
       </section>
       <footer className="border-t border-slate-800 bg-slate-950 px-4 py-4 text-center text-xs text-slate-500"><span>OxenGL Enterprise Cloud Platform © 2026. All rights reserved.</span><span className="mx-3 text-slate-700">•</span><span>Security 256-bit AES</span><span className="mx-3 text-slate-700">•</span><span>ZATCA Certified</span></footer>
 
-      {showRegistration && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-sm"><form onSubmit={submitRegistration} className="mx-auto my-8 w-full max-w-7xl border border-slate-700 bg-[#111C31] p-6 shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-300">Tenant onboarding</p><h2 className="mt-1 text-xl font-black text-white">Register New Tenant</h2></div><button type="button" onClick={() => setShowRegistration(false)} className="text-slate-400 hover:text-white"><X className="h-5 w-5" /></button></div>{registrationComplete ? <div className="mt-6 border border-emerald-400/40 bg-emerald-400/10 p-4 text-sm font-semibold text-emerald-100">Tenant workspace created successfully.</div> : <div className="mt-6 space-y-6"><section className="rounded-3xl border border-slate-700 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 p-5 text-white shadow-xl"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white"><CreditCard className="h-6 w-6" /></div><div><h3 className="text-lg font-black">Cloud Subscription & Pricing Plans</h3><p className="mt-1 text-xs text-slate-300">Configure tenant pricing tiers, resource quotas, and monitor distribution across active client companies.</p></div></div><div className="flex items-center rounded-2xl border border-slate-700 bg-slate-800/80 p-1">{(['monthly', 'yearly'] as const).map((cycle) => <button type="button" key={cycle} onClick={() => setRegistrationBillingCycle(cycle)} className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold capitalize transition ${registrationBillingCycle === cycle ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-white'}`}>{cycle}{cycle === 'yearly' && <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-black text-white">15% Off</span>}</button>)}</div></div></section><section className="grid gap-4 lg:grid-cols-3">{onboardingPlans.map((plan) => { const active = form.tier === plan.tier; const price = registrationBillingCycle === 'monthly' ? plan.monthly : Math.round(plan.yearly / 12); return <button type="button" key={plan.tier} onClick={() => setForm({ ...form, tier: plan.tier })} className={`relative flex flex-col justify-between rounded-3xl border bg-white p-5 text-left text-slate-900 shadow-sm transition-all hover:shadow-lg ${plan.style} ${active ? 'ring-4 ring-blue-500/25' : ''}`}>{plan.highlight && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-4 py-1 text-[11px] font-black text-white shadow-md">Most Popular</span>}<div><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider text-slate-500">{plan.key}</span><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{active ? 'Selected' : 'Choose'}</span></div><h4 className="mt-3 text-lg font-black">{plan.name}</h4><div className="mt-4 border-b border-slate-100 pb-4"><span className="font-mono text-3xl font-black">{price.toLocaleString('en-US')}</span><span className="ml-1 text-xs font-bold text-slate-500">SAR / month</span>{registrationBillingCycle === 'yearly' && <span className="ml-2 text-[10px] text-slate-400">(billed yearly {plan.yearly.toLocaleString('en-US')})</span>}</div><p className="mt-4 text-xs font-black text-slate-800">Included features:</p><ul className="mt-3 space-y-2 text-xs">{plan.features.map((feature) => <li key={feature} className="flex items-start gap-2 text-slate-700"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />{feature}</li>)}</ul>{plan.excluded.length > 0 && <div className="mt-4 border-t border-slate-100 pt-3"><p className="text-[11px] font-bold text-slate-400">Not included:</p><ul className="mt-2 space-y-1.5 text-xs text-slate-400">{plan.excluded.map((item) => <li key={item} className="line-through opacity-75">- {item}</li>)}</ul></div>}</div><span className="mt-5 rounded-2xl bg-slate-50 p-3 text-center text-xs font-medium text-slate-600">Click to assign this tier to the new tenant</span></button>; })}</section><section className="grid gap-4 sm:grid-cols-2">{[['nameAr', 'Arabic Name'], ['nameEn', 'English Name'], ['commercialRegistration', 'CR (10 digits)'], ['vatNumber', 'VAT (15 digits)'], ['adminEmail', 'Admin Email'], ['phone', 'Phone']].map(([field, label]) => <label key={field} className="text-xs font-bold text-slate-300">{label}<input required value={form[field as keyof RegistrationForm] as string} onChange={(event) => setForm({ ...form, [field]: event.target.value })} pattern={field === 'commercialRegistration' ? '\\d{10}' : field === 'vatNumber' ? '\\d{15}' : undefined} className="mt-1.5 w-full border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-400" /></label>)}<label className="text-xs font-bold text-slate-300">Admin Password<input required type="password" minLength={8} value={form.adminPassword} onChange={(event) => setForm({ ...form, adminPassword: event.target.value })} className="mt-1.5 w-full border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-400" /></label><label className="text-xs font-bold text-slate-300">HQ City<select value={form.hqCity} onChange={(event) => setForm({ ...form, hqCity: event.target.value })} className="mt-1.5 w-full border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white"><option>Riyadh</option><option>Jeddah</option><option>Dammam</option><option>Sana'a</option><option>Aden</option></select></label><label className="text-xs font-bold text-slate-300">Subscription Tier<select value={form.tier} onChange={(event) => setForm({ ...form, tier: event.target.value as RegistrationForm['tier'] })} className="mt-1.5 w-full border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white"><option>Basic</option><option>Pro</option><option>Enterprise</option></select></label>{registrationError && <p className="sm:col-span-2 text-xs font-semibold text-rose-300">{registrationError}</p>}<button disabled={isSubmitting} className="sm:col-span-2 bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-3 text-sm font-black text-white disabled:opacity-60">{isSubmitting ? 'Registering...' : `Submit Registration (${form.tier})`}</button></section></div>}</form></div>}
+      {showRegistration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-md">
+          <TenantRegistrationForm
+            onCancel={() => setShowRegistration(false)}
+            onSuccess={(slug) => {
+              setShowRegistration(false);
+              const found = companies.find((c) => c.slug === slug);
+              if (found) {
+                setSelectedCompany(found);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      <PasswordRecoveryModal
+        isOpen={recoveryModalOpen}
+        onClose={() => setRecoveryModalOpen(false)}
+        initialPlane={recoveryPlane}
+        initialTenantSlug={recoverySlug}
+        onSuccess={() => setRecoveryModalOpen(false)}
+      />
     </main>
   );
 };

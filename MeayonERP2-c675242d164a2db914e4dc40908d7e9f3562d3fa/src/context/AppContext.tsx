@@ -44,7 +44,22 @@ import {
   generateInitialOperations,
 } from '../data/mockData';
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
-import { ApiCompany, ApiOperation, erpApi } from '../services/api';
+import {
+  ApiCompany,
+  ApiOperation,
+  erpApi,
+  getAuthToken,
+  getAuthTier,
+  getTenantSlug,
+  setAuthSession,
+  clearAuthSession,
+  TwoTierAuthResponse,
+  MasterLoginPayload,
+  TenantLoginPayload,
+  TwoTierTenantRegistrationPayload,
+  PasswordRecoveryPayload,
+  PasswordResetPayload,
+} from '../services/api';
 import {
   TenantColorTheme,
   DensityMode,
@@ -53,6 +68,45 @@ import {
   DEFAULT_ISOLATION_TELEMETRY,
   IsolationTelemetry,
 } from '../theme/designTokens';
+
+interface DecodedTwoTierJwt {
+  tier: 'master' | 'tenant';
+  sub: string;
+  identity?: string;
+  role: string;
+  tenant_id?: string | null;
+  tenant_slug?: string | null;
+  exp: number;
+}
+
+function decodeJwt(token: string): DecodedTwoTierJwt | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload) as DecodedTwoTierJwt;
+  } catch {
+    return null;
+  }
+}
+
+function mapBackendRoleToFrontend(role?: string): UserRole {
+  const r = (role || '').toLowerCase();
+  if (r === 'super_admin') return 'Super_Admin';
+  if (r === 'admin' || r === 'platform_admin') return 'Admin';
+  if (r === 'coo') return 'COO';
+  if (r === 'accountant') return 'Accountant';
+  if (r === 'data_entry') return 'Data_Entry';
+  return 'Admin';
+}
+
 
 interface AppContextType {
   currentUser: User;
@@ -196,6 +250,20 @@ interface AppContextType {
   toasts: ToastMessage[];
   showToast: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
   dismissToast: (id: string) => void;
+  // Two-Tier Authentication Subsystem State
+  authToken: string | null;
+  authTier: 'master' | 'tenant' | null;
+  tenantSlug: string | null;
+  tenantId: string | null;
+  isTwoTierAuthenticated: boolean;
+  loginMaster: (payload: MasterLoginPayload) => Promise<TwoTierAuthResponse>;
+  loginTenant: (payload: TenantLoginPayload) => Promise<TwoTierAuthResponse>;
+  registerTenantAccount: (payload: TwoTierTenantRegistrationPayload) => Promise<any>;
+  recoverUserPassword: (payload: PasswordRecoveryPayload) => Promise<any>;
+  resetUserPassword: (payload: PasswordResetPayload) => Promise<any>;
+  logoutUser: () => Promise<void>;
+  authErrorMessage: string | null;
+  setAuthErrorMessage: (msg: string | null) => void;
 }
 
 export interface ToastMessage {
@@ -231,6 +299,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const dir = language === 'ar' ? 'rtl' : 'ltr';
+
+  // Two-Tier Authentication Subsystem State
+  const [authToken, setAuthToken] = useState<string | null>(() => getAuthToken());
+  const [authTier, setAuthTier] = useState<'master' | 'tenant' | null>(() => getAuthTier());
+  const [tenantSlug, setTenantSlug] = useState<string | null>(() => getTenantSlug());
+  const [tenantId, setTenantId] = useState<string | null>(() => {
+    const token = getAuthToken();
+    if (!token) return null;
+    const claims = decodeJwt(token);
+    return claims?.tenant_id || null;
+  });
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
+  const isTwoTierAuthenticated = Boolean(authToken && authTier);
+
+  // Validate token expiration on mount and listen to global auth error events
+  useEffect(() => {
+    const token = getAuthToken();
+    if (token) {
+      const claims = decodeJwt(token);
+      if (!claims || (claims.exp && claims.exp * 1000 < Date.now())) {
+        clearAuthSession();
+        setAuthToken(null);
+        setAuthTier(null);
+        setTenantSlug(null);
+        setTenantId(null);
+        localStorage.setItem('oxengl_session_active', 'false');
+      } else {
+        setAuthTier(claims.tier);
+        if (claims.tenant_slug) setTenantSlug(claims.tenant_slug);
+        if (claims.tenant_id) setTenantId(claims.tenant_id);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleAuthError = (event: Event) => {
+      const customEvent = event as CustomEvent<{ status: number; message: string }>;
+      if (customEvent.detail?.status === 401) {
+        setAuthToken(null);
+        setAuthTier(null);
+        setTenantSlug(null);
+        setTenantId(null);
+        localStorage.setItem('oxengl_session_active', 'false');
+      }
+      setAuthErrorMessage(customEvent.detail?.message || 'Authentication error');
+    };
+    window.addEventListener('oxengl-auth-error', handleAuthError);
+    return () => window.removeEventListener('oxengl-auth-error', handleAuthError);
+  }, []);
+
   const [companies, setCompanies] = useState<Company[]>([]);
   const [currentCompany, setCurrentCompany] = useState<Company | null>(() => {
     const saved = localStorage.getItem('oxengl_current_company');
@@ -684,16 +802,138 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [brandConfig]);
 
-  const signOutAuth = async (): Promise<void> => {
+  const logoutUser = async (): Promise<void> => {
     try {
       await erpApi.logout();
     } catch (err) {
       console.warn('Server logout failed; clearing local session state:', err);
     }
+    clearAuthSession();
+    setAuthToken(null);
+    setAuthTier(null);
+    setTenantSlug(null);
+    setTenantId(null);
     localStorage.removeItem('oxengl_session_active');
     localStorage.removeItem('oxengl_recovery_session');
     localStorage.removeItem('meayon_user');
     setCurrentUser(INITIAL_USERS[0]);
+    showToast(language === 'ar' ? 'تم تسجيل الخروج بأمان' : 'Signed out securely', 'info');
+  };
+
+  const signOutAuth = async (): Promise<void> => {
+    await logoutUser();
+  };
+
+  const loginMaster = async (payload: MasterLoginPayload): Promise<TwoTierAuthResponse> => {
+    setAuthErrorMessage(null);
+    const res = await erpApi.masterLogin(payload);
+    setAuthSession(res.access_token, 'master', null);
+    setAuthToken(res.access_token);
+    setAuthTier('master');
+    setTenantSlug(null);
+    setTenantId(null);
+
+    const mappedRole = mapBackendRoleToFrontend(res.role || res.user.role);
+    const newUser: User = {
+      id: res.user.id,
+      username: res.user.email.split('@')[0],
+      fullName: res.user.fullName || 'Master Operator',
+      fullNameAr: res.user.fullName || 'مشغل النظام الرئيسي',
+      email: res.user.email,
+      phone: res.user.mobile,
+      role: mappedRole,
+      status: 'Active',
+    };
+    setCurrentUser(newUser);
+    localStorage.setItem('meayon_user', JSON.stringify(newUser));
+    localStorage.setItem('oxengl_session_active', 'true');
+    showToast(
+      language === 'ar'
+        ? 'تم تسجيل الدخول بنجاح إلى لوحة التحكم الرئيسية (Master Control Plane)'
+        : 'Successfully authenticated to Master Control Plane',
+      'success'
+    );
+    return res;
+  };
+
+  const loginTenant = async (payload: TenantLoginPayload): Promise<TwoTierAuthResponse> => {
+    setAuthErrorMessage(null);
+    const res = await erpApi.tenantLogin(payload);
+    const slug = res.tenant_slug || payload.tenant_slug;
+    setAuthSession(res.access_token, 'tenant', slug);
+    setAuthToken(res.access_token);
+    setAuthTier('tenant');
+    setTenantSlug(slug);
+    setTenantId(res.tenant_id || null);
+
+    const mappedRole = mapBackendRoleToFrontend(res.role || res.user.role);
+    const newUser: User = {
+      id: res.user.id,
+      username: res.user.email.split('@')[0],
+      fullName: res.user.fullName,
+      fullNameAr: res.user.fullName,
+      email: res.user.email,
+      phone: res.user.mobile,
+      role: mappedRole,
+      companyId: res.tenant_id,
+      status: 'Active',
+    };
+    setCurrentUser(newUser);
+    localStorage.setItem('meayon_user', JSON.stringify(newUser));
+    localStorage.setItem('oxengl_session_active', 'true');
+
+    const foundCompany = companies.find((c) => c.slug === slug || c.id === res.tenant_id);
+    if (foundCompany) {
+      setCurrentCompany(foundCompany);
+    } else {
+      setCurrentCompany({
+        id: res.tenant_id || slug,
+        name: slug,
+        slug: slug,
+        currency: 'SAR',
+        subscriptionTier: 'PROFESSIONAL',
+      });
+    }
+    showToast(
+      language === 'ar' ? `مرحباً بك في مساحة عمل المنشأة: ${slug}` : `Welcome to workspace: ${slug}`,
+      'success'
+    );
+    return res;
+  };
+
+  const registerTenantAccount = async (payload: TwoTierTenantRegistrationPayload): Promise<any> => {
+    setAuthErrorMessage(null);
+    const res = await erpApi.registerTenant(payload);
+    await refreshCompanies();
+    showToast(
+      language === 'ar'
+        ? 'تم تسجيل الشركة وإنشاء قاعدة البيانات المعزولة بنجاح'
+        : 'Company registered and dedicated database provisioned successfully',
+      'success'
+    );
+    return res;
+  };
+
+  const recoverUserPassword = async (payload: PasswordRecoveryPayload): Promise<any> => {
+    setAuthErrorMessage(null);
+    const res = await erpApi.recoverPassword(payload);
+    showToast(
+      language === 'ar' ? 'تم إرسال رمز التحقق بنجاح إلى وسيلة التواصل' : 'Verification code dispatched successfully',
+      'info'
+    );
+    return res;
+  };
+
+  const resetUserPassword = async (payload: PasswordResetPayload): Promise<any> => {
+    setAuthErrorMessage(null);
+    const res = await erpApi.resetPassword(payload);
+    showToast(
+      language === 'ar'
+        ? 'تم إعادة تعيين كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول'
+        : 'Password reset successfully. You can now log in.',
+      'success'
+    );
+    return res;
   };
 
   // RBAC Permission Gates
@@ -2235,6 +2475,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toasts,
         showToast,
         dismissToast,
+        authToken,
+        authTier,
+        tenantSlug,
+        tenantId,
+        isTwoTierAuthenticated,
+        loginMaster,
+        loginTenant,
+        registerTenantAccount,
+        recoverUserPassword,
+        resetUserPassword,
+        logoutUser,
+        authErrorMessage,
+        setAuthErrorMessage,
       }}
     >
       {children}
