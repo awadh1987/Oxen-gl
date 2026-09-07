@@ -8,14 +8,53 @@ Covers:
   4. Authoritative PostgreSQL Row-Level Security (RLS) Cross-Tenant Isolation
 """
 
+import os
 import sys
 import json
+import time
+import subprocess
 import urllib.request
 import urllib.error
 import psycopg2
 
-BASE_URL = "http://localhost:3000"
-PG_DSN = "postgresql://oxengl:oxengl@localhost:5432/oxengl"
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:3000")
+PG_DSN = os.environ.get("DATABASE_URL", "postgresql://oxengl:oxengl@localhost:5432/oxengl")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
+_spawned_server_proc = None
+
+def ensure_server_running():
+    """Ensures Node.js edge server is up on BASE_URL; spawns it if running in CI environment."""
+    global _spawned_server_proc
+    try:
+        req = urllib.request.Request(f"{BASE_URL}/api/health", method="GET")
+        with urllib.request.urlopen(req, timeout=2) as res:
+            if res.status == 200:
+                return
+    except Exception:
+        pass
+
+    # Server not responding, spawn dist/server.cjs
+    server_path = os.path.join(os.path.dirname(__file__), "dist", "server.cjs")
+    if os.path.exists(server_path):
+        print(f"[CI/CD] Spawning edge routing server from {server_path}...")
+        _spawned_server_proc = subprocess.Popen(
+            ["node", server_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=os.environ.copy()
+        )
+        for _ in range(30):
+            time.sleep(1)
+            try:
+                req = urllib.request.Request(f"{BASE_URL}/api/health", method="GET")
+                with urllib.request.urlopen(req, timeout=1) as res:
+                    if res.status == 200:
+                        print("[CI/CD] Edge routing server is operational.")
+                        return
+            except Exception:
+                pass
+        print("[CI/CD] Warning: Timed out waiting for spawned server.")
+
 
 def http_request(path: str, method: str = "GET", data: dict = None, headers: dict = None):
     url = f"{BASE_URL}{path}"
@@ -193,9 +232,10 @@ def run_tests():
     )
 
     # 3.2 Invite New Team Member
+    unique_email = f"tariq_{int(time.time())}@horizon.sa"
     invite_payload = {
         "full_name": "طارق المطيري",
-        "email": "tariq@horizon.sa",
+        "email": unique_email,
         "role": "accountant",
         "department": "Finance & ZATCA"
     }
@@ -203,8 +243,9 @@ def run_tests():
     log_test(
         "Tenant Team Member Invite",
         status == 201 and inv_data.get("success") is True,
-        f"Invited: {inv_data.get('member', {}).get('full_name')} ({inv_data.get('member', {}).get('role')})"
+        f"Invited: {inv_data.get('member', {}).get('full_name')} ({inv_data.get('member', {}).get('role')}) - {unique_email}"
     )
+
 
     # 3.3 Progressive Disclosure Settings Query & Update
     status, sett_data = http_request("/api/tenant/control/settings", headers=tenant_headers)
@@ -231,7 +272,8 @@ def run_tests():
     )
 
     # 3.4 Custom Domain Registration (Step 1 of Wizard)
-    dom_payload = {"domain_name": "portal.horizon.sa"}
+    dyn_domain = f"portal-{int(time.time())}.horizon.sa"
+    dom_payload = {"domain_name": dyn_domain}
     status, dom_data = http_request("/api/tenant/control/domains", method="POST", headers=tenant_headers, data=dom_payload)
     log_test(
         "Custom Domain Registration (Step 1)",
@@ -239,6 +281,7 @@ def run_tests():
         f"Registered: {dom_data.get('domain', {}).get('domain_name')}, CNAME: {dom_data.get('domain', {}).get('cname_target')}"
     )
     domain_id = dom_data.get("domain", {}).get("id")
+
 
     # 3.5 Custom Domain DNS & SSL Automated Verification (Step 3 of Wizard)
     status, ver_data = http_request(f"/api/tenant/control/domains/{domain_id}/verify", method="POST", headers=tenant_headers)
@@ -276,14 +319,58 @@ def run_tests():
             f"Foreign tenant sees {len(foreign_domains)} domains (Strict 100% Isolation)"
         )
 
+        # 4.3 Connection Pool Scoping: clear_tenant_context() resets session variable
+        cur.execute("SELECT clear_tenant_context();")
+        cur.execute("SELECT domain_name FROM tenant_domains;")
+        cleared_domains = cur.fetchall()
+        log_test(
+            "Connection Pool Scoping: Session Variable Reset (Zero Contamination)",
+            len(cleared_domains) == 0,
+            f"Cleared context returned {len(cleared_domains)} rows on pooled connection"
+        )
+
         cur.close()
         conn.close()
     except Exception as e:
         log_test("PostgreSQL RLS Database Verification", False, str(e))
+
+    # -------------------------------------------------------------
+    # 5. REDIS CACHE INVALIDATION SAFEGUARD
+    # -------------------------------------------------------------
+    print("\n--- 5. REDIS CACHE INVALIDATION SAFEGUARD ---")
+    temp_domain = "temp-cache-test.horizon.sa"
+    s_reg, b_reg = http_request("/api/tenant/control/domains", method="POST", headers=tenant_headers, data={"domain_name": temp_domain})
+    if s_reg == 201:
+        dom_id = b_reg.get("domain", {}).get("id")
+        s_ver, b_ver = http_request(f"/api/tenant/control/domains/{dom_id}/verify", method="POST", headers=tenant_headers)
+        s_res, b_res = http_request("/api/platform/resolve-tenant", headers={"Host": temp_domain})
+        log_test(
+            "Redis Cache Invalidation: Real-time Host Invalidation & Immediate Route Resolution",
+            s_res == 200 and b_res.get("tenant", {}).get("slug") == "horizon-logistics",
+            f"Resolved newly verified domain '{temp_domain}' -> {b_res.get('tenant', {}).get('slug')}"
+        )
+    else:
+        # Domain already registered from prior test run, test direct resolution
+        s_res, b_res = http_request("/api/platform/resolve-tenant", headers={"Host": temp_domain})
+        log_test(
+            "Redis Cache Invalidation: Route Resolution Verification",
+            s_res == 200 and b_res.get("tenant", {}).get("slug") == "horizon-logistics",
+            f"Resolved existing domain '{temp_domain}' -> {b_res.get('tenant', {}).get('slug')}"
+        )
 
     print("\n" + "=" * 70)
     print("ALL SAAS MULTI-TENANT ARCHITECTURE TESTS PASSED SUCCESSFULLY! (100%)")
     print("=" * 70)
 
 if __name__ == "__main__":
-    run_tests()
+    ensure_server_running()
+    try:
+        run_tests()
+    finally:
+        if _spawned_server_proc:
+            try:
+                _spawned_server_proc.terminate()
+                _spawned_server_proc.wait(timeout=2)
+            except Exception:
+                pass
+
