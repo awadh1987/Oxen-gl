@@ -175,7 +175,7 @@ class TenantConnectionManager:
         """Queries the metadata catalog for active dedicated tenant database configs."""
         from sqlalchemy import select
         # Import lazily to avoid circular imports during startup
-        from Backend import models
+        from backend import models
 
         def _lookup(sess: Session) -> str | None:
             config = sess.scalar(

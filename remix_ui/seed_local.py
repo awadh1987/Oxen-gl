@@ -17,9 +17,9 @@ try:
     from auth import hash_password
 except ImportError:
     try:
-        from Backend.backend.database import init_db, SessionLocal
-        from Backend.backend.models import Role, User
-        from Backend.backend.auth import hash_password
+        from backend.backend.database import init_db, SessionLocal
+        from backend.backend.models import Role, User
+        from backend.backend.auth import hash_password
     except ImportError:
         from backend.backend.database import init_db, SessionLocal
         from backend.backend.models import Role, User

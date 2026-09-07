@@ -17,8 +17,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from Backend.database import SessionLocal
-from Backend.models import (
+from backend.database import SessionLocal
+from backend.models import (
     ResCompany,
     ResUser,
     ProductProduct,
@@ -33,7 +33,7 @@ from Backend.models import (
     StockMovement,
     YardGateAppointment,
 )
-from Backend.schemas import (
+from backend.schemas import (
     WarehouseCreate,
     WarehouseRead,
     WarehouseZoneCreate,

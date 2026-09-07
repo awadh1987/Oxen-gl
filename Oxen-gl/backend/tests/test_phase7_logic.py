@@ -18,9 +18,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from Backend.database import SessionLocal
-from Backend.main import app, get_active_company_id, get_authenticated_user
-from Backend.models import (
+from backend.database import SessionLocal
+from backend.main import app, get_active_company_id, get_authenticated_user
+from backend.models import (
     ResCompany,
     ResUser,
     ProductProduct,

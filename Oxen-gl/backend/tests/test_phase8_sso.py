@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from Backend.database import SessionLocal, encrypt_connection_url
-from Backend.main import (
+from backend.database import SessionLocal, encrypt_connection_url
+from backend.main import (
     app,
     get_active_company_id,
     get_authenticated_user,
@@ -14,7 +14,7 @@ from Backend.main import (
     verify_sso_state,
     resolve_sso_role,
 )
-from Backend.models import ResCompany, ResUser, SSOProvider, TenantSSOConfig
+from backend.models import ResCompany, ResUser, SSOProvider, TenantSSOConfig
 
 
 @pytest.fixture(scope="module")

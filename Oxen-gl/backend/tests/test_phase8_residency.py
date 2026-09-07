@@ -5,14 +5,14 @@ from pathlib import Path
 from sqlalchemy import Column, Integer, String, create_engine, select, text
 from sqlalchemy.orm import Session, declarative_base
 
-from Backend.database import (
+from backend.database import (
     Base,
     SessionLocal,
     decrypt_connection_url,
     encrypt_connection_url,
     tenant_connection_manager,
 )
-from Backend.models import ResCompany, TenantDatabaseConfig
+from backend.models import ResCompany, TenantDatabaseConfig
 
 
 # Create a distinct isolated test entity to verify cross-database physical isolation

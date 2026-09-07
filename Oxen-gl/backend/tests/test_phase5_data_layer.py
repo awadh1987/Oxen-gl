@@ -6,8 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from Backend.database import SessionLocal
-from Backend.models import (
+from backend.database import SessionLocal
+from backend.models import (
     CustomerInvoice,
     ResCompany,
     ResUser,
@@ -16,7 +16,7 @@ from Backend.models import (
     TaxRule,
     ZATCALog,
 )
-from Backend.schemas import (
+from backend.schemas import (
     SecurityEventCreate,
     SecurityEventRead,
     TaxProfileCreate,

@@ -18,15 +18,15 @@ from typing import Any, Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from Backend import models
-from Backend.schemas import (
+from backend import models
+from backend.schemas import (
     CropYieldPrediction,
     FleetAnomalyAlert,
     RestockProposalRequest,
     RestockProposalResponse,
     StockoutRiskItem,
 )
-from Backend.services.ai_governance import ai_governance_engine
+from backend.services.ai_governance import ai_governance_engine
 
 logger = logging.getLogger(__name__)
 
