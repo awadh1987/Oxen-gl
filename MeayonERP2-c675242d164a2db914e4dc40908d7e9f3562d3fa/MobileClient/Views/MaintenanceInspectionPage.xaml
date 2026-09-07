@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OxenGL.Mobile.ViewModels"
+             x:Class="OxenGL.Mobile.Views.MaintenanceInspectionPage"
+             Title="{Binding Title}"
+             BackgroundColor="#0F172A">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+
+            <Label Text="Fleet Damage &amp; Pre-Trip Inspection" 
+                   FontSize="22" 
+                   FontAttributes="Bold" 
+                   TextColor="White"/>
+
+            <Label Text="Log vehicle walkaround checks, damage findings, and rugged terrain maintenance orders." 
+                   FontSize="12" 
+                   TextColor="#94A3B8"/>
+
+            <!-- Vehicle ID & Odometer -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Vehicle Reference ID" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding VehicleId}" Keyboard="Numeric" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                    <Label Text="Odometer (KM)" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding OdometerReading}" Keyboard="Numeric" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+            </Grid>
+
+            <!-- Order Type & Priority -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <Label Text="Order Type" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding OrderType}" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+                <VerticalStackLayout Grid.Column="1" Spacing="4">
+                    <Label Text="Priority (low/medium/high/critical)" TextColor="#CBD5E1" FontSize="12"/>
+                    <Entry Text="{Binding Priority}" TextColor="White" BackgroundColor="#1E293B"/>
+                </VerticalStackLayout>
+            </Grid>
+
+            <!-- Description -->
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Inspection Findings &amp; Defect Notes" TextColor="#CBD5E1" FontSize="12"/>
+                <Editor Text="{Binding Description}" HeightRequest="80" TextColor="White" BackgroundColor="#1E293B"/>
+            </VerticalStackLayout>
+
+            <!-- Camera Damage Photo -->
+            <Border StrokeThickness="1" Stroke="#334155" BackgroundColor="#1E293B" Padding="14" StrokeShape="RoundRectangle 8">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Damage Photo Attachment (AES-256 Encrypted at Rest)" FontAttributes="Bold" TextColor="#38BDF8" FontSize="13"/>
+                    <Label Text="{Binding PhotoStatusMessage}" TextColor="#E2E8F0" FontSize="12"/>
+                    <Button Text="Capture Damage Photo" 
+                            Command="{Binding CaptureDamagePhotoCommand}" 
+                            BackgroundColor="#7C3AED" 
+                            TextColor="White" 
+                            CornerRadius="6" 
+                            HeightRequest="40"/>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Submit Command -->
+            <Button Text="Queue Maintenance Work Order" 
+                    Command="{Binding QueueWorkOrderCommand}" 
+                    BackgroundColor="#8B5CF6" 
+                    TextColor="White" 
+                    FontAttributes="Bold" 
+                    CornerRadius="8" 
+                    HeightRequest="48"/>
+
+            <Label Text="{Binding StatusMessage}" 
+                   TextColor="#A78BFA" 
+                   FontSize="13" 
+                   HorizontalTextAlignment="Center"/>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

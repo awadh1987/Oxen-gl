@@ -1,0 +1,365 @@
+@page "/tenant-admin/security-settings"
+@using BlazorApp.Models
+@using BlazorApp.Services
+@inject SecurityApiClient SecurityApi
+@inject TenantContextService TenantContext
+@inject NavigationManager Navigation
+
+<div class="tenant-security-container p-6 max-w-7xl mx-auto space-y-8">
+    <!-- Header with TenantContext Badge -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-200">
+        <div>
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">Tenant Security & Access Governance</h1>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                    TenantContext Isolated
+                </span>
+            </div>
+            <p class="mt-1 text-sm text-slate-500">
+                Manage organization user roles, enforce mandatory Multi-Factor Authentication (MFA), and issue scoped API keys.
+            </p>
+        </div>
+        <div class="mt-4 md:mt-0 flex items-center gap-3">
+            <div class="text-right">
+                <span class="text-xs text-slate-400 block font-medium">Active Organization Scope</span>
+                <span class="text-xs font-bold text-indigo-900 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 inline-block font-mono">
+                    @TenantContext.ActiveTenantName (@TenantContext.ActiveTenantId.ToString().Substring(0, 8)...)
+                </span>
+            </div>
+        </div>
+    </div>
+
+    @if (!TenantContext.IsTenantAdmin)
+    {
+        <!-- ACCESS DENIED GUARD -->
+        <div class="p-6 bg-red-50 border border-red-200 rounded-2xl shadow-sm text-red-900 space-y-2" role="alert">
+            <h3 class="text-base font-bold">Access Denied: Tenant Administrator Privileges Required</h3>
+            <p class="text-xs text-red-700">
+                Your current role (@TenantContext.CurrentUser.Role) does not have administrative rights to alter security controls for this tenant workspace.
+            </p>
+        </div>
+    }
+    else
+    {
+        <!-- Alert Messages -->
+        @if (!string.IsNullOrEmpty(statusMessage))
+        {
+            <div class="p-4 rounded-xl border @(isError ? "bg-red-50 border-red-200 text-red-800" : "bg-emerald-50 border-emerald-200 text-emerald-800") flex items-center justify-between">
+                <span class="text-sm font-medium">@statusMessage</span>
+                <button @onclick="() => statusMessage = null" class="text-xs underline ml-4">Dismiss</button>
+            </div>
+        }
+
+        <!-- Generated API Key Display Modal/Card -->
+        @if (generatedApiKey != null)
+        {
+            <div class="p-6 bg-emerald-50 border-2 border-emerald-300 rounded-2xl shadow-md space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-emerald-900">New Scoped API Key Generated</h2>
+                    <button @onclick="() => generatedApiKey = null" class="text-xs text-emerald-700 font-semibold hover:underline">I have saved this key [Dismiss]</button>
+                </div>
+                <p class="text-xs text-emerald-700">
+                    @generatedApiKey.Message
+                </p>
+                <div class="bg-white p-3 rounded-xl border border-emerald-200 space-y-1">
+                    <div class="text-[11px] text-slate-400">Key Identifier: <span class="font-mono text-slate-700">@generatedApiKey.KeyId</span></div>
+                    <div class="font-mono text-sm font-bold text-emerald-800 break-all select-all">@generatedApiKey.ApiKey</div>
+                    <div class="text-[11px] text-slate-400 pt-1">
+                        Expires: <span class="font-semibold text-slate-600">@generatedApiKey.ExpiresAt.ToString("yyyy-MM-dd HH:mm UTC")</span> | Scopes: <span class="font-mono text-slate-700">@string.Join(", ", generatedApiKey.Scopes)</span>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Top Section: MFA Enforcement Policy & Scoped API Key Form -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- MFA Enforcement Switch -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                    <h2 class="text-base font-bold text-slate-800">MFA Policy Enforcement</h2>
+                </div>
+                <p class="text-xs text-slate-500">
+                    Require mandatory Multi-Factor Authentication for all employees and drivers in this organization tenant.
+                </p>
+
+                <div class="flex items-center justify-between pt-2">
+                    <span class="text-sm font-semibold text-slate-700">Enforce Tenant MFA</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked="@mfaEnforced" @onchange="ToggleMfaEnforcement" class="sr-only peer" />
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+                <div class="text-[11px] text-slate-400">
+                    Current Status: <strong class="@(mfaEnforced ? "text-emerald-600" : "text-slate-500")">@(mfaEnforced ? "MFA Mandatory" : "MFA Optional")</strong>
+                </div>
+            </div>
+
+            <!-- Scoped API Key Generation Form -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                    <h2 class="text-base font-bold text-slate-800">Generate Scoped Tenant API Key</h2>
+                </div>
+
+                <form @onsubmit="HandleCreateApiKey" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-1">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Key Description / Client Name</label>
+                        <input type="text" @bind="newApiKeyModel.Name" required placeholder="e.g. Weighbridge Terminal #1"
+                               class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    </div>
+
+                    <div class="md:col-span-1">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Validity Period</label>
+                        <select @bind="newApiKeyModel.ExpiresDays"
+                                class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white">
+                            <option value="30">30 Days (Standard)</option>
+                            <option value="60">60 Days</option>
+                            <option value="90">90 Days (Quarterly)</option>
+                            <option value="365">365 Days (Annual)</option>
+                        </select>
+                    </div>
+
+                    <div class="md:col-span-1 flex items-end">
+                        <button type="submit" disabled="@isSubmittingApiKey"
+                                class="w-full py-2 px-4 rounded-xl text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition disabled:opacity-50 shadow-sm">
+                            @(isSubmittingApiKey ? "Generating..." : "Generate API Key")
+                        </button>
+                    </div>
+
+                    <div class="md:col-span-3 pt-1">
+                        <span class="block text-[11px] font-semibold text-slate-600 mb-1.5">Authorized Scopes</span>
+                        <div class="flex flex-wrap gap-4 text-xs text-slate-700">
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" checked="@hasScopeWarehouse" @onchange='(e) => ToggleScope(e, "warehouse:read")' class="rounded text-indigo-600" />
+                                <span>warehouse:read</span>
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" checked="@hasScopeWeighbridge" @onchange='(e) => ToggleScope(e, "weighbridge:write")' class="rounded text-indigo-600" />
+                                <span>weighbridge:write</span>
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" checked="@hasScopeProcurement" @onchange='(e) => ToggleScope(e, "procurement:approve")' class="rounded text-indigo-600" />
+                                <span>procurement:approve</span>
+                            </label>
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" checked="@hasScopeFleet" @onchange='(e) => ToggleScope(e, "fleet:manage")' class="rounded text-indigo-600" />
+                                <span>fleet:manage</span>
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Bottom Section: Tenant Users & Role Management -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800">Organization Users & Role Governance</h2>
+                        <p class="text-xs text-slate-400">Strictly isolated to active tenant: @TenantContext.ActiveTenantName</p>
+                    </div>
+                </div>
+                <button @onclick="LoadTenantUsers" disabled="@isLoadingUsers"
+                        class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 transition">
+                    @(isLoadingUsers ? "Refreshing..." : "Refresh Users")
+                </button>
+            </div>
+
+            @if (tenantUsers == null)
+            {
+                <div class="py-12 text-center text-slate-400 text-sm">Loading tenant users...</div>
+            }
+            else if (tenantUsers.Count == 0)
+            {
+                <div class="py-12 text-center text-slate-400 text-sm">No users registered in this tenant organization.</div>
+            }
+            else
+            {
+                <div class="overflow-x-auto rounded-xl border border-slate-200">
+                    <table class="min-w-full divide-y divide-slate-200 text-xs">
+                        <thead class="bg-slate-50 text-slate-600">
+                            <tr>
+                                <th class="px-3.5 py-2.5 text-left font-semibold">User Full Name</th>
+                                <th class="px-3.5 py-2.5 text-left font-semibold">Email Address</th>
+                                <th class="px-3.5 py-2.5 text-left font-semibold">Assigned Role</th>
+                                <th class="px-3.5 py-2.5 text-left font-semibold">Status</th>
+                                <th class="px-3.5 py-2.5 text-right font-semibold">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            @foreach (var user in tenantUsers)
+                            {
+                                <tr class="hover:bg-slate-50/80 transition">
+                                    <td class="px-3.5 py-2.5 font-medium text-slate-900 whitespace-nowrap">
+                                        @user.FullName
+                                    </td>
+                                    <td class="px-3.5 py-2.5 text-slate-600 whitespace-nowrap font-mono text-[11px]">
+                                        @user.Email
+                                    </td>
+                                    <td class="px-3.5 py-2.5 whitespace-nowrap">
+                                        <select value="@user.Role" @onchange="(e) => HandleRoleChange(user, e.Value?.ToString())"
+                                                class="px-2 py-1 text-xs rounded-lg border border-slate-300 font-medium bg-white focus:ring-1 focus:ring-indigo-500">
+                                            <option value="Admin">Admin</option>
+                                            <option value="COO">COO</option>
+                                            <option value="Accountant">Accountant</option>
+                                            <option value="Data_Entry">Data_Entry</option>
+                                            <option value="Guest">Guest</option>
+                                        </select>
+                                    </td>
+                                    <td class="px-3.5 py-2.5 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold @(user.IsActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600")">
+                                            @(user.IsActive ? "Active" : "Inactive")
+                                        </span>
+                                    </td>
+                                    <td class="px-3.5 py-2.5 text-right whitespace-nowrap">
+                                        <button @onclick="() => SaveUserRole(user)"
+                                                class="px-2.5 py-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition">
+                                            Save Role
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<TenantUserItem>? tenantUsers;
+    private bool mfaEnforced = true;
+    private TenantApiKeyModel newApiKeyModel = new() { Name = "Default Service Client", ExpiresDays = 30 };
+    private TenantApiKeyResult? generatedApiKey;
+    private string? statusMessage;
+    private bool isError = false;
+    private bool isLoadingUsers = false;
+    private bool isSubmittingApiKey = false;
+
+    private bool hasScopeWarehouse = true;
+    private bool hasScopeWeighbridge = true;
+    private bool hasScopeProcurement = false;
+    private bool hasScopeFleet = false;
+
+    private readonly Dictionary<Guid, string> pendingRoleUpdates = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (TenantContext.IsTenantAdmin)
+        {
+            await LoadTenantUsers();
+        }
+    }
+
+    private async Task LoadTenantUsers()
+    {
+        isLoadingUsers = true;
+        try
+        {
+            tenantUsers = await SecurityApi.GetTenantUsersAsync();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Failed to load tenant users: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isLoadingUsers = false;
+        }
+    }
+
+    private void HandleRoleChange(TenantUserItem user, string? newRole)
+    {
+        if (!string.IsNullOrEmpty(newRole))
+        {
+            user.Role = newRole;
+            pendingRoleUpdates[user.Id] = newRole;
+        }
+    }
+
+    private async Task SaveUserRole(TenantUserItem user)
+    {
+        statusMessage = null;
+        try
+        {
+            var roleToSave = pendingRoleUpdates.TryGetValue(user.Id, out var r) ? r : user.Role;
+            var updated = await SecurityApi.UpdateTenantUserRoleAsync(user.Id, roleToSave);
+            statusMessage = $"Successfully updated role for {updated.Email} to '{updated.Role}'.";
+            isError = false;
+            pendingRoleUpdates.Remove(user.Id);
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Role Update Error: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private async Task ToggleMfaEnforcement(ChangeEventArgs e)
+    {
+        mfaEnforced = (bool)(e.Value ?? false);
+        try
+        {
+            var result = await SecurityApi.UpdateTenantSecuritySettingsAsync(mfaEnforced);
+            statusMessage = $"MFA policy updated: {(result.MfaEnforced ? "MFA Enforcement Activated" : "MFA Enforcement Deactivated")}.";
+            isError = false;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Failed to update MFA settings: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private void ToggleScope(ChangeEventArgs e, string scope)
+    {
+        bool isChecked = (bool)(e.Value ?? false);
+        switch (scope)
+        {
+            case "warehouse:read": hasScopeWarehouse = isChecked; break;
+            case "weighbridge:write": hasScopeWeighbridge = isChecked; break;
+            case "procurement:approve": hasScopeProcurement = isChecked; break;
+            case "fleet:manage": hasScopeFleet = isChecked; break;
+        }
+    }
+
+    private async Task HandleCreateApiKey()
+    {
+        isSubmittingApiKey = true;
+        statusMessage = null;
+        try
+        {
+            var scopes = new List<string>();
+            if (hasScopeWarehouse) scopes.Add("warehouse:read");
+            if (hasScopeWeighbridge) scopes.Add("weighbridge:write");
+            if (hasScopeProcurement) scopes.Add("procurement:approve");
+            if (hasScopeFleet) scopes.Add("fleet:manage");
+
+            newApiKeyModel.Scopes = scopes;
+            generatedApiKey = await SecurityApi.CreateTenantApiKeyAsync(newApiKeyModel);
+            statusMessage = $"API Key '{generatedApiKey.Name}' generated successfully.";
+            isError = false;
+            newApiKeyModel = new() { Name = string.Empty, ExpiresDays = 30 };
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"API Key Generation Error: {ex.Message}";
+            isError = true;
+        }
+        finally
+        {
+            isSubmittingApiKey = false;
+        }
+    }
+}
