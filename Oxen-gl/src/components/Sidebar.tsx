@@ -15,6 +15,7 @@ import {
   Palette,
   Wrench,
   CreditCard,
+  Globe,
 } from 'lucide-react';
 
 export type ActiveTab =
@@ -31,7 +32,8 @@ export type ActiveTab =
   | 'executive-admin'
   | 'master-data'
   | 'workflow-builder'
-  | 'design-studio';
+  | 'design-studio'
+  | 'tenant-settings';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -154,6 +156,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Palette,
       roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
       badge: 'Themes',
+    },
+    {
+      id: 'tenant-settings' as ActiveTab,
+      labelAr: 'إدارة المنشأة والنطاقات',
+      labelEn: 'Tenant Admin & Domains',
+      icon: Globe,
+      roles: ['Admin', 'COO'],
+      badge: 'RLS',
     },
   ];
 

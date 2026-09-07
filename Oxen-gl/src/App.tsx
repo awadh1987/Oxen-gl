@@ -5,7 +5,7 @@ import { ActiveTab } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AIAssistantWidget } from './components/AIAssistantWidget';
 import type { ExportDocType } from './components/ExportPrintModal';
-import { Building2, Cpu, CreditCard, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X } from 'lucide-react';
+import { Building2, Cpu, CreditCard, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X, Globe } from 'lucide-react';
 import { UserRole } from './types';
 
 // Code-split dynamic view imports
@@ -27,6 +27,7 @@ const DesignSystemStudioView = React.lazy(() => import('./views/DesignSystemStud
 const TenantBillingView = React.lazy(() => import('./views/TenantBillingView').then(m => ({ default: m.TenantBillingView })));
 const FleetMaintenanceView = React.lazy(() => import('./views/FleetMaintenanceView').then(m => ({ default: m.FleetMaintenanceView })));
 const ExportPrintModal = React.lazy(() => import('./components/ExportPrintModal').then(m => ({ default: m.ExportPrintModal })));
+const TenantSettingsPanel = React.lazy(() => import('./components/platform/TenantSettingsPanel').then(m => ({ default: m.TenantSettingsPanel })));
 
 const ViewLoadingFallback = () => (
   <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-12 text-center">
@@ -74,6 +75,7 @@ function AppContent() {
     { id: 'executive-admin', label: 'Executive Approvals & Audit', icon: Landmark, group: 'Finance, Accounting & Control' },
     { id: 'ai-insights', label: 'AI Operations Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
     { id: 'design-studio', label: 'Design System & AI Studio', icon: Palette, group: 'Finance, Accounting & Control' },
+    { id: 'tenant-settings', label: 'Tenant Admin & Domains', icon: Globe, group: 'Finance, Accounting & Control' },
   ];
 
   useEffect(() => {
@@ -198,6 +200,7 @@ function AppContent() {
     'master-data': ['Super_Admin', 'Admin', 'COO'],
     'workflow-builder': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'design-studio': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+    'tenant-settings': ['Super_Admin', 'Admin', 'COO'],
   };
 
   const renderActiveViewContent = () => {
@@ -230,6 +233,13 @@ function AppContent() {
         return <WorkflowAutomationView />;
       case 'design-studio':
         return <DesignSystemStudioView />;
+      case 'tenant-settings':
+        return (
+          <TenantSettingsPanel
+            tenantId={brandConfig?.tenantId || '44f9ed53-be0a-454e-acbf-c87e54ff9438'}
+            tenantSlug={brandConfig?.slug || 'horizon-logistics'}
+          />
+        );
       default:
         return <DashboardView onNavigateToTab={(tab) => setActiveTab(tab)} />;
     }

@@ -2,6 +2,9 @@ import express from 'express';
 import path from 'path';
 import { GoogleGenAI, ThinkingLevel, GenerateVideosOperation } from '@google/genai';
 import dotenv from 'dotenv';
+import { tenantResolverMiddleware, ExtendedRequest } from './src/middleware/tenantResolver';
+import { masterPlatformController } from './src/controllers/masterPlatformController';
+import { tenantControlController } from './src/controllers/tenantControlController';
 
 dotenv.config();
 
@@ -10,6 +13,7 @@ const PORT = 3000;
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(tenantResolverMiddleware);
 
 // Lazy initialize Gemini AI Client
 function getGeminiClient(): GoogleGenAI | null {
@@ -37,9 +41,52 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// SaaS Platform & Multi-Tenant Routing Endpoints
+app.get('/api/platform/resolve-tenant', (req: ExtendedRequest, res) => {
+  if (req.plane === 'unknown') {
+    return res.status(404).json({
+      success: false,
+      error: 'Unrecognized tenant or custom domain',
+      plane: 'unknown',
+      tenant: null,
+      host: req.headers.host || '',
+    });
+  }
+  res.json({
+    success: true,
+    plane: req.plane || 'root',
+    tenant: req.tenant || null,
+    host: req.headers.host || '',
+  });
+});
+
+// Master Platform Control Panel (DevOps / SuperAdmin)
+app.get('/api/master/platform/tenants', masterPlatformController.listTenants);
+app.post('/api/master/platform/tenants', masterPlatformController.provisionTenant);
+app.delete('/api/master/platform/tenants/:tenantId', masterPlatformController.deleteTenantWithSafetyGuard);
+app.get('/api/master/platform/search', masterPlatformController.globalSearch);
+app.get('/api/master/platform/health', masterPlatformController.getSystemHealth);
+app.get('/api/master/platform/feature-flags', masterPlatformController.getFeatureFlags);
+app.post('/api/master/platform/feature-flags/toggle', masterPlatformController.toggleFeatureFlag);
+
+// Tenant Control Panel (Tenant Workspace Admin)
+app.get('/api/tenant/control/team', tenantControlController.listTeam);
+app.post('/api/tenant/control/team/invite', tenantControlController.inviteMember);
+app.delete('/api/tenant/control/team/:memberId', tenantControlController.deleteMember);
+app.get('/api/tenant/control/settings', tenantControlController.getSettings);
+app.post('/api/tenant/control/settings', tenantControlController.updateSettings);
+app.get('/api/tenant/control/domains', tenantControlController.listDomains);
+app.post('/api/tenant/control/domains', tenantControlController.registerDomain);
+app.post('/api/tenant/control/domains/:domainId/verify', tenantControlController.verifyDomain);
+
 // Authoritative API Proxy to FastAPI Backend (port 8000) for all non-AI ERP domains
 app.use('/api', async (req, res, next) => {
-  if (req.path.startsWith('/ai')) {
+  if (
+    req.path.startsWith('/ai') ||
+    req.path.startsWith('/platform') ||
+    req.path.startsWith('/master') ||
+    req.path.startsWith('/tenant')
+  ) {
     return next();
   }
   try {
