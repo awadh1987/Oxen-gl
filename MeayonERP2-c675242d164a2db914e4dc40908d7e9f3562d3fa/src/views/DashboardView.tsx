@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -10,12 +10,19 @@ import {
   Truck,
   WalletCards,
   Sparkles,
+  Wrench,
+  Fuel,
+  CreditCard,
+  Gauge,
+  Activity,
+  Radio,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatTonnage } from '../utils/formatters';
 import { IsolationTelemetryBadge } from '../components/design-system/IsolationTelemetryBadge';
 import { ThemeDensityToolbar } from '../components/design-system/ThemeDensityToolbar';
 import { DENSITY_STYLES } from '../theme/designTokens';
+import { erpApi } from '../services/api';
 
 export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> = ({ onNavigateToTab }) => {
   const {
@@ -28,6 +35,29 @@ export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> =
     densityMode,
   } = useApp();
 
+  const [analytics, setAnalytics] = useState<{
+    total_revenue: number;
+    outstanding_receivables: number;
+    active_trips: number;
+    total_trips: number;
+    total_fleet_count: number;
+    active_vehicles_count: number;
+    fleet_utilization_rate: number;
+    total_fuel_consumed_liters: number;
+    total_fuel_spent_sar: number;
+    avg_fuel_price_sar: number;
+    total_invoices_count: number;
+    paid_invoices_count: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (currentCompany?.id) {
+      erpApi.getTenantAnalyticsSummary(currentCompany.id)
+        .then(setAnalytics)
+        .catch(() => setAnalytics(null));
+    }
+  }, [currentCompany?.id]);
+
   const isAr = language === 'ar';
   const isDark = themeMode === 'dark';
   const density = DENSITY_STYLES[densityMode];
@@ -39,9 +69,11 @@ export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> =
 
   const quickAccess = [
     { tab: 'operations', icon: Scale, titleAr: 'تسجيل نقلة جديدة', titleEn: 'Weighbridge Entry', detailAr: 'قيد تذكرة وزن جديدة', detailEn: 'Create a new weight ticket', accent: 'text-orange-400 bg-orange-500/10 border-orange-500/30' },
-    { tab: 'vouchers', icon: ReceiptText, titleAr: 'تحرير سند قبض/صرف', titleEn: 'Payment / Receipt Vouchers', detailAr: 'إدارة السندات المالية', detailEn: 'Manage financial vouchers', accent: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
-    { tab: 'invoicing', icon: FileText, titleAr: 'إصدار فاتورة ضريبية', titleEn: 'ZATCA Tax Invoices', detailAr: 'إصدار ومراجعة الفواتير', detailEn: 'Issue and review tax invoices', accent: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
-    { tab: 'executive-admin', icon: BookOpen, titleAr: 'دليل الحسابات والقيود', titleEn: 'Chart of Accounts / GL', detailAr: 'مراجعة الحسابات والاعتمادات', detailEn: 'Review accounts and approvals', accent: 'text-violet-400 bg-violet-500/10 border-violet-500/30' },
+    { tab: 'maintenance', icon: Wrench, titleAr: 'صيانة الأسطول والوقود', titleEn: 'Fleet & Fuel Ops', detailAr: 'أوامر الصيانة وتعبئة الوقود', detailEn: 'Work orders & fuel logs', accent: 'text-amber-400 bg-amber-500/10 border-amber-500/30' },
+    { tab: 'billing', icon: CreditCard, titleAr: 'الاشتراك والفوترة', titleEn: 'SaaS Plan & Billing', detailAr: 'الحصص وفواتير المنصة', detailEn: 'Plan quotas & invoices', accent: 'text-blue-400 bg-blue-500/10 border-blue-500/30' },
+    { tab: 'invoicing', icon: FileText, titleAr: 'إصدار فاتورة ضريبية', titleEn: 'ZATCA Tax Invoices', detailAr: 'إصدار ومراجعة الفواتير', detailEn: 'Issue and review tax invoices', accent: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' },
+    { tab: 'vouchers', icon: ReceiptText, titleAr: 'تحرير سند قبض/صرف', titleEn: 'Payment / Receipt Vouchers', detailAr: 'إدارة السندات المالية', detailEn: 'Manage financial vouchers', accent: 'text-violet-400 bg-violet-500/10 border-violet-500/30' },
+    { tab: 'executive-admin', icon: BookOpen, titleAr: 'دليل الحسابات والقيود', titleEn: 'Chart of Accounts / GL', detailAr: 'مراجعة الحسابات والاعتمادات', detailEn: 'Review accounts and approvals', accent: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/30' },
   ];
 
   const metricCards = [
@@ -122,6 +154,106 @@ export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> =
             );
           })}
         </section>
+
+        {/* Phase 5: Real-Time Fleet & Commercial Telemetry (Multi-Tenant Analytics) */}
+        {analytics && (
+          <section
+            className={`rounded-3xl border p-6 shadow-xl relative overflow-hidden ${
+              isDark ? 'border-slate-800 bg-[#141726]/90' : 'border-slate-200 bg-white'
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white">
+                    {isAr ? 'القياسات التشغيلية الحية والأسطول (Real-Time Telemetry)' : 'Live Fleet Telemetry & Commercial Analytics'}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {isAr ? 'مؤشرات الرحلات النشطة، معدل تشغيل الأسطول، واستهلاك الوقود اللحظي' : 'Real-time dispatched trips, fleet utilization rate, and fuel efficiency'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-blue-500/10 border border-blue-500/20 px-3 py-1 text-[11px] font-mono font-bold text-blue-500">
+                  {analytics.total_fleet_count} {isAr ? 'مركبة مسجلة' : 'Fleet Units'}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Active Dispatched Trips */}
+              <div className={`rounded-2xl border p-4 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400">{isAr ? 'الرحلات النشطة حالياً' : 'Active Dispatched Trips'}</span>
+                  <Radio className="h-4 w-4 text-emerald-500 animate-pulse" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="font-mono text-3xl font-black text-emerald-500">{analytics.active_trips}</span>
+                  <span className="text-xs text-slate-400">/ {analytics.total_trips} {isAr ? 'إجمالي' : 'total'}</span>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  {isAr ? 'تتبع لحظي عبر GPS وتطبيق السائقين' : 'Tracked via GPS & driver mobile app'}
+                </p>
+              </div>
+
+              {/* Fleet Utilization Rate */}
+              <div className={`rounded-2xl border p-4 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400">{isAr ? 'معدل تشغيل الأسطول' : 'Fleet Utilization Rate'}</span>
+                  <Gauge className="h-4 w-4 text-blue-500" />
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="font-mono text-3xl font-black text-blue-500">{analytics.fleet_utilization_rate}%</span>
+                  <span className="text-xs text-slate-400">({analytics.active_vehicles_count}/{analytics.total_fleet_count})</span>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all duration-500"
+                    style={{ width: `${Math.min(100, analytics.fleet_utilization_rate)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Real-Time Revenue & Receivables */}
+              <div className={`rounded-2xl border p-4 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400">{isAr ? 'المستحقات غير المحصلة' : 'Outstanding Receivables'}</span>
+                  <WalletCards className="h-4 w-4 text-amber-500" />
+                </div>
+                <div className="mt-2">
+                  <span className="font-mono text-2xl font-black text-amber-500">
+                    {Number(analytics.outstanding_receivables).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 ml-1">SAR</span>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  {analytics.total_invoices_count} {isAr ? 'فواتير ضريبية صادرة' : 'tax invoices issued'}
+                </p>
+              </div>
+
+              {/* Fuel Spend & Consumption */}
+              <div className={`rounded-2xl border p-4 ${isDark ? 'border-slate-800 bg-slate-900/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-400">{isAr ? 'مصروف الوقود' : 'Fuel Telemetry & Spend'}</span>
+                  <Fuel className="h-4 w-4 text-orange-500" />
+                </div>
+                <div className="mt-2">
+                  <span className="font-mono text-2xl font-black text-orange-500">
+                    {Number(analytics.total_fuel_spent_sar).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-xs font-bold text-slate-400 ml-1">SAR</span>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  {Number(analytics.total_fuel_consumed_liters).toFixed(1)} L @ {Number(analytics.avg_fuel_price_sar).toFixed(2)} SAR/L
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Quick Access Center */}
         <section

@@ -627,6 +627,7 @@ class FuelTransaction(TimestampMixin, Base):
     driver_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("res_partners.id", ondelete="SET NULL"), index=True)
     vendor_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("res_partners.id", ondelete="SET NULL"), index=True)
     cost_center_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("cost_centers.id", ondelete="SET NULL"), index=True)
+    trip_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("fleet_trips.id", ondelete="SET NULL"), index=True)
     transaction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     liters: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     fuel_type: Mapped[str] = mapped_column(String(32), nullable=False, default="diesel")
@@ -640,6 +641,7 @@ class FuelTransaction(TimestampMixin, Base):
     driver: Mapped[Optional[ResPartner]] = relationship(foreign_keys=[driver_id])
     vendor: Mapped[Optional[ResPartner]] = relationship(foreign_keys=[vendor_id])
     cost_center: Mapped[Optional[CostCenter]] = relationship()
+    trip: Mapped[Optional["FleetTrip"]] = relationship(back_populates="fuel_transactions")
 
     __table_args__ = (
         CheckConstraint("fuel_type IN ('diesel', 'gasoline_91', 'gasoline_95', 'cng', 'other')", name="ck_fuel_transaction_type"),
@@ -1452,9 +1454,13 @@ class MasterTenant(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
     subscription_tier: Mapped[str] = mapped_column(String(32), default="standard", nullable=False)
     max_users: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    max_storage_gb: Mapped[int] = mapped_column(Integer, default=25, nullable=False)
 
     database_config: Mapped["TenantDatabase"] = relationship(
         "TenantDatabase", back_populates="tenant", uselist=False, cascade="all, delete-orphan"
+    )
+    saas_invoices: Mapped[list["SaaSInvoice"]] = relationship(
+        "SaaSInvoice", back_populates="tenant", cascade="all, delete-orphan"
     )
 
     __table_args__ = (
@@ -1596,4 +1602,117 @@ class TenantUserInvitation(Base):
 
     __table_args__ = (
         CheckConstraint("role IN ('admin', 'user', 'guest_user')", name="ck_tenant_invite_role"),
+    )
+
+
+# ==============================================================================
+# Phase 5: Advanced Product Expansion Models
+# ==============================================================================
+
+class SaaSInvoice(TimestampMixin, Base):
+    """Level 1: Central SaaS subscription invoices for tenant billing."""
+    __tablename__ = "saas_invoices"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("master_tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    invoice_number: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    billing_cycle: Mapped[str] = mapped_column(String(32), nullable=False, default="monthly")
+    tier: Mapped[str] = mapped_column(String(32), nullable=False, default="standard")
+    amount_sar: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False, default=Decimal("0"))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="paid")
+    issued_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    due_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    pdf_url: Mapped[Optional[str]] = mapped_column(String(255))
+
+    tenant: Mapped["MasterTenant"] = relationship(back_populates="saas_invoices")
+
+    __table_args__ = (
+        CheckConstraint("status IN ('paid', 'pending', 'overdue', 'cancelled')", name="ck_saas_invoice_status"),
+        CheckConstraint("billing_cycle IN ('monthly', 'yearly', 'quarterly')", name="ck_saas_invoice_cycle"),
+    )
+
+
+class FleetTrip(TimestampMixin, Base):
+    """Level 2: Fleet dispatch and trip routing with real-time GPS tracking."""
+    __tablename__ = "fleet_trips"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("res_companies.id"), nullable=False, index=True)
+    trip_number: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    vehicle_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("vehicles.id", ondelete="SET NULL"), index=True)
+    driver_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("res_partners.id", ondelete="SET NULL"), index=True)
+    origin_location: Mapped[str] = mapped_column(String(255), nullable=False)
+    destination_location: Mapped[str] = mapped_column(String(255), nullable=False)
+    cargo_description: Mapped[Optional[str]] = mapped_column(String(255))
+    planned_weight_tons: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False, default=Decimal("0"))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="assigned")
+    scheduled_departure: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    actual_departure: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    actual_delivery: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    current_latitude: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 6))
+    current_longitude: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 6))
+    speed_kmh: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2))
+    last_gps_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+
+    company: Mapped[ResCompany] = relationship()
+    vehicle: Mapped[Optional[Vehicle]] = relationship()
+    driver: Mapped[Optional[ResPartner]] = relationship()
+    delivery_proof: Mapped[Optional["DeliveryProof"]] = relationship(back_populates="trip", uselist=False, cascade="all, delete-orphan")
+    fuel_transactions: Mapped[list[FuelTransaction]] = relationship(back_populates="trip")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('assigned', 'in_transit', 'en_route_pickup', 'at_pickup', 'loaded', 'en_route_delivery', 'at_delivery', 'delivered', 'cancelled')",
+            name="ck_fleet_trip_status",
+        ),
+        Index("uq_fleet_trips_company_number", "company_id", "trip_number", unique=True),
+        Index("ix_fleet_trips_status", "company_id", "status"),
+    )
+
+
+class DeliveryProof(TimestampMixin, Base):
+    """Level 2: Proof of Delivery (POD) with signature, photo hashes, and GPS coordinates."""
+    __tablename__ = "delivery_proofs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("res_companies.id"), nullable=False, index=True)
+    trip_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("fleet_trips.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    recipient_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    recipient_phone: Mapped[Optional[str]] = mapped_column(String(32))
+    latitude: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
+    longitude: Mapped[Decimal] = mapped_column(Numeric(10, 6), nullable=False)
+    altitude: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2))
+    accuracy_meters: Mapped[Optional[Decimal]] = mapped_column(Numeric(8, 2))
+    digital_signature_data: Mapped[Optional[str]] = mapped_column(Text)
+    encrypted_photo_urls: Mapped[Optional[str]] = mapped_column(Text)
+    delivery_notes: Mapped[Optional[str]] = mapped_column(Text)
+    delivered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    company: Mapped[ResCompany] = relationship()
+    trip: Mapped[FleetTrip] = relationship(back_populates="delivery_proof")
+
+
+class TripInspectionLog(TimestampMixin, Base):
+    """Level 2: Vehicle pre-trip and post-trip inspection checklists from mobile app."""
+    __tablename__ = "trip_inspection_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("res_companies.id"), nullable=False, index=True)
+    trip_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("fleet_trips.id", ondelete="SET NULL"), index=True)
+    vehicle_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False, index=True)
+    driver_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("res_partners.id", ondelete="SET NULL"), index=True)
+    inspection_type: Mapped[str] = mapped_column(String(32), nullable=False, default="pre_trip")
+    odometer_reading: Mapped[Optional[Decimal]] = mapped_column(Numeric(12, 2))
+    is_safe_to_operate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text)
+    inspected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    company: Mapped[ResCompany] = relationship()
+    vehicle: Mapped[Vehicle] = relationship()
+    trip: Mapped[Optional[FleetTrip]] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("inspection_type IN ('pre_trip', 'post_trip', 'safety_audit')", name="ck_trip_inspection_type"),
     )

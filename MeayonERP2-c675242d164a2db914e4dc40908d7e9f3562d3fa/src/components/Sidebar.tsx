@@ -13,12 +13,16 @@ import {
   Receipt,
   Cpu,
   Palette,
+  Wrench,
+  CreditCard,
 } from 'lucide-react';
 
 export type ActiveTab =
   | 'hub'
   | 'dashboard'
   | 'operations'
+  | 'maintenance'
+  | 'billing'
   | 'invoicing'
   | 'vouchers'
   | 'crushers'
@@ -63,6 +67,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: isDriverMode ? (isAr ? 'نشط' : 'Active') : null,
     },
     {
+      id: 'maintenance' as ActiveTab,
+      labelAr: 'صيانة الأسطول ومصروفات الوقود',
+      labelEn: 'Fleet Maintenance & Fuel',
+      icon: Wrench,
+      roles: ['Admin', 'COO', 'Accountant', 'Data_Entry'],
+      badge: isAr ? 'أوامر ووقود' : 'Fleet Ops',
+    },
+    {
       id: 'invoicing' as ActiveTab,
       labelAr: 'الفواتير الضريبية للعملاء',
       labelEn: 'Customer Invoicing',
@@ -77,6 +89,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Receipt,
       roles: ['Admin', 'COO', 'Accountant'],
       badge: isAr ? 'سندات' : 'Vouchers',
+    },
+    {
+      id: 'billing' as ActiveTab,
+      labelAr: 'اشتراك المنصة والفوترة',
+      labelEn: 'SaaS Subscription & Billing',
+      icon: CreditCard,
+      roles: ['Admin', 'COO'],
+      badge: 'SaaS',
     },
     {
       id: 'crushers' as ActiveTab,

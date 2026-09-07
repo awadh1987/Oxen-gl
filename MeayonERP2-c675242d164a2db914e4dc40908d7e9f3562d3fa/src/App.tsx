@@ -5,7 +5,7 @@ import { ActiveTab } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AIAssistantWidget } from './components/AIAssistantWidget';
 import type { ExportDocType } from './components/ExportPrintModal';
-import { Building2, Cpu, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, X } from 'lucide-react';
+import { Building2, Cpu, CreditCard, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X } from 'lucide-react';
 import { UserRole } from './types';
 
 // Code-split dynamic view imports
@@ -24,6 +24,8 @@ const SuperAdminCockpitView = React.lazy(() => import('./views/SuperAdminCockpit
 const PublicSharedInvoiceView = React.lazy(() => import('./views/PublicSharedInvoiceView').then(m => ({ default: m.PublicSharedInvoiceView })));
 const WorkflowAutomationView = React.lazy(() => import('./views/WorkflowAutomationView').then(m => ({ default: m.WorkflowAutomationView })));
 const DesignSystemStudioView = React.lazy(() => import('./views/DesignSystemStudioView').then(m => ({ default: m.DesignSystemStudioView })));
+const TenantBillingView = React.lazy(() => import('./views/TenantBillingView').then(m => ({ default: m.TenantBillingView })));
+const FleetMaintenanceView = React.lazy(() => import('./views/FleetMaintenanceView').then(m => ({ default: m.FleetMaintenanceView })));
 const ExportPrintModal = React.lazy(() => import('./components/ExportPrintModal').then(m => ({ default: m.ExportPrintModal })));
 
 const ViewLoadingFallback = () => (
@@ -61,12 +63,14 @@ function AppContent() {
     { id: 'hub', label: 'Home Hub', icon: Building2, group: 'Operations & Logistics' },
     { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard, group: 'Operations & Logistics' },
     { id: 'operations', label: 'Daily Operations Logs', icon: Truck, group: 'Operations & Logistics' },
+    { id: 'maintenance', label: 'Fleet Maintenance & Fuel', icon: Wrench, group: 'Operations & Logistics' },
     { id: 'transporters', label: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
     { id: 'crushers', label: 'Crusher Statements', icon: Building2, group: 'Operations & Logistics' },
     { id: 'master-data', label: 'Master Data & Pricing', icon: Users, group: 'Operations & Logistics' },
     { id: 'workflow-builder', label: 'Workflow Automation', icon: Cpu, group: 'Operations & Logistics' },
     { id: 'invoicing', label: 'Customer Tax Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
     { id: 'vouchers', label: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
+    { id: 'billing', label: 'SaaS Plan & Billing', icon: CreditCard, group: 'Finance, Accounting & Control' },
     { id: 'executive-admin', label: 'Executive Approvals & Audit', icon: Landmark, group: 'Finance, Accounting & Control' },
     { id: 'ai-insights', label: 'AI Operations Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
     { id: 'design-studio', label: 'Design System & AI Studio', icon: Palette, group: 'Finance, Accounting & Control' },
@@ -183,8 +187,10 @@ function AppContent() {
     hub: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     dashboard: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     operations: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+    maintenance: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     invoicing: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Guest'],
     vouchers: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
+    billing: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     crushers: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     transporters: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
     'ai-insights': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
@@ -202,10 +208,14 @@ function AppContent() {
         return <DashboardView onNavigateToTab={(tab) => setActiveTab(tab)} />;
       case 'operations':
         return <OperationsLogView />;
+      case 'maintenance':
+        return <FleetMaintenanceView />;
       case 'invoicing':
         return <CustomerInvoicingView />;
       case 'vouchers':
         return <FinancialVouchersView />;
+      case 'billing':
+        return <TenantBillingView />;
       case 'crushers':
         return <CrusherLedgerView />;
       case 'transporters':
