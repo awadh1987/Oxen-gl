@@ -1,11 +1,18 @@
 """Database configuration for the OxenGL ERP backend."""
 
+import base64
+import hashlib
 import os
+import threading
+import uuid
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Generator, Optional
 
+from cryptography.fernet import Fernet
 from dotenv import load_dotenv
-from sqlalchemy import URL, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy import URL, Engine, create_engine, select, text
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
@@ -48,6 +55,28 @@ def get_db():
         db.close()
 
 
+@contextmanager
+def tenant_rls_scope(db, tenant_id: str, is_master: bool = False):
+    """Connection Pool Scoping Safeguard:
+    Safely scopes RLS database operations using transaction-local blocks
+    (SET LOCAL app.current_tenant_id) and immediately clears the session
+    variable post-query / on exit (RESET app.current_tenant_id) to prevent
+    context leaks across pooled database connections.
+    """
+    try:
+        if tenant_id:
+            db.execute(text("SET LOCAL app.current_tenant_id = :tid"), {"tid": str(tenant_id)})
+        if is_master:
+            db.execute(text("SET LOCAL app.is_master_admin = 'true'"))
+        yield db
+    finally:
+        try:
+            db.execute(text("RESET app.current_tenant_id;"))
+            db.execute(text("RESET app.is_master_admin;"))
+        except Exception:
+            pass
+
+
 class Base(DeclarativeBase):
     """Base class shared by all persisted ERP entities."""
 
@@ -56,16 +85,6 @@ class Base(DeclarativeBase):
 # Phase 8: Enterprise Data Residency (ADR-005) - Connection Routing & Encryption
 # ==============================================================================
 
-import base64
-import hashlib
-import threading
-import uuid
-from contextlib import contextmanager
-from typing import Generator, Optional
-from cryptography.fernet import Fernet
-from sqlalchemy import Engine
-from sqlalchemy.orm import Session
-
 
 def _get_encryption_fernet(secret_key: str | None = None) -> Fernet:
     """Derives a deterministic 32-byte URL-safe base64 key for Fernet symmetric encryption."""
@@ -73,6 +92,7 @@ def _get_encryption_fernet(secret_key: str | None = None) -> Fernet:
         secret_key
         or os.getenv("DATA_RESIDENCY_KEY")
         or os.getenv("JWT_SECRET_KEY")
+
         or "oxengl-data-residency-secret-key-32b-default"
     )
     derived_32 = hashlib.sha256(raw_key.encode("utf-8")).digest()
@@ -173,7 +193,6 @@ class TenantConnectionManager:
 
     def _resolve_dedicated_url(self, company_id: uuid.UUID, db: Session | None = None) -> str | None:
         """Queries the metadata catalog for active dedicated tenant database configs."""
-        from sqlalchemy import select
         # Import lazily to avoid circular imports during startup
         from backend import models
 
