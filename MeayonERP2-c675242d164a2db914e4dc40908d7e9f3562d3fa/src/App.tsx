@@ -38,10 +38,19 @@ const ViewLoadingFallback = () => (
 );
 
 function AppContent() {
-  const { language, currentUser, brandConfig, isDriverMode, themeMode } = useApp();
+  const { language, currentUser, brandConfig, isDriverMode, themeMode, authTier, logoutUser, isTwoTierAuthenticated } = useApp();
   const isAr = language === 'ar';
 
-  const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('oxengl_session_active') === 'true');
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return Boolean(localStorage.getItem('oxengl_session_active') === 'true' || localStorage.getItem('oxengl_auth_jwt'));
+  });
+
+  useEffect(() => {
+    if (isTwoTierAuthenticated) {
+      setIsLoggedIn(true);
+    }
+  }, [isTwoTierAuthenticated]);
+
   const [inspectingWorkspace, setInspectingWorkspace] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('hub');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -141,14 +150,30 @@ function AppContent() {
     );
   }
 
-  if (currentUser.role === 'Super_Admin' && !inspectingWorkspace) {
+  const leaveWorkspace = () => {
+    logoutUser();
+    setIsLoggedIn(false);
+    setInspectingWorkspace(false);
+  };
+
+  if ((authTier === 'master' || currentUser.role === 'Super_Admin') && !inspectingWorkspace) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <SuperAdminCockpitView
-          onOpenTenantOnboarding={() => setIsLoggedIn(false)}
-          onLogout={() => setIsLoggedIn(false)}
-          onInspectTenantWorkspace={() => { setInspectingWorkspace(true); setActiveTab('hub'); }}
-        />
+        <ProtectedRoute
+          tier="master"
+          isLoggedIn={isLoggedIn}
+          onRequireLogin={leaveWorkspace}
+          onNavigateHome={() => setIsLoggedIn(false)}
+        >
+          <SuperAdminCockpitView
+            onOpenTenantOnboarding={() => {
+              logoutUser();
+              setIsLoggedIn(false);
+            }}
+            onLogout={leaveWorkspace}
+            onInspectTenantWorkspace={() => { setInspectingWorkspace(true); setActiveTab('hub'); }}
+          />
+        </ProtectedRoute>
       </Suspense>
     );
   }
@@ -167,11 +192,6 @@ function AppContent() {
     'master-data': ['Super_Admin', 'Admin', 'COO'],
     'workflow-builder': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'design-studio': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-  };
-
-  const leaveWorkspace = () => {
-    if (currentUser.role === 'Super_Admin') setInspectingWorkspace(false);
-    else setIsLoggedIn(false);
   };
 
   const renderActiveViewContent = () => {
@@ -231,6 +251,7 @@ function AppContent() {
           </div>
           <div className="mx-auto w-full max-w-[1600px]">
             <ProtectedRoute
+              tier="tenant"
               allowedRoles={viewRoleRequirements[activeTab]}
               isLoggedIn={isLoggedIn}
               onRequireLogin={leaveWorkspace}

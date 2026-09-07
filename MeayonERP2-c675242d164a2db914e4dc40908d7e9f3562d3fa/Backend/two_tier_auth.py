@@ -397,6 +397,7 @@ router = APIRouter(prefix="/api/auth", tags=["Two-Tier Authentication"])
 
 
 @router.post("/master/login", response_model=AuthTokenResponse)
+@router.post("/master-login", response_model=AuthTokenResponse)
 def master_login(payload: MasterLoginRequest, request: Request, db: Session = Depends(get_db)):
     """Authenticates Master Control Plane staff against the Control Plane Database."""
     normalized_val, id_type = normalize_identifier(payload.identity)
@@ -453,6 +454,7 @@ def master_login(payload: MasterLoginRequest, request: Request, db: Session = De
 
 
 @router.post("/tenant/login", response_model=AuthTokenResponse)
+@router.post("/tenant-login", response_model=AuthTokenResponse)
 def tenant_login(payload: TenantLoginRequest, request: Request, master_db: Session = Depends(get_db)):
     """Resolves Tenant Plane database via slug and authenticates tenant user."""
     slug = (payload.workspace_slug or payload.tenant_slug or "").lower().strip()

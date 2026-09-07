@@ -106,6 +106,61 @@ export interface NativeAuthResponse {
   };
 }
 
+export interface MasterLoginPayload {
+  identity: string;
+  password: string;
+}
+
+export interface TenantLoginPayload {
+  tenant_slug: string;
+  identity: string;
+  password: string;
+}
+
+export interface TwoTierTenantRegistrationPayload {
+  company_name: string;
+  tenant_slug?: string;
+  owner_full_name: string;
+  email: string;
+  mobile_number: string;
+  password: string;
+  commercial_registration?: string;
+  tax_id?: string;
+}
+
+export interface PasswordRecoveryPayload {
+  identity: string;
+  plane: 'master' | 'tenant';
+  workspace_slug?: string;
+}
+
+export interface PasswordResetPayload {
+  identity?: string;
+  plane: 'master' | 'tenant';
+  workspace_slug?: string;
+  reset_token?: string;
+  reset_code?: string;
+  otp_code: string;
+  new_password: string;
+}
+
+export interface TwoTierAuthResponse {
+  access_token: string;
+  token_type: string;
+  tier: 'master' | 'tenant';
+  role?: string;
+  tenant_id?: string;
+  tenant_slug?: string;
+  user: {
+    id: string;
+    email: string;
+    mobile?: string;
+    fullName: string;
+    role: string;
+  };
+}
+
+
 export interface UserRegistrationPayload {
   company_id: string;
   full_name: string;
@@ -237,14 +292,66 @@ export type PartnerPayload = Omit<Partner, 'id'>;
 interface Location { id: string; name: string; location_type: string; }
 interface Product { id: string; sku: string; name: string; }
 
+export const OXENGL_AUTH_TOKEN_KEY = 'oxengl_auth_jwt';
+export const OXENGL_AUTH_TIER_KEY = 'oxengl_auth_tier';
+export const OXENGL_TENANT_SLUG_KEY = 'oxengl_tenant_slug';
+
+export function getAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(OXENGL_AUTH_TOKEN_KEY);
+}
+
+export function getAuthTier(): 'master' | 'tenant' | null {
+  if (typeof window === 'undefined') return null;
+  return (localStorage.getItem(OXENGL_AUTH_TIER_KEY) as 'master' | 'tenant') || null;
+}
+
+export function getTenantSlug(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(OXENGL_TENANT_SLUG_KEY);
+}
+
+export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantSlug?: string | null): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(OXENGL_AUTH_TOKEN_KEY, token);
+  localStorage.setItem(OXENGL_AUTH_TIER_KEY, tier);
+  if (tenantSlug) {
+    localStorage.setItem(OXENGL_TENANT_SLUG_KEY, tenantSlug);
+  } else {
+    localStorage.removeItem(OXENGL_TENANT_SLUG_KEY);
+  }
+  localStorage.setItem('oxengl_session_active', 'true');
+}
+
+export function clearAuthSession(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(OXENGL_AUTH_TOKEN_KEY);
+  localStorage.removeItem(OXENGL_AUTH_TIER_KEY);
+  localStorage.removeItem(OXENGL_TENANT_SLUG_KEY);
+  localStorage.removeItem('oxengl_session_active');
+  localStorage.removeItem('meayon_user');
+}
+
 const apiBaseUrl = typeof window === 'undefined' ? '' : window.location.origin;
 
 async function request<T>(path: string, companyId?: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const activeTenantSlug = getTenantSlug();
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(activeTenantSlug ? { 'X-Tenant-Slug': activeTenantSlug } : {}),
+    ...(companyId ? { 'X-Company-ID': companyId } : {}),
+    ...((options?.headers as Record<string, string>) || {}),
+  };
+
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(companyId ? { 'X-Company-ID': companyId } : {}), ...options?.headers },
-    credentials: 'include',
     ...options,
+    headers,
+    credentials: 'include',
   });
+
   if (!response.ok) {
     let errorDetail = '';
     try {
@@ -257,8 +364,24 @@ async function request<T>(path: string, companyId?: string, options?: RequestIni
         errorDetail = errJson.message;
       }
     } catch {}
+
+    // Global 401/403 Interceptor
+    if (response.status === 401 || response.status === 403) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('oxengl-auth-error', {
+            detail: { status: response.status, message: errorDetail || `Authentication error (${response.status})` },
+          })
+        );
+        if (response.status === 401) {
+          clearAuthSession();
+        }
+      }
+    }
+
     throw new Error(errorDetail || `API request failed: ${response.status}`);
   }
+
   if (response.status === 204) {
     return undefined as T;
   }
@@ -271,11 +394,30 @@ async function findOrCreate<T extends { id: string }>(path: string, companyId: s
 }
 
 export const erpApi = {
+  // Two-Tier Identity & Auth Endpoints
+  masterLogin: (payload: MasterLoginPayload) =>
+    request<TwoTierAuthResponse>('/api/auth/master/login', undefined, { method: 'POST', body: JSON.stringify(payload) }),
+  tenantLogin: (payload: TenantLoginPayload) =>
+    request<TwoTierAuthResponse>('/api/auth/tenant/login', undefined, { method: 'POST', body: JSON.stringify(payload) }),
+  registerTenant: (payload: TwoTierTenantRegistrationPayload) =>
+    request<{ message: string; tenant_id: string; tenant_slug: string; tenant: any; admin_user_id: string }>('/api/auth/register-tenant', undefined, { method: 'POST', body: JSON.stringify(payload) }),
+  recoverPassword: (payload: PasswordRecoveryPayload) =>
+    request<{ message: string; delivery_channel?: string; reset_token?: string }>('/api/auth/recover-password', undefined, { method: 'POST', body: JSON.stringify(payload) }),
+  resetPassword: (payload: PasswordResetPayload) =>
+    request<{ message: string }>('/api/auth/reset-password', undefined, { method: 'POST', body: JSON.stringify(payload) }),
+  getMasterMe: () =>
+    request<any>('/api/auth/master/me'),
+  getTenantMe: () =>
+    request<any>('/api/auth/tenant/me'),
+
   getCompanies: () => request<ApiCompany[]>('/api/companies'),
   getCompany: (companyId: string) => request<ApiCompany>(`/api/companies/${companyId}`, companyId),
   updateCompany: (companyId: string, payload: CompanyUpdatePayload) => request<ApiCompany>(`/api/companies/${companyId}`, companyId, { method: 'PATCH', body: JSON.stringify(payload) }),
   login: (payload: NativeLoginPayload) => request<NativeAuthResponse>('/api/auth/verify', undefined, { method: 'POST', body: JSON.stringify(payload) }),
-  logout: () => request<{ message: string }>('/api/auth/logout', undefined, { method: 'POST' }),
+  logout: () => {
+    clearAuthSession();
+    return request<{ message: string }>('/api/auth/logout', undefined, { method: 'POST' });
+  },
   registerUser: (payload: UserRegistrationPayload) => request<NativeAuthResponse>('/api/user-registrations', payload.company_id, { method: 'POST', body: JSON.stringify(payload) }),
   registerCompany: (payload: CompanyRegistrationPayload) => request<{ company: ApiCompany; user: { id: string; company_id: string; role: string } }>('/api/companies/register', undefined, { method: 'POST', body: JSON.stringify(payload) }),
   updateCompanyBranding: (companyId: string, payload: CompanyBrandingPayload) => request<ApiCompany>(`/api/companies/${companyId}/branding`, companyId, { method: 'PUT', body: JSON.stringify(payload) }),
