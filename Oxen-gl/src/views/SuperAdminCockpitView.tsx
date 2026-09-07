@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   Activity, ArrowRight, Building2, ChevronDown, CreditCard, Crown, ExternalLink, Globe2,
-  KeyRound, LayoutDashboard, LogOut, Menu, Radio, Search, Settings, ShieldCheck, X,
+  KeyRound, LayoutDashboard, LogOut, Menu, Radio, Search, Settings, ShieldCheck, X, Server
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Company } from '../types';
 import { LicenseProvisionerView, PanoramicCockpit, PlatformSettingsView, PricingPlansView, SystemAuditView, TenantsRegistryView } from '../components/platform/PlatformModules';
+import { MasterControlPanel } from '../components/platform/MasterControlPanel';
 
-type PlatformTab = 'cockpit' | 'tenants' | 'licenses' | 'pricing' | 'health' | 'settings';
+type PlatformTab = 'cockpit' | 'tenants' | 'licenses' | 'pricing' | 'health' | 'settings' | 'master-devops';
 
 interface SuperAdminCockpitViewProps {
   onOpenTenantOnboarding: () => void;
@@ -17,6 +18,7 @@ interface SuperAdminCockpitViewProps {
 
 const navigation: { id: PlatformTab; label: string; description: string; badge?: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'cockpit', label: 'Global Mission Cockpit', description: 'Panoramic MRR, volume & telemetry', badge: 'LIVE', icon: LayoutDashboard },
+  { id: 'master-devops', label: 'DevOps & RLS HUD', description: 'Domain routing, RLS isolation & Cmd+K', badge: 'LIVE', icon: Server },
   { id: 'tenants', label: 'Tenants Registry', description: 'Client accounts & tenant entities', icon: Building2 },
   { id: 'licenses', label: 'License Provisioner', description: 'JWT license key issuer', badge: 'JWT', icon: KeyRound },
   { id: 'pricing', label: 'Pricing & Subscription Plans', description: 'Tiers, quotas & features', icon: CreditCard },
@@ -42,6 +44,7 @@ export const SuperAdminCockpitView: React.FC<SuperAdminCockpitViewProps> = ({ on
 
   const renderModule = () => {
     switch (activeTab) {
+      case 'master-devops': return <div className="h-full overflow-y-auto"><MasterControlPanel /></div>;
       case 'tenants': return <TenantsRegistryView onInspect={inspect} />;
       case 'licenses': return <LicenseProvisionerView />;
       case 'pricing': return <PricingPlansView />;

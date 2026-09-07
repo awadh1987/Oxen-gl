@@ -144,3 +144,8 @@ vite.config.ts.timestamp-*
 my_oxen-gl_backup.zip
 my_oxen-gl_backup.zip
 oxen-gl-backup.zip
+
+MeayonERP2-*
+
+Oxen-gl/node_modules
+Oxen-gl/.venv
