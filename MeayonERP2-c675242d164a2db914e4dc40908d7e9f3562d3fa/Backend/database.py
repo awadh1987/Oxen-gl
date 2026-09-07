@@ -39,6 +39,15 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
+def get_db():
+    """Generator yielding a transactional database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 class Base(DeclarativeBase):
     """Base class shared by all persisted ERP entities."""
 
