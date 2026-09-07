@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { ExtendedRequest, customDomainRegistry, registeredTenants } from '../middleware/tenantResolver';
+import { ExtendedRequest, customDomainRegistry, registeredTenants, tenantCache } from '../middleware/tenantResolver';
 
 interface TeamMember {
   id: string;
@@ -231,6 +231,7 @@ export const tenantControlController = {
     };
 
     domainStore.push(newRecord);
+    tenantCache.invalidate(cleanDomain);
 
     return res.status(201).json({
       success: true,
@@ -272,6 +273,13 @@ export const tenantControlController = {
     // Register into active routing map
     const tenantSlug = req.tenant?.slug || 'horizon-logistics';
     customDomainRegistry[domain.domain_name] = tenantSlug;
+    if (registeredTenants[tenantSlug]) {
+      registeredTenants[tenantSlug].customDomain = domain.domain_name;
+    }
+
+    // Safeguard 1: Invalidate routing cache immediately to eliminate stale lookups
+    tenantCache.invalidate(domain.domain_name);
+    tenantCache.invalidateTenant(tenantSlug, [domain.domain_name]);
 
     return res.json({
       success: true,

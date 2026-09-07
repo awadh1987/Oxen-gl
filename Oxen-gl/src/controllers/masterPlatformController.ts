@@ -76,7 +76,7 @@ export const masterPlatformController = {
     };
 
     registeredTenants[cleanSlug] = newTenant;
-    tenantCache.invalidate(cleanSlug);
+    tenantCache.invalidateTenant(cleanSlug);
 
     return res.status(201).json({
       success: true,
@@ -107,8 +107,9 @@ export const masterPlatformController = {
     }
 
     // Safety-approved deletion
+    const customDomain = tenant.customDomain;
     delete registeredTenants[tenant.slug];
-    tenantCache.invalidate(tenant.slug);
+    tenantCache.invalidateTenant(tenant.slug, [customDomain]);
 
     return res.json({
       success: true,
@@ -212,15 +213,17 @@ export const masterPlatformController = {
   },
 
   toggleFeatureFlag(req: Request, res: Response) {
-    const { flag_key, is_enabled } = req.body;
+    const { flag_key, is_enabled, enabled } = req.body;
     if (!flag_key || !globalFeatureFlags[flag_key]) {
       return res.status(404).json({ error: `Feature flag '${flag_key}' does not exist` });
     }
-    globalFeatureFlags[flag_key].enabled = Boolean(is_enabled);
+    const targetState = is_enabled !== undefined ? Boolean(is_enabled) : Boolean(enabled);
+    globalFeatureFlags[flag_key].enabled = targetState;
     return res.json({
       success: true,
       flag_key,
-      is_enabled: globalFeatureFlags[flag_key].enabled,
+      is_enabled: targetState,
+      enabled: targetState,
     });
   },
 };

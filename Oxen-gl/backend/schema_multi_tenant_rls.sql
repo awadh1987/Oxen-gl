@@ -134,6 +134,12 @@ ALTER TABLE tenant_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_feature_flags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_domains ENABLE ROW LEVEL SECURITY;
 
+-- Safeguard 2: Force RLS even for table owners / pooled superuser sessions
+ALTER TABLE tenant_users FORCE ROW LEVEL SECURITY;
+ALTER TABLE tenant_settings FORCE ROW LEVEL SECURITY;
+ALTER TABLE tenant_feature_flags FORCE ROW LEVEL SECURITY;
+ALTER TABLE tenant_domains FORCE ROW LEVEL SECURITY;
+
 -- Drop existing policies if any
 DROP POLICY IF EXISTS rls_tenant_users_isolation ON tenant_users;
 DROP POLICY IF EXISTS rls_tenant_settings_isolation ON tenant_settings;
@@ -189,11 +195,36 @@ CREATE POLICY rls_tenant_domains_isolation ON tenant_domains
     );
 
 -- ==============================================================================
--- 8. Seed Default Master Tenants & Custom Domains
+-- 8. Connection Pool Scoping Helper Functions (Safeguard 2)
+-- ==============================================================================
+CREATE OR REPLACE FUNCTION set_tenant_context(p_tenant_id UUID, p_is_master BOOLEAN DEFAULT FALSE)
+RETURNS VOID AS $$
+BEGIN
+    -- Using is_local = true ensures settings are transaction-local and automatically reset on commit/rollback
+    PERFORM set_config('app.current_tenant_id', p_tenant_id::text, true);
+    IF p_is_master THEN
+        PERFORM set_config('app.is_master_admin', 'true', true);
+    ELSE
+        PERFORM set_config('app.is_master_admin', 'false', true);
+    END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION clear_tenant_context()
+RETURNS VOID AS $$
+BEGIN
+    -- Clear current tenant context immediately post-query to prevent context leaks across pooled connections
+    PERFORM set_config('app.current_tenant_id', '', true);
+    PERFORM set_config('app.is_master_admin', 'false', true);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ==============================================================================
+-- 9. Seed Default Master Tenants & Custom Domains
 -- ==============================================================================
 INSERT INTO master_tenants (id, slug, name, commercial_registration, vat_number, plan_tier, max_users, max_storage_gb, primary_color, secondary_color, theme_mode, rls_schema)
 VALUES
-    ('44f9ed53-be0a-454e-acbf-c87e54ff9438', 'horizon-logistics', 'شركة هورايزون للخدمات اللوجستية (Horizon Logistics)', '1010776543', '300099999900003', 'enterprise', 999999, 1000.00, '#F05627', '#1E3A8A', 'CUSTOM', 'tenant_horizon_logistics'),
+    ('6ab52593-ab47-4eee-8779-0cdfbb2762da', 'horizon-logistics', 'شركة هورايزون للخدمات اللوجستية (Horizon Logistics)', '1010776543', '300099999900003', 'enterprise', 999999, 1000.00, '#F05627', '#1E3A8A', 'CUSTOM', 'tenant_horizon_logistics'),
     ('317f6c7c-7842-4db1-a464-ea9d5f924e22', 'meayon-transport', 'شركة ميون للنقل والخدمات اللوجستية', '1010824619', '310892019400003', 'growth', 50, 100.00, '#F59E0B', '#10B981', 'LIGHT', 'tenant_meayon_transport'),
     ('8a3e9c12-5b6d-4f7e-9123-0c4b6e8f1a23', 'riyadh-aggregates', 'مؤسسة الرياض لتجارة ونقل البحص والرمل', '1010654321', '300088888800003', 'standard', 15, 25.00, '#8B5CF6', '#06B6D4', 'DARK', 'tenant_riyadh_aggregates')
 ON CONFLICT (slug) DO UPDATE SET
@@ -204,7 +235,8 @@ ON CONFLICT (slug) DO UPDATE SET
 -- Seed Domains
 INSERT INTO tenant_domains (tenant_id, domain_name, verification_token, is_verified, ssl_status)
 VALUES
-    ('44f9ed53-be0a-454e-acbf-c87e54ff9438', 'transport.horizon.sa', 'oxengl_verify_7f9c21b', TRUE, 'active'),
+    ('6ab52593-ab47-4eee-8779-0cdfbb2762da', 'transport.horizon.sa', 'oxengl_verify_7f9c21b', TRUE, 'active'),
     ('317f6c7c-7842-4db1-a464-ea9d5f924e22', 'fleet.meayon.com', 'oxengl_verify_3b2a88e', TRUE, 'active'),
     ('8a3e9c12-5b6d-4f7e-9123-0c4b6e8f1a23', 'portal.riyadh-aggregates.sa', 'oxengl_verify_1e4d99c', FALSE, 'validating_dns')
 ON CONFLICT (domain_name) DO NOTHING;
+
