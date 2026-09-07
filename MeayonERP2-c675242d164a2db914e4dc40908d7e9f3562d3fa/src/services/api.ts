@@ -463,6 +463,34 @@ export const erpApi = {
   createPartner: (companyId: string, payload: PartnerPayload) => request<Partner>('/api/partners', companyId, { method: 'POST', body: JSON.stringify(payload) }),
   updatePartner: (companyId: string, partnerId: string, payload: Partial<PartnerPayload>) => request<Partner>(`/api/partners/${partnerId}`, companyId, { method: 'PATCH', body: JSON.stringify(payload) }),
   archivePartner: (companyId: string, partnerId: string) => request<void>(`/api/partners/${partnerId}`, companyId, { method: 'DELETE' }),
+  
+  // Phase 5: SaaS Subscription & Billing
+  getSubscriptionPlans: () => request<any[]>('/api/master/subscriptions/plans'),
+  updateTenantSubscription: (tenantId: string, payload: { tier: string; max_users?: number; max_storage_gb?: number }) =>
+    request<any>(`/api/master/tenants/${tenantId}/subscription`, undefined, { method: 'PUT', body: JSON.stringify(payload) }),
+  getTenantBillingSummary: () => request<any>('/api/tenant/billing/summary'),
+  getTenantSaaSInvoices: () => request<any[]>('/api/tenant/billing/invoices'),
+  
+  // Phase 5: Mobile Fleet Operations & Driver Proof of Delivery
+  getMobileTrips: (companyId: string) => request<any[]>('/api/mobile/trips', companyId),
+  createMobileTrip: (companyId: string, payload: any) => request<any>('/api/mobile/trips', companyId, { method: 'POST', body: JSON.stringify(payload) }),
+  getMobileTrip: (tripId: string, companyId?: string) => request<any>(`/api/mobile/trips/${tripId}`, companyId),
+  updateTripStatus: (tripId: string, payload: any, companyId?: string) => request<any>(`/api/mobile/trips/${tripId}/status`, companyId, { method: 'PUT', body: JSON.stringify(payload) }),
+  submitDeliveryProof: (payload: any, companyId?: string) => request<any>('/api/mobile/delivery-proof', companyId, { method: 'POST', body: JSON.stringify(payload) }),
+  submitInspectionLog: (payload: any, companyId?: string) => request<any>('/api/mobile/inspection-logs', companyId, { method: 'POST', body: JSON.stringify(payload) }),
+  getInspectionLogs: (companyId?: string) => request<any[]>('/api/mobile/inspection-logs', companyId),
+  
+  // Phase 5: Fleet Maintenance & Fuel Management
+  getVehicles: (companyId: string) => request<any[]>('/api/fleet/vehicles', companyId),
+  createVehicle: (companyId: string, payload: any) => request<any>('/api/fleet/vehicles', companyId, { method: 'POST', body: JSON.stringify(payload) }),
+  getMaintenanceOrders: (companyId: string) => request<any[]>('/api/fleet/maintenance-orders', companyId),
+  createMaintenanceOrder: (companyId: string, payload: any) => request<any>('/api/fleet/maintenance-orders', companyId, { method: 'POST', body: JSON.stringify(payload) }),
+  getFuelTransactions: (companyId: string) => request<any[]>('/api/fleet/fuel-transactions', companyId),
+  createFuelTransaction: (companyId: string, payload: any) => request<any>('/api/fleet/fuel-transactions', companyId, { method: 'POST', body: JSON.stringify(payload) }),
+  
+  // Phase 5: Multi-Tenant Real-Time Analytics
+  getTenantAnalyticsSummary: (companyId: string) => request<any>('/api/analytics/tenant-summary', companyId),
+
   async createWeighbridgeOperation(input: {
     companyId: string;
     transporterName: string;

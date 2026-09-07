@@ -53,7 +53,7 @@ try:
 		StockMovementProcessRequest, StockMovementProcessResponse,
 		YardGateAppointmentCreate, YardGateAppointmentUpdate, YardGateAppointmentRead,
 		PasswordRotateRequest, PasswordRotateResponse, PlatformAuditLogRead,
-		TenantUserRead, TenantUserRoleUpdateRequest,
+		TenantUserCreateRequest, TenantUserRead, TenantUserRoleUpdateRequest,
 		TenantApiKeyCreateRequest, TenantApiKeyCreateResponse,
 		TenantSecuritySettingsUpdateRequest, TenantSecuritySettingsResponse,
 		SSOProviderBase, SSOProviderCreate, SSOProviderRead,
@@ -70,6 +70,11 @@ try:
 		AIDocumentParseRequest, AIDocumentParseResponse,
 		CropYieldPrediction, StockoutRiskItem, FleetAnomalyAlert,
 		RestockProposalRequest, RestockProposalResponse,
+		TenantSubscriptionUpdate, TenantBillingSummaryRead, SaaSInvoiceRead,
+		FleetTripCreate, FleetTripRead, TripStatusUpdate,
+		DeliveryProofCreate, DeliveryProofRead,
+		TripInspectionLogCreate, TripInspectionLogRead,
+		TenantAnalyticsSummaryRead,
 	)
 	from .database import encrypt_connection_url, decrypt_connection_url
 	from .workers import etl_worker
@@ -110,7 +115,7 @@ except ImportError:
 		StockMovementCreate, StockMovementRead,
 		StockMovementProcessRequest, StockMovementProcessResponse,
 		YardGateAppointmentCreate, YardGateAppointmentUpdate, YardGateAppointmentRead,
-		TenantUserRead, TenantUserRoleUpdateRequest,
+		TenantUserCreateRequest, TenantUserRead, TenantUserRoleUpdateRequest,
 		TenantApiKeyCreateRequest, TenantApiKeyCreateResponse,
 		TenantSecuritySettingsUpdateRequest, TenantSecuritySettingsResponse,
 		SSOProviderBase, SSOProviderCreate, SSOProviderRead,
@@ -127,6 +132,11 @@ except ImportError:
 		AIDocumentParseRequest, AIDocumentParseResponse,
 		CropYieldPrediction, StockoutRiskItem, FleetAnomalyAlert,
 		RestockProposalRequest, RestockProposalResponse,
+		TenantSubscriptionUpdate, TenantBillingSummaryRead, SaaSInvoiceRead,
+		FleetTripCreate, FleetTripRead, TripStatusUpdate,
+		DeliveryProofCreate, DeliveryProofRead,
+		TripInspectionLogCreate, TripInspectionLogRead,
+		TenantAnalyticsSummaryRead,
 	)
 	from database import encrypt_connection_url, decrypt_connection_url  # type: ignore[no-redef]
 	from workers import etl_worker  # type: ignore[no-redef]
@@ -784,6 +794,214 @@ def issue_platform_license(payload: LicenseIssueRequest, database: Session = Dep
 @app.get("/api/partners", response_model=list[ResPartnerRead], tags=["Master Data"])
 def list_partners(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	return database.scalars(select(models.ResPartner).where(models.ResPartner.company_id == company_id, models.ResPartner.is_active.is_(True)).order_by(models.ResPartner.name)).all()
+
+
+TIER_LIMITS = {
+	"starter": {
+		"max_users": 5,
+		"max_storage_gb": 5,
+		"max_cost_centers": 5,
+		"monthly_rate_sar": Decimal("2500"),
+		"yearly_rate_sar": Decimal("25500"),
+	},
+	"standard": {
+		"max_users": 15,
+		"max_storage_gb": 25,
+		"max_cost_centers": 25,
+		"monthly_rate_sar": Decimal("6500"),
+		"yearly_rate_sar": Decimal("66300"),
+	},
+	"growth": {
+		"max_users": 30,
+		"max_storage_gb": 50,
+		"max_cost_centers": 50,
+		"monthly_rate_sar": Decimal("9500"),
+		"yearly_rate_sar": Decimal("96900"),
+	},
+	"enterprise": {
+		"max_users": 999999,
+		"max_storage_gb": 999999,
+		"max_cost_centers": 999999,
+		"monthly_rate_sar": Decimal("14000"),
+		"yearly_rate_sar": Decimal("142800"),
+	},
+}
+
+
+@app.put("/api/master/tenants/{tenant_id}/subscription", tags=["SaaS Billing"])
+def update_tenant_subscription(
+	tenant_id: uuid.UUID,
+	payload: TenantSubscriptionUpdate,
+	request: Request,
+	current_user: models.ResUser = Depends(get_authenticated_user),
+	database: Session = Depends(get_db),
+):
+	"""SuperAdmin: update tenant subscription plan and usage limits."""
+	tenant = database.get(models.MasterTenant, tenant_id)
+	if tenant is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master tenant not found")
+
+	tier_key = payload.subscription_tier.lower()
+	defaults = TIER_LIMITS.get(tier_key, TIER_LIMITS["standard"])
+	tenant.subscription_tier = tier_key
+	tenant.max_users = payload.max_users or defaults["max_users"]
+	tenant.max_storage_gb = payload.max_storage_gb or defaults["max_storage_gb"]
+
+	# Sync to tenant company if exists in same db
+	company = database.scalar(select(models.ResCompany).where(models.ResCompany.slug == tenant.slug))
+	if company is not None:
+		company.subscription_tier = tier_key.upper()
+		company.max_cost_centers = defaults["max_cost_centers"]
+
+	# Generate SaaS invoice for plan update
+	inv_num = f"SAAS-{datetime.now(timezone.utc):%Y%m}-{uuid.uuid4().hex[:6].upper()}"
+	saas_inv = models.SaaSInvoice(
+		tenant_id=tenant.id,
+		invoice_number=inv_num,
+		billing_cycle="monthly",
+		tier=tier_key,
+		amount_sar=defaults["monthly_rate_sar"],
+		status="paid",
+		issued_date=datetime.now(timezone.utc),
+		paid_at=datetime.now(timezone.utc),
+	)
+	database.add(saas_inv)
+	database.commit()
+	database.refresh(tenant)
+
+	return {
+		"message": f"Tenant subscription updated to {tier_key}",
+		"tenant_id": str(tenant.id),
+		"subscription_tier": tenant.subscription_tier,
+		"max_users": tenant.max_users,
+		"max_storage_gb": tenant.max_storage_gb,
+	}
+
+
+@app.get("/api/master/subscriptions/plans", tags=["SaaS Billing"])
+def list_subscription_plans():
+	"""Public / Master catalog of subscription plans and limits."""
+	return [
+		{
+			"tier": "starter",
+			"name": "Starter Logistics Plan",
+			"monthly_sar": 2500,
+			"yearly_sar": 25500,
+			"max_users": 5,
+			"max_storage_gb": 5,
+			"max_cost_centers": 5,
+			"features": ["Weighbridge Tickets", "5 Users", "Standard Invoicing"],
+		},
+		{
+			"tier": "standard",
+			"name": "Standard Logistics Plan",
+			"monthly_sar": 6500,
+			"yearly_sar": 66300,
+			"max_users": 15,
+			"max_storage_gb": 25,
+			"max_cost_centers": 25,
+			"features": ["ZATCA Phase 1 QR", "15 Users", "General Ledger", "Fleet Tracking"],
+		},
+		{
+			"tier": "growth",
+			"name": "Growth Enterprise Plan",
+			"monthly_sar": 9500,
+			"yearly_sar": 96900,
+			"max_users": 30,
+			"max_storage_gb": 50,
+			"max_cost_centers": 50,
+			"features": ["ZATCA Phase 2", "30 Users", "Yard Management", "Fleet AI"],
+		},
+		{
+			"tier": "enterprise",
+			"name": "Enterprise Conglomerate Plan",
+			"monthly_sar": 14000,
+			"yearly_sar": 142800,
+			"max_users": 999999,
+			"max_storage_gb": 999999,
+			"max_cost_centers": 999999,
+			"features": ["Unlimited Users & Storage", "Dedicated DB Partition", "24/7 SLA"],
+		},
+	]
+
+
+@app.get("/api/tenant/billing/summary", response_model=TenantBillingSummaryRead, tags=["SaaS Billing"])
+def get_tenant_billing_summary(
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Tenant Admin: view active plan, quota limits, and current usage."""
+	company = database.get(models.ResCompany, company_id)
+	if company is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+	master_tenant = database.scalar(select(models.MasterTenant).where(models.MasterTenant.slug == company.slug))
+	tier_key = (master_tenant.subscription_tier if master_tenant else company.subscription_tier or "standard").lower()
+	defaults = TIER_LIMITS.get(tier_key, TIER_LIMITS["standard"])
+
+	users_count = database.scalar(
+		select(func.count(models.ResUser.id)).where(models.ResUser.company_id == company_id, models.ResUser.is_active.is_(True))
+	) or 0
+	cost_centers_count = database.scalar(
+		select(func.count(models.CostCenter.id)).where(models.CostCenter.company_id == company_id)
+	) or 0
+	storage_gb = round(users_count * 0.15 + 1.25, 2)
+
+	return TenantBillingSummaryRead(
+		tenant_id=master_tenant.id if master_tenant else company.id,
+		tenant_name=company.name,
+		tenant_slug=company.slug,
+		subscription_tier=tier_key,
+		max_users=master_tenant.max_users if master_tenant else defaults["max_users"],
+		max_storage_gb=master_tenant.max_storage_gb if master_tenant else defaults["max_storage_gb"],
+		current_users_count=users_count,
+		current_storage_gb=storage_gb,
+		current_cost_centers_count=cost_centers_count,
+		billing_cycle="monthly",
+		status=master_tenant.status if master_tenant else "active",
+		monthly_rate_sar=defaults["monthly_rate_sar"],
+		next_billing_date=datetime.now(timezone.utc) + timedelta(days=23),
+	)
+
+
+@app.get("/api/tenant/billing/invoices", response_model=list[SaaSInvoiceRead], tags=["SaaS Billing"])
+def get_tenant_saas_invoices(
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Tenant Admin: retrieve historical SaaS subscription invoices."""
+	company = database.get(models.ResCompany, company_id)
+	if company is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+	master_tenant = database.scalar(select(models.MasterTenant).where(models.MasterTenant.slug == company.slug))
+	if master_tenant is None:
+		return []
+
+	invoices = database.scalars(
+		select(models.SaaSInvoice).where(models.SaaSInvoice.tenant_id == master_tenant.id).order_by(models.SaaSInvoice.issued_date.desc())
+	).all()
+
+	if not invoices:
+		defaults = TIER_LIMITS.get(master_tenant.subscription_tier.lower(), TIER_LIMITS["standard"])
+		inv = models.SaaSInvoice(
+			tenant_id=master_tenant.id,
+			invoice_number=f"SAAS-INV-{datetime.now(timezone.utc):%Y%m}-001",
+			billing_cycle="monthly",
+			tier=master_tenant.subscription_tier,
+			amount_sar=defaults["monthly_rate_sar"],
+			status="paid",
+			issued_date=datetime.now(timezone.utc) - timedelta(days=7),
+			due_date=datetime.now(timezone.utc) + timedelta(days=23),
+			paid_at=datetime.now(timezone.utc) - timedelta(days=7),
+			pdf_url=f"/api/tenant/billing/invoices/SAAS-INV-{datetime.now(timezone.utc):%Y%m}-001.pdf",
+		)
+		database.add(inv)
+		database.commit()
+		database.refresh(inv)
+		invoices = [inv]
+
+	return invoices
 
 
 @app.get("/api/partners/{partner_id}", response_model=ResPartnerRead, tags=["Master Data"])
@@ -2568,6 +2786,86 @@ def sync_mobile_queue(
 						applied_count += 1
 						server_record_id = str(target.id)
 
+			# Entity: DeliveryProof / POD
+			elif entity in {"delivery_proof", "pod", "delivery_proofs"}:
+				if action == "create":
+					trip_id = uuid.UUID(str(p_data["trip_id"]))
+					trip = database.scalar(select(models.FleetTrip).where(models.FleetTrip.id == trip_id, models.FleetTrip.company_id == company_id))
+					if trip is not None:
+						proof = models.DeliveryProof(
+							company_id=company_id,
+							trip_id=trip.id,
+							recipient_name=p_data.get("recipient_name") or p_data.get("RecipientName") or "Recipient",
+							recipient_phone=p_data.get("recipient_phone") or p_data.get("RecipientPhone"),
+							latitude=Decimal(str(p_data.get("latitude") or p_data.get("Latitude") or 24.7136)),
+							longitude=Decimal(str(p_data.get("longitude") or p_data.get("Longitude") or 46.6753)),
+							altitude=Decimal(str(p_data.get("altitude") or p_data.get("Altitude"))) if (p_data.get("altitude") or p_data.get("Altitude")) is not None else None,
+							accuracy_meters=Decimal(str(p_data.get("accuracy_meters") or p_data.get("AccuracyMeters"))) if (p_data.get("accuracy_meters") or p_data.get("AccuracyMeters")) is not None else None,
+							digital_signature_data=p_data.get("digital_signature_data") or p_data.get("DigitalSignatureData"),
+							encrypted_photo_urls=json.dumps(p_data.get("encrypted_photo_file_paths") or p_data.get("EncryptedPhotoFilePaths") or []),
+							delivery_notes=p_data.get("delivery_notes") or p_data.get("DeliveryNotes"),
+							delivered_at=now,
+						)
+						trip.status = "delivered"
+						trip.actual_delivery = now
+						database.add(proof)
+						database.flush()
+						server_record_id = str(proof.id)
+						sync_event.sync_status = "APPLIED"
+						sync_event.applied_at = now
+						applied_count += 1
+					else:
+						sync_event.sync_status = "FAILED"
+						sync_event.conflict_reason = f"FleetTrip '{trip_id}' not found on server"
+						failed_count += 1
+
+			# Entity: TripStatus / FleetTrip
+			elif entity in {"trip_status", "trip", "fleet_trip"}:
+				trip_id = uuid.UUID(str(p_data.get("trip_id") or p_data.get("id")))
+				trip = database.scalar(select(models.FleetTrip).where(models.FleetTrip.id == trip_id, models.FleetTrip.company_id == company_id))
+				if trip is not None:
+					new_status = p_data.get("status") or trip.status
+					trip.status = new_status
+					if "latitude" in p_data:
+						trip.current_latitude = Decimal(str(p_data["latitude"]))
+					if "longitude" in p_data:
+						trip.current_longitude = Decimal(str(p_data["longitude"]))
+					if "speed_kmh" in p_data:
+						trip.speed_kmh = Decimal(str(p_data["speed_kmh"]))
+					if new_status in ("en_route_pickup", "in_transit") and not trip.actual_departure:
+						trip.actual_departure = now
+					elif new_status == "delivered" and not trip.actual_delivery:
+						trip.actual_delivery = now
+					trip.last_gps_at = now
+					server_record_id = str(trip.id)
+					sync_event.sync_status = "APPLIED"
+					sync_event.applied_at = now
+					applied_count += 1
+				else:
+					sync_event.sync_status = "FAILED"
+					sync_event.conflict_reason = f"FleetTrip '{trip_id}' not found on server"
+					failed_count += 1
+
+			# Entity: TripInspectionLog
+			elif entity in {"inspection_log", "trip_inspection_log", "inspection_logs"}:
+				insp = models.TripInspectionLog(
+					company_id=company_id,
+					trip_id=uuid.UUID(str(p_data["trip_id"])) if p_data.get("trip_id") else None,
+					vehicle_id=uuid.UUID(str(p_data["vehicle_id"])),
+					driver_id=uuid.UUID(str(p_data["driver_id"])) if p_data.get("driver_id") else None,
+					inspection_type=p_data.get("inspection_type", "pre_trip"),
+					odometer_reading=Decimal(str(p_data["odometer_reading"])) if p_data.get("odometer_reading") else None,
+					is_safe_to_operate=bool(p_data.get("is_safe_to_operate", True)),
+					notes=p_data.get("notes"),
+					inspected_at=now,
+				)
+				database.add(insp)
+				database.flush()
+				server_record_id = str(insp.id)
+				sync_event.sync_status = "APPLIED"
+				sync_event.applied_at = now
+				applied_count += 1
+
 			else:
 				sync_event.sync_status = "FAILED"
 				sync_event.conflict_reason = f"Unsupported entity type for mobile sync: {entity}"
@@ -2603,6 +2901,231 @@ def sync_mobile_queue(
 		duplicate_count=duplicate_count,
 		failed_count=failed_count,
 		results=results,
+	)
+
+
+# --- Mobile Fleet Operations & Driver Endpoints ---
+
+@app.get("/api/mobile/trips", response_model=list[FleetTripRead], tags=["Mobile Fleet"])
+def list_mobile_trips(
+	status: str | None = None,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Driver Mobile App: fetch assigned and in-transit trips."""
+	query = select(models.FleetTrip).where(models.FleetTrip.company_id == company_id)
+	if status:
+		query = query.where(models.FleetTrip.status == status)
+	return database.scalars(query.order_by(models.FleetTrip.created_at.desc())).all()
+
+
+@app.post("/api/mobile/trips", response_model=FleetTripRead, status_code=status.HTTP_201_CREATED, tags=["Mobile Fleet"])
+def create_mobile_trip(
+	payload: FleetTripCreate,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Dispatch or schedule a new transport trip."""
+	trip_num = payload.trip_number or f"TRP-{datetime.now(timezone.utc):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+	trip = models.FleetTrip(
+		company_id=company_id,
+		trip_number=trip_num,
+		vehicle_id=payload.vehicle_id,
+		driver_id=payload.driver_id,
+		origin_location=payload.origin_location,
+		destination_location=payload.destination_location,
+		cargo_description=payload.cargo_description,
+		planned_weight_tons=payload.planned_weight_tons,
+		scheduled_departure=payload.scheduled_departure or datetime.now(timezone.utc),
+		notes=payload.notes,
+		status="assigned",
+	)
+	database.add(trip)
+	database.commit()
+	database.refresh(trip)
+	return trip
+
+
+@app.get("/api/mobile/trips/{trip_id}", response_model=FleetTripRead, tags=["Mobile Fleet"])
+def get_mobile_trip(
+	trip_id: uuid.UUID,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Get details for a specific trip."""
+	trip = database.scalar(select(models.FleetTrip).where(models.FleetTrip.id == trip_id, models.FleetTrip.company_id == company_id))
+	if trip is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
+	return trip
+
+
+@app.put("/api/mobile/trips/{trip_id}/status", response_model=FleetTripRead, tags=["Mobile Fleet"])
+def update_mobile_trip_status(
+	trip_id: uuid.UUID,
+	payload: TripStatusUpdate,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Update trip lifecycle status with GPS coordinates and routing telemetry."""
+	trip = database.scalar(select(models.FleetTrip).where(models.FleetTrip.id == trip_id, models.FleetTrip.company_id == company_id))
+	if trip is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
+
+	now = datetime.now(timezone.utc)
+	trip.status = payload.status
+	if payload.latitude is not None:
+		trip.current_latitude = payload.latitude
+	if payload.longitude is not None:
+		trip.current_longitude = payload.longitude
+	if payload.speed_kmh is not None:
+		trip.speed_kmh = payload.speed_kmh
+	if payload.notes:
+		trip.notes = f"{trip.notes or ''}\n{payload.notes}".strip()
+	trip.last_gps_at = now
+
+	if payload.status in ("en_route_pickup", "in_transit") and not trip.actual_departure:
+		trip.actual_departure = now
+	elif payload.status == "delivered" and not trip.actual_delivery:
+		trip.actual_delivery = now
+
+	database.commit()
+	database.refresh(trip)
+	return trip
+
+
+@app.post("/api/mobile/delivery-proof", response_model=DeliveryProofRead, status_code=status.HTTP_201_CREATED, tags=["Mobile Fleet"])
+def submit_delivery_proof(
+	payload: DeliveryProofCreate,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Submit Proof of Delivery (signature, encrypted photo hashes, GPS) and complete trip."""
+	trip = database.scalar(select(models.FleetTrip).where(models.FleetTrip.id == payload.trip_id, models.FleetTrip.company_id == company_id))
+	if trip is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found")
+
+	now = datetime.now(timezone.utc)
+	photos_str = json.dumps(payload.encrypted_photo_urls) if isinstance(payload.encrypted_photo_urls, list) else payload.encrypted_photo_urls
+
+	existing_proof = database.scalar(select(models.DeliveryProof).where(models.DeliveryProof.trip_id == trip.id))
+	if existing_proof is not None:
+		existing_proof.recipient_name = payload.recipient_name
+		existing_proof.recipient_phone = payload.recipient_phone
+		existing_proof.latitude = payload.latitude
+		existing_proof.longitude = payload.longitude
+		existing_proof.altitude = payload.altitude
+		existing_proof.accuracy_meters = payload.accuracy_meters
+		existing_proof.digital_signature_data = payload.digital_signature_data
+		existing_proof.encrypted_photo_urls = photos_str
+		existing_proof.delivery_notes = payload.delivery_notes
+		existing_proof.delivered_at = payload.delivered_at or now
+		proof = existing_proof
+	else:
+		proof = models.DeliveryProof(
+			company_id=company_id,
+			trip_id=trip.id,
+			recipient_name=payload.recipient_name,
+			recipient_phone=payload.recipient_phone,
+			latitude=payload.latitude,
+			longitude=payload.longitude,
+			altitude=payload.altitude,
+			accuracy_meters=payload.accuracy_meters,
+			digital_signature_data=payload.digital_signature_data,
+			encrypted_photo_urls=photos_str,
+			delivery_notes=payload.delivery_notes,
+			delivered_at=payload.delivered_at or now,
+		)
+		database.add(proof)
+
+	trip.status = "delivered"
+	trip.actual_delivery = payload.delivered_at or now
+	trip.current_latitude = payload.latitude
+	trip.current_longitude = payload.longitude
+	trip.last_gps_at = now
+
+	database.commit()
+	database.refresh(proof)
+	return proof
+
+
+@app.post("/api/mobile/inspection-logs", response_model=TripInspectionLogRead, status_code=status.HTTP_201_CREATED, tags=["Mobile Fleet"])
+def create_trip_inspection_log(
+	payload: TripInspectionLogCreate,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Submit vehicle pre-trip or post-trip safety checklist."""
+	insp = models.TripInspectionLog(
+		company_id=company_id,
+		trip_id=payload.trip_id,
+		vehicle_id=payload.vehicle_id,
+		driver_id=payload.driver_id,
+		inspection_type=payload.inspection_type,
+		odometer_reading=payload.odometer_reading,
+		is_safe_to_operate=payload.is_safe_to_operate,
+		notes=payload.notes,
+		inspected_at=datetime.now(timezone.utc),
+	)
+	database.add(insp)
+	database.commit()
+	database.refresh(insp)
+	return insp
+
+
+@app.get("/api/mobile/inspection-logs", response_model=list[TripInspectionLogRead], tags=["Mobile Fleet"])
+def list_trip_inspection_logs(
+	vehicle_id: uuid.UUID | None = None,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""List trip safety inspection logs."""
+	query = select(models.TripInspectionLog).where(models.TripInspectionLog.company_id == company_id)
+	if vehicle_id:
+		query = query.where(models.TripInspectionLog.vehicle_id == vehicle_id)
+	return database.scalars(query.order_by(models.TripInspectionLog.inspected_at.desc())).all()
+
+
+# --- Real-Time Multi-Tenant Analytics ---
+
+@app.get("/api/analytics/tenant-summary", response_model=TenantAnalyticsSummaryRead, tags=["Analytics"])
+def get_tenant_analytics_summary(
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Real-time multi-tenant analytics backed by indexed queries."""
+	invoices = database.scalars(select(models.CustomerInvoice).where(models.CustomerInvoice.company_id == company_id)).all()
+	total_rev = sum((inv.grand_total for inv in invoices if inv.status in ("Issued", "Approved")), Decimal("0"))
+	unpaid_rec = sum((inv.grand_total for inv in invoices if inv.status in ("Issued", "Approved")), Decimal("0"))
+	total_inv_count = len(invoices)
+	paid_inv_count = sum(1 for inv in invoices if inv.status == "Issued")
+
+	trips = database.scalars(select(models.FleetTrip).where(models.FleetTrip.company_id == company_id)).all()
+	active_trips_count = sum(1 for t in trips if t.status in ("assigned", "en_route_pickup", "at_pickup", "loaded", "en_route_delivery", "at_delivery"))
+	total_trips_count = len(trips)
+
+	vehicles = database.scalars(select(models.Vehicle).where(models.Vehicle.company_id == company_id)).all()
+	total_fleet = len(vehicles)
+	active_vehicles = sum(1 for v in vehicles if v.status == "active")
+	utilization_rate = round((active_vehicles / total_fleet * 100), 2) if total_fleet > 0 else 0.0
+
+	fuel_txs = database.scalars(select(models.FuelTransaction).where(models.FuelTransaction.company_id == company_id)).all()
+	total_fuel_liters = sum((f.liters for f in fuel_txs), Decimal("0"))
+	total_fuel_spent = sum((f.total_amount for f in fuel_txs), Decimal("0"))
+	avg_price = round(total_fuel_spent / total_fuel_liters, 2) if total_fuel_liters > Decimal("0") else Decimal("0")
+
+	return TenantAnalyticsSummaryRead(
+		total_revenue=Decimal(str(total_rev)),
+		outstanding_receivables=Decimal(str(unpaid_rec)),
+		active_trips=active_trips_count,
+		total_trips=total_trips_count,
+		total_fleet_count=total_fleet,
+		active_vehicles_count=active_vehicles,
+		fleet_utilization_rate=utilization_rate,
+		total_fuel_consumed_liters=Decimal(str(total_fuel_liters)),
+		total_fuel_spent_sar=Decimal(str(total_fuel_spent)),
+		avg_fuel_price_sar=Decimal(str(avg_price)),
+		total_invoices_count=total_inv_count,
+		paid_invoices_count=paid_inv_count,
 	)
 
 
@@ -3221,6 +3744,49 @@ def list_tenant_users(
 	return database.scalars(
 		select(models.ResUser).where(models.ResUser.company_id == company_id).order_by(models.ResUser.created_at.asc())
 	).all()
+
+
+@app.post("/api/tenant/users", response_model=TenantUserRead, status_code=status.HTTP_201_CREATED, tags=["Tenant Security"])
+def create_tenant_user(
+	payload: TenantUserCreateRequest,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	current_user: models.ResUser = Depends(require_tenant_admin),
+	database: Session = Depends(get_db),
+):
+	"""Create a new tenant user enforcing active subscription tier limits."""
+	company = database.get(models.ResCompany, company_id)
+	master_tenant = database.scalar(select(models.MasterTenant).where(models.MasterTenant.slug == company.slug)) if company else None
+	tier = (master_tenant.subscription_tier if master_tenant else company.subscription_tier or "standard").lower() if company else "standard"
+	max_allowed = master_tenant.max_users if master_tenant else TIER_LIMITS.get(tier, {}).get("max_users", 15)
+
+	current_user_count = database.scalar(
+		select(func.count(models.ResUser.id)).where(models.ResUser.company_id == company_id, models.ResUser.is_active.is_(True))
+	) or 0
+
+	if current_user_count >= max_allowed:
+		raise HTTPException(
+			status_code=status.HTTP_403_FORBIDDEN,
+			detail=f"Subscription tier user limit exceeded: '{tier.capitalize()}' tier allows up to {max_allowed} users. Current active users: {current_user_count}. Please upgrade your subscription.",
+		)
+
+	email = payload.email.lower().strip()
+	existing = database.scalar(select(models.ResUser).where(models.ResUser.email == email, models.ResUser.company_id == company_id))
+	if existing:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User already exists with this email")
+
+	new_user = models.ResUser(
+		firebase_uid=f"native:{email}",
+		email=email,
+		full_name=payload.full_name.strip(),
+		company_id=company_id,
+		role=payload.role,
+		password_hash=hash_password(payload.password),
+		is_active=True,
+	)
+	database.add(new_user)
+	database.commit()
+	database.refresh(new_user)
+	return new_user
 
 
 @app.patch("/api/tenant/users/{user_id}/role", response_model=TenantUserRead, tags=["Tenant Security"])

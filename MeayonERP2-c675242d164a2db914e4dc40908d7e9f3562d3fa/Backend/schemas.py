@@ -623,6 +623,7 @@ class FuelTransactionCreate(BaseModel):
     driver_id: UUID | None = None
     vendor_id: UUID | None = None
     cost_center_id: UUID | None = None
+    trip_id: UUID | None = None
     transaction_date: datetime | None = None
     liters: Decimal = Field(gt=0)
     fuel_type: Literal["diesel", "gasoline_91", "gasoline_95", "cng", "other"] = "diesel"
@@ -654,6 +655,7 @@ class FuelTransactionUpdate(BaseModel):
     driver_id: UUID | None = None
     vendor_id: UUID | None = None
     cost_center_id: UUID | None = None
+    trip_id: UUID | None = None
     transaction_date: datetime | None = None
     liters: Decimal | None = Field(default=None, gt=0)
     fuel_type: Literal["diesel", "gasoline_91", "gasoline_95", "cng", "other"] | None = None
@@ -671,6 +673,7 @@ class FuelTransactionRead(ORMReadModel):
     driver_id: UUID | None = None
     vendor_id: UUID | None = None
     cost_center_id: UUID | None = None
+    trip_id: UUID | None = None
     transaction_date: datetime
     liters: Decimal
     fuel_type: str
@@ -1907,6 +1910,13 @@ class PlatformAuditLogRead(ORMReadModel):
     created_at: datetime
 
 
+class TenantUserCreateRequest(BaseModel):
+    email: str = Field(min_length=5, max_length=255)
+    full_name: str = Field(min_length=2, max_length=255)
+    password: str = Field(min_length=6, max_length=128)
+    role: Literal["Admin", "COO", "Accountant", "Data_Entry", "Guest"] = "Data_Entry"
+
+
 class TenantUserRead(ORMReadModel):
     id: UUID
     company_id: UUID
@@ -2359,3 +2369,154 @@ class RestockProposalResponse(BaseModel):
     hitl_required: bool
     hitl_approval_token: str | None = None
     message: str
+
+
+# ==============================================================================
+# Phase 5: Advanced Expansion Schemas
+# ==============================================================================
+
+class TenantSubscriptionUpdate(BaseModel):
+    subscription_tier: Literal["starter", "standard", "growth", "enterprise"]
+    max_users: int | None = Field(default=None, ge=1)
+    max_storage_gb: int | None = Field(default=None, ge=1)
+
+
+class TenantBillingSummaryRead(BaseModel):
+    tenant_id: UUID
+    tenant_name: str
+    tenant_slug: str
+    subscription_tier: str
+    max_users: int
+    max_storage_gb: int
+    current_users_count: int
+    current_storage_gb: float
+    current_cost_centers_count: int
+    billing_cycle: str = "monthly"
+    status: str = "active"
+    monthly_rate_sar: Decimal
+    next_billing_date: datetime | None = None
+
+
+class SaaSInvoiceRead(ORMReadModel):
+    id: UUID
+    tenant_id: UUID
+    invoice_number: str
+    billing_cycle: str
+    tier: str
+    amount_sar: Decimal
+    status: str
+    issued_date: datetime
+    due_date: datetime | None = None
+    paid_at: datetime | None = None
+    pdf_url: str | None = None
+
+
+class FleetTripCreate(BaseModel):
+    trip_number: str | None = Field(default=None, max_length=64)
+    vehicle_id: UUID | None = None
+    driver_id: UUID | None = None
+    origin_location: str = Field(min_length=2, max_length=255)
+    destination_location: str = Field(min_length=2, max_length=255)
+    cargo_description: str | None = Field(default=None, max_length=255)
+    planned_weight_tons: Decimal = Field(default=Decimal("0"), ge=0)
+    scheduled_departure: datetime | None = None
+    notes: str | None = None
+
+
+class FleetTripRead(ORMReadModel):
+    id: UUID
+    company_id: UUID
+    trip_number: str
+    vehicle_id: UUID | None = None
+    driver_id: UUID | None = None
+    origin_location: str
+    destination_location: str
+    cargo_description: str | None = None
+    planned_weight_tons: Decimal
+    status: str
+    scheduled_departure: datetime | None = None
+    actual_departure: datetime | None = None
+    actual_delivery: datetime | None = None
+    current_latitude: Decimal | None = None
+    current_longitude: Decimal | None = None
+    speed_kmh: Decimal | None = None
+    last_gps_at: datetime | None = None
+    notes: str | None = None
+    created_at: datetime
+
+
+class TripStatusUpdate(BaseModel):
+    status: Literal["assigned", "in_transit", "en_route_pickup", "at_pickup", "loaded", "en_route_delivery", "at_delivery", "delivered", "cancelled"]
+    latitude: Decimal | None = None
+    longitude: Decimal | None = None
+    speed_kmh: Decimal | None = None
+    recorded_at: datetime | None = None
+    notes: str | None = None
+
+
+class DeliveryProofCreate(BaseModel):
+    trip_id: UUID
+    recipient_name: str = Field(min_length=2, max_length=128)
+    recipient_phone: str | None = Field(default=None, max_length=32)
+    latitude: Decimal
+    longitude: Decimal
+    altitude: Decimal | None = None
+    accuracy_meters: Decimal | None = None
+    digital_signature_data: str | None = None
+    encrypted_photo_urls: list[str] | str | None = None
+    delivery_notes: str | None = None
+    delivered_at: datetime | None = None
+
+
+class DeliveryProofRead(ORMReadModel):
+    id: UUID
+    company_id: UUID
+    trip_id: UUID
+    recipient_name: str
+    recipient_phone: str | None = None
+    latitude: Decimal
+    longitude: Decimal
+    altitude: Decimal | None = None
+    accuracy_meters: Decimal | None = None
+    digital_signature_data: str | None = None
+    encrypted_photo_urls: str | None = None
+    delivery_notes: str | None = None
+    delivered_at: datetime
+
+
+class TripInspectionLogCreate(BaseModel):
+    trip_id: UUID | None = None
+    vehicle_id: UUID
+    driver_id: UUID | None = None
+    inspection_type: Literal["pre_trip", "post_trip", "safety_audit"] = "pre_trip"
+    odometer_reading: Decimal | None = Field(default=None, ge=0)
+    is_safe_to_operate: bool = True
+    notes: str | None = None
+
+
+class TripInspectionLogRead(ORMReadModel):
+    id: UUID
+    company_id: UUID
+    trip_id: UUID | None = None
+    vehicle_id: UUID
+    driver_id: UUID | None = None
+    inspection_type: str
+    odometer_reading: Decimal | None = None
+    is_safe_to_operate: bool
+    notes: str | None = None
+    inspected_at: datetime
+
+
+class TenantAnalyticsSummaryRead(BaseModel):
+    total_revenue: Decimal
+    outstanding_receivables: Decimal
+    active_trips: int
+    total_trips: int
+    total_fleet_count: int
+    active_vehicles_count: int
+    fleet_utilization_rate: float
+    total_fuel_consumed_liters: Decimal
+    total_fuel_spent_sar: Decimal
+    avg_fuel_price_sar: Decimal
+    total_invoices_count: int
+    paid_invoices_count: int

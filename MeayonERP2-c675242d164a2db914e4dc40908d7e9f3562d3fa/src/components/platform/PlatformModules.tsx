@@ -70,6 +70,25 @@ export const TenantsRegistryView: React.FC<{ onInspect: (company: Company) => vo
     }
   };
 
+  const [selectedPlanTenant, setSelectedPlanTenant] = useState<Company | null>(null);
+  const [targetTier, setTargetTier] = useState('standard');
+
+  const updatePlan = async () => {
+    if (!selectedPlanTenant) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await erpApi.updateTenantSubscription(selectedPlanTenant.id, { tier: targetTier });
+      await refreshCompanies();
+      setNotice(`Subscription for ${selectedPlanTenant.name} updated to ${targetTier.toUpperCase()}.`);
+      setSelectedPlanTenant(null);
+    } catch (err: any) {
+      setNotice(err?.message || 'Failed to update plan.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Banner icon={Building2} title="Enterprise Tenants Registry" badge={`${companies.length} Tenants`}
@@ -107,11 +126,51 @@ export const TenantsRegistryView: React.FC<{ onInspect: (company: Company) => vo
               <div className="flex justify-between"><dt className="text-slate-500">License Key:</dt><dd className="font-mono font-bold text-slate-800">{company.licenseKey || 'Not issued'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-500">Security Barrier:</dt><dd className="inline-flex items-center gap-1 font-bold text-emerald-600"><CheckCircle2 className="h-3.5 w-3.5" />Strict Isolated</dd></div>
             </dl>
-            <button onClick={() => onInspect(company)} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 py-3 text-xs font-black text-white hover:bg-blue-700"><ExternalLink className="h-4 w-4" />Inspect Tenant Workspace</button>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => { setSelectedPlanTenant(company); setTargetTier((company.subscriptionTier || 'standard').toLowerCase()); }} className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100"><CreditCard className="h-3.5 w-3.5 text-blue-600" />Manage Plan</button>
+              <button onClick={() => onInspect(company)} className="flex-1 flex items-center justify-center gap-1.5 rounded-2xl bg-slate-900 py-2.5 text-xs font-black text-white hover:bg-blue-700"><ExternalLink className="h-3.5 w-3.5" />Inspect</button>
+            </div>
           </article>
         ))}
         {filtered.length === 0 && <p className="rounded-3xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 md:col-span-2 xl:col-span-3">No matching organizations found.</p>}
       </div>
+
+      {selectedPlanTenant && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-900">Update Tenant SaaS Subscription</h3>
+                <p className="text-xs text-slate-500">{selectedPlanTenant.name}</p>
+              </div>
+              <button onClick={() => setSelectedPlanTenant(null)} className="text-slate-400">✕</button>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-700">Select Target Subscription Tier</label>
+              <select
+                value={targetTier}
+                onChange={(e) => setTargetTier(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-xs font-bold outline-none capitalize"
+              >
+                <option value="starter">Starter (5 users, 5 GB, 2,500 SAR/mo)</option>
+                <option value="standard">Standard (15 users, 25 GB, 4,500 SAR/mo)</option>
+                <option value="growth">Growth (50 users, 100 GB, 8,500 SAR/mo)</option>
+                <option value="enterprise">Enterprise (Unlimited users, 1000 GB, 14,000 SAR/mo)</option>
+              </select>
+            </div>
+            <div className="rounded-xl bg-blue-50 p-3 text-xs text-blue-800">
+              <p className="font-bold">Automated Quotas Enforcement:</p>
+              <p className="mt-0.5 text-[11px] text-blue-600">The tenant active tier limits will be updated immediately in the database and enforced on next user creation.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button onClick={() => setSelectedPlanTenant(null)} className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold">Cancel</button>
+              <button disabled={busy} onClick={updatePlan} className="rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-bold text-white shadow-xs">
+                {busy ? 'Updating...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm">
         <form onSubmit={submit} className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl">
