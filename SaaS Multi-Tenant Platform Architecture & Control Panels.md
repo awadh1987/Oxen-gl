@@ -41,3 +41,115 @@ Please generate clean, modular code and structural blueprints covering the follo
    - Provide a React/Next.js layout component that reads the resolved tenant context and dynamically adapts the UI shell (branding colors, tenant logo, navigation items).
 
 Keep the implementation modern, secure, and production-ready.
+
+name: SaaS Multi-Tenant CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, production ]
+  pull_request:
+    branches: [ main, production ]
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: oxen_gl_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Test Dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip pytest requests psycopg2-binary
+
+      - name: Run Database Migrations & RLS Schema Setup
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/oxen_gl_test
+        run: |
+          psql $DATABASE_URL -f backend/schema_multi_tenant_rls.sql
+
+      - name: Execute SaaS Architecture Test Suite
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/oxen_gl_test
+          REDIS_URL: redis://localhost:6379
+        run: |
+          source .venv/bin/activate
+          python3 test_saas_platform_architecture.py
+
+      - name: Run Frontend & Backend TypeScript Build
+        run: npm run build
+
+  deploy-production:
+    needs: validate-and-test
+    if: github.ref == 'refs/heads/production' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}/oxen-gl-saas:latest
+
+      - name: Trigger Zero-Downtime Deployment Hook
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.PRODUCTION_DEPLOY_WEBHOOK }}
+        run: |
+          curl -X POST "$DEPLOY_WEBHOOK_URL" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_SECRET_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"version": "${{ github.sha }}", "action": "rolling_update"}'
+            
