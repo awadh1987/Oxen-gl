@@ -21,8 +21,8 @@ from sqlalchemy.orm import Session, aliased
 
 try:
 	from .database import SessionLocal
-	from . import models
-	from .zatca_adapter import ZATCAAdapter
+	from .import models
+	from .zatca_adapter import ZATCAAdapter  # type: ignore[no-redef]
 	from .schemas import (
 		AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
 		AuthVerifyRequest, AuthVerifyResponse, CompanyRegistrationCreate, CompanyRegistrationRead, DirectAccessRequest,
@@ -83,10 +83,10 @@ try:
 	from .services.ai_forecasting import ai_forecasting_service
 	from .two_tier_auth import router as two_tier_auth_router
 except ImportError:
-	from database import SessionLocal
-	import models  # type: ignore[no-redef]
-	from zatca_adapter import ZATCAAdapter  # type: ignore[no-redef]
-	from schemas import (  # type: ignore[no-redef]
+	from .database import SessionLocal
+	from . import models  # type: ignore[no-redef]
+	from .zatca_adapter import ZATCAAdapter  # type: ignore[no-redef]
+	from .schemas import (  # type: ignore[no-redef]
 		AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
 		AuthVerifyRequest, AuthVerifyResponse, CompanyRegistrationCreate, CompanyRegistrationRead, DirectAccessRequest,
 		CompanyBrandingUpdate, CompanyUpdate, IsolationAuditRead, LicenseIssueRequest,
@@ -138,12 +138,12 @@ except ImportError:
 		TripInspectionLogCreate, TripInspectionLogRead,
 		TenantAnalyticsSummaryRead,
 	)
-	from database import encrypt_connection_url, decrypt_connection_url  # type: ignore[no-redef]
-	from workers import etl_worker  # type: ignore[no-redef]
-	from services.ai_governance import ai_governance_engine  # type: ignore[no-redef]
-	from services.ai_parser import ai_document_parser  # type: ignore[no-redef]
-	from services.ai_forecasting import ai_forecasting_service  # type: ignore[no-redef]
-	from two_tier_auth import router as two_tier_auth_router  # type: ignore[no-redef]
+	from .database import encrypt_connection_url, decrypt_connection_url  # type: ignore[no-redef]
+	from .workers import etl_worker  # type: ignore[no-redef]
+	from .services.ai_governance import ai_governance_engine  # type: ignore[no-redef]
+	from .services.ai_parser import ai_document_parser  # type: ignore[no-redef]
+	from .services.ai_forecasting import ai_forecasting_service  # type: ignore[no-redef]
+	from .two_tier_auth import router as two_tier_auth_router  # type: ignore[no-redef]
 
 
 app = FastAPI(
