@@ -13,3 +13,9 @@ coverage/
 __pycache__/
 *.pyc
 .pytest_cache/
+*.tmp
+*.swp
+*.bak
+*~
+.vscode/
+testadmin*

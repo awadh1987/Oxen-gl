@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { tenantResolverMiddleware, ExtendedRequest } from './src/middleware/tenantResolver';
 import { masterPlatformController } from './src/controllers/masterPlatformController';
 import { tenantControlController } from './src/controllers/tenantControlController';
+import { planningModuleController } from './src/controllers/planningModuleController';
 
 dotenv.config();
 
@@ -79,13 +80,25 @@ app.get('/api/tenant/control/domains', tenantControlController.listDomains);
 app.post('/api/tenant/control/domains', tenantControlController.registerDomain);
 app.post('/api/tenant/control/domains/:domainId/verify', tenantControlController.verifyDomain);
 
+// Planning Department Module (Tier 1: Charters, Tier 2: Execution Tasks, Tier 3: Strategic Hazards)
+app.get('/api/tenant/planning/charters', planningModuleController.listCharters);
+app.post('/api/tenant/planning/charters', planningModuleController.provisionCharter);
+app.get('/api/tenant/planning/charters/:charterId', planningModuleController.getCharterDetails);
+app.post('/api/tenant/planning/tasks/batch', planningModuleController.batchCreateExecutionTasks);
+app.put('/api/tenant/planning/tasks/:taskId/status', planningModuleController.updateTaskStatus);
+app.post('/api/tenant/planning/hazards', planningModuleController.logStrategicHazard);
+app.put('/api/tenant/planning/hazards/:hazardId/mitigate', planningModuleController.updateHazardMitigation);
+app.get('/api/tenant/planning/analytics', planningModuleController.getPlanningAnalytics);
+
+
 // Authoritative API Proxy to FastAPI Backend (port 8000) for all non-AI ERP domains
 app.use('/api', async (req, res, next) => {
   if (
     req.path.startsWith('/ai') ||
-    req.path.startsWith('/platform') ||
-    req.path.startsWith('/master') ||
-    req.path.startsWith('/tenant')
+    req.path.startsWith('/platform/resolve-tenant') ||
+    req.path.startsWith('/master/platform') ||
+    req.path.startsWith('/tenant/control') ||
+    req.path.startsWith('/tenant/planning')
   ) {
     return next();
   }
@@ -97,6 +110,10 @@ app.use('/api', async (req, res, next) => {
     if (req.headers.cookie) forwardHeaders['cookie'] = String(req.headers.cookie);
     if (req.headers['x-company-id']) forwardHeaders['x-company-id'] = String(req.headers['x-company-id']);
     if (req.headers['authorization']) forwardHeaders['authorization'] = String(req.headers['authorization']);
+    if (req.headers['x-tenant-slug']) forwardHeaders['x-tenant-slug'] = String(req.headers['x-tenant-slug']);
+    if (req.headers['x-tenant-id']) forwardHeaders['x-tenant-id'] = String(req.headers['x-tenant-id']);
+    if (req.headers['x-recovery-code']) forwardHeaders['x-recovery-code'] = String(req.headers['x-recovery-code']);
+    if (req.headers['x-impersonate-tenant']) forwardHeaders['x-impersonate-tenant'] = String(req.headers['x-impersonate-tenant']);
 
     let requestBody: string | undefined = undefined;
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.body) {
@@ -954,8 +971,8 @@ async function start() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Meayon Transport ERP server running on http://localhost:${PORT}`);
+  app.listen(3000, '0.0.0.0', () => {
+    console.log('Server running on http://0.0.0.0:3000');
   });
 }
 

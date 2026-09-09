@@ -149,3 +149,9 @@ MeayonERP2-*
 
 Oxen-gl/node_modules
 Oxen-gl/.venv
+*.tmp
+*.swp
+*.bak
+*~
+.vscode/
+testadmin*

@@ -5,7 +5,7 @@ import { ActiveTab } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AIAssistantWidget } from './components/AIAssistantWidget';
 import type { ExportDocType } from './components/ExportPrintModal';
-import { Building2, Cpu, CreditCard, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X, Globe } from 'lucide-react';
+import { Building2, Cpu, CreditCard, Layers, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X, Globe } from 'lucide-react';
 import { UserRole } from './types';
 
 // Code-split dynamic view imports
@@ -28,6 +28,7 @@ const TenantBillingView = React.lazy(() => import('./views/TenantBillingView').t
 const FleetMaintenanceView = React.lazy(() => import('./views/FleetMaintenanceView').then(m => ({ default: m.FleetMaintenanceView })));
 const ExportPrintModal = React.lazy(() => import('./components/ExportPrintModal').then(m => ({ default: m.ExportPrintModal })));
 const TenantSettingsPanel = React.lazy(() => import('./components/platform/TenantSettingsPanel').then(m => ({ default: m.TenantSettingsPanel })));
+const PlanningDepartmentView = React.lazy(() => import('./components/PlanningDepartmentView').then(m => ({ default: m.PlanningDepartmentView })));
 
 const ViewLoadingFallback = () => (
   <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-12 text-center">
@@ -55,14 +56,32 @@ function AppContent() {
   }, [isTwoTierAuthenticated]);
 
   const [inspectingWorkspace, setInspectingWorkspace] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('hub');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => (typeof window !== 'undefined' && window.location.pathname === '/planning' ? 'planning' : 'hub'));
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isExportPrintModalOpen, setIsExportPrintModalOpen] = useState(false);
+  useEffect(() => {
+    const syncPath = () => {
+      if (typeof window !== 'undefined' && window.location.pathname === '/planning') {
+        setActiveTab('planning');
+      }
+    };
+    syncPath();
+    window.addEventListener('popstate', syncPath);
+    return () => window.removeEventListener('popstate', syncPath);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'planning' && typeof window !== 'undefined' && window.location.pathname !== '/planning') {
+      window.history.pushState({}, '', '/planning');
+    }
+  }, [activeTab]);
+
 
   const tenantNavigation: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; group: 'Operations & Logistics' | 'Finance, Accounting & Control' }[] = [
     { id: 'hub', label: 'Home Hub', icon: Building2, group: 'Operations & Logistics' },
     { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard, group: 'Operations & Logistics' },
+    { id: 'planning', label: 'Planning Department', icon: Layers, group: 'Operations & Logistics' },
     { id: 'operations', label: 'Daily Operations Logs', icon: Truck, group: 'Operations & Logistics' },
     { id: 'maintenance', label: 'Fleet Maintenance & Fuel', icon: Wrench, group: 'Operations & Logistics' },
     { id: 'transporters', label: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
@@ -188,6 +207,7 @@ function AppContent() {
   const viewRoleRequirements: Record<ActiveTab, UserRole[] | undefined> = {
     hub: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     dashboard: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+    planning: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     operations: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     maintenance: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     invoicing: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Guest'],
@@ -209,6 +229,8 @@ function AppContent() {
         return <TenantLandingHubView onNavigateToTab={setActiveTab} />;
       case 'dashboard':
         return <DashboardView onNavigateToTab={(tab) => setActiveTab(tab)} />;
+      case 'planning':
+        return <PlanningDepartmentView />;
       case 'operations':
         return <OperationsLogView />;
       case 'maintenance':
@@ -236,8 +258,8 @@ function AppContent() {
       case 'tenant-settings':
         return (
           <TenantSettingsPanel
-            tenantId={brandConfig?.tenantId || '44f9ed53-be0a-454e-acbf-c87e54ff9438'}
-            tenantSlug={brandConfig?.slug || 'horizon-logistics'}
+            tenantId={(brandConfig as any)?.tenantId || '44f9ed53-be0a-454e-acbf-c87e54ff9438'}
+            tenantSlug={(brandConfig as any)?.slug || 'horizon-logistics'}
           />
         );
       default:

@@ -137,8 +137,8 @@ jobs:
 
       - name: Trigger Zero-Downtime Deployment Hook
         env:
-          DEPLOY_WEBHOOK_URL: ${{ secrets.PRODUCTION_DEPLOY_WEBHOOK }}
-          DEPLOY_SECRET_TOKEN: ${{ secrets.DEPLOY_SECRET_TOKEN }}
+          DEPLOY_WEBHOOK_URL: ${{ secrets.PRODUCTION_DEPLOY_WEBHOOK || '' }}
+          DEPLOY_SECRET_TOKEN: ${{ secrets.DEPLOY_SECRET_TOKEN || '' }}
         run: |
           if [ -n "$DEPLOY_WEBHOOK_URL" ]; then
             echo "Dispatching zero-downtime rolling update..."

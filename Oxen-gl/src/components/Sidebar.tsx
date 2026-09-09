@@ -16,11 +16,13 @@ import {
   Wrench,
   CreditCard,
   Globe,
+  Layers,
 } from 'lucide-react';
 
 export type ActiveTab =
   | 'hub'
   | 'dashboard'
+  | 'planning'
   | 'operations'
   | 'maintenance'
   | 'billing'
@@ -59,6 +61,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: LayoutDashboard,
       roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
       badge: isAr ? 'رئيسي' : 'Core',
+    },
+    {
+      id: 'planning' as ActiveTab,
+      labelAr: 'إدارة التخطيط الاستراتيجي',
+      labelEn: 'Planning Department',
+      icon: Layers,
+      roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+      badge: 'Tier 1-3',
     },
     {
       id: 'operations' as ActiveTab,

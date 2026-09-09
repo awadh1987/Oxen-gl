@@ -362,8 +362,13 @@ async function request<T>(path: string, companyId?: string, options?: RequestIni
         errorDetail = errJson.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
       } else if (errJson.message) {
         errorDetail = errJson.message;
+      } else if (errJson.error) {
+        errorDetail = typeof errJson.error === 'string' ? errJson.error : JSON.stringify(errJson.error);
       }
     } catch {}
+    if (errorDetail) {
+      console.error(`[API Error ${response.status}] ${path}:`, errorDetail);
+    }
 
     // Global 401/403 Interceptor
     if (response.status === 401 || response.status === 403) {
