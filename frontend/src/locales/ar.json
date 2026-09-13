@@ -15,7 +15,11 @@
     "kpi_asset_valuation": "قيمة الأصول المخزنة الحالية",
     "kpi_projection_30d": "المسار المتوقع لقيمة المخزون (30 يوماً)",
     "regression_slope": "معدل ميل الانحدار الخطي لكل يوم",
-    "confidence_high": "دقة تنبؤ عالية الذكاء"
+    "confidence_high": "دقة تنبؤ عالية الذكاء",
+    "current_value": "القيمة المخزنية الحالية",
+    "projected_value_30d": "القيمة التقديرية بعد 30 يوماً",
+    "calculated_slope": "معدل انحدار المسار",
+    "confidence_metric": "مؤشر دقة التنبؤ"
   },
   "procurement": {
     "matching_engine": "محرك المطابقة الثلاثي لعقود التوريد",
@@ -29,13 +33,40 @@
     "vehicle_id": "معرّف الشاحنة",
     "speed_kph": "كيلومتر / ساعة",
     "route_optimized": "تم تحسين مسار النقل متعدد المحطات بنجاح",
-    "cold_chain_alert": "تحذير: اختلال درجة حرارة الشحنة المبردة"
+    "cold_chain_alert": "تحذير: اختلال درجة حرارة الشحنة المبردة",
+    "manifest_number": "رقم بيان الشحن",
+    "stops_sequenced": "تسلسل محطات التسليم",
+    "total_distance_km": "إجمالي المسافة (كم)",
+    "cargo_temperature_celsius": "درجة حرارة الشحنة (سيلسيوس)",
+    "ambient_humidity_percentage": "نسبة الرطوبة المحيطة",
+    "device_battery_voltage": "جهد بطارية الحساس"
   },
   "hr_payroll": {
     "employee_code": "الرقم الوظيفي",
     "attendance_biometric": "سجل البصمة الحيوية للحضور والانصراف",
     "gross_earnings": "إجمالي المستحقات",
     "deductions": "الاستقطاعات الجزائية",
-    "net_pay": "صافي الراتب المستحق"
+    "net_pay": "صافي الراتب المستحق",
+    "base_salary": "الراتب الأساسي",
+    "allowances": "البدلات والمكافآت",
+    "pay_period": "فترة الاستحقاق",
+    "department": "القسم / الإدارة"
+  },
+  "saas_billing": {
+    "plan_name": "اسم باقة الاشتراك",
+    "max_seats": "سقف المستخدمين المسموح",
+    "max_vehicles": "سقف الشاحنات المسموح",
+    "current_seats_used": "المستخدمين المفعلين",
+    "current_vehicles_used": "الشاحنات المفعلة",
+    "subscription_status": "حالة الاشتراك التعاقدي",
+    "current_period_end": "تاريخ نهاية دورة الفوترة"
+  },
+  "ai_copilot": {
+    "header_title": "المساعد التنفيذي الذكي",
+    "recommendation": "التوصية الإدارية المقترحة",
+    "confidence_score": "مستوى الدقة والموثوقية",
+    "business_reasoning": "التبرير التحليلي للأعمال",
+    "data_sources": "مصادر البيانات ومسارات التدقيق",
+    "risk_classification": "مستوى تصنيف المخاطر"
   }
 }
