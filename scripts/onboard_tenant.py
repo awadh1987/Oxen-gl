@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import Any
 from decimal import Decimal
 from sqlalchemy import text
 from backend.database import SessionLocal
@@ -12,7 +13,7 @@ ADMIN_PASSWORD_PLAIN = "OxenGL@2026Onboard!"
 
 async def automate_corporate_onboarding(company_name: str, admin_email: str):
     print(f"\033[1m=== Initiating Automated Multi-Tenant SaaS Workspace Provisioning ===\033[0m")
-    db = SessionLocal()
+    db: Any = SessionLocal()
     tenant_id = uuid.uuid4()
     company_id = uuid.uuid4()
     
