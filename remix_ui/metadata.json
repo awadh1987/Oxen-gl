@@ -1,8 +1,0 @@
-{
-  "name": "Remix OxenGL",
-  "description": "Enterprise transport, quarry haulage, crusher accounts, wastage tracking, and financial ERP for contracting and logistics with RTL Arabic support.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}
