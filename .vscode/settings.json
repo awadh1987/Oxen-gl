@@ -13,5 +13,6 @@
         "${workspaceFolder}",
         "${workspaceFolder}/Oxen-gl"
     ],
-    "python.terminal.useEnvFile": true
+    "python.terminal.useEnvFile": true,
+    "chat.editing.autoAcceptDelay": 3
 }
