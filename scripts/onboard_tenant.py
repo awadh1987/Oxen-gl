@@ -8,8 +8,8 @@ from backend.database import SessionLocal
 from backend import models
 from backend.app.domains.saas.models import SubscriptionPlan, TenantSubscription
 
-# Passphrase representation: 'OxenGL@2026Onboard!' securely packed via blowfish crypt standard
-ADMIN_PASSWORD_PLAIN = "OxenGL@2026Onboard!"
+# Passphrase representation: 'Meayon123!' securely packed via blowfish crypt standard
+ADMIN_PASSWORD_PLAIN = "Meayon123!"
 
 async def automate_corporate_onboarding(company_name: str, admin_email: str):
     print(f"\033[1m=== Initiating Automated Multi-Tenant SaaS Workspace Provisioning ===\033[0m")
@@ -75,4 +75,4 @@ async def automate_corporate_onboarding(company_name: str, admin_email: str):
 
 if __name__ == "__main__":
     # Automate onboarding for an enterprise logistics partner entity profile instance
-    asyncio.run(automate_corporate_onboarding("Al-Amana Global Transports Ltd", "ops.lead@amana-trans.com"))
+    asyncio.run(automate_corporate_onboarding("Myon Economic Co Ltd.", "muath.salaih@meayon.com"))

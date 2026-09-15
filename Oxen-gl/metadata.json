@@ -1,8 +1,0 @@
-{
-  "name": "Remix Remix Myon Transport \u0026 Freight Operations ERP",
-  "description": "Enterprise transport, quarry haulage, crusher accounts, wastage tracking, and customer billing ERP for MYON Contracting & Logistics (ميون مقاولات ولوجستيات).",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}

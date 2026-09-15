@@ -141,3 +141,13 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Python Virtual Environments Isolation
+backend/.venv/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# AutoClaw KDream data
+.autoclaw/

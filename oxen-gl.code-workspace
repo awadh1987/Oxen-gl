@@ -3,5 +3,9 @@
 		{
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"gitlens.ai.defaultAgent": "cli:copilot",
+		"python.terminal.useEnvFile": true
+	}
 }

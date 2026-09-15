@@ -1,0 +1,17 @@
+{
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        ".",
+        "-p",
+        "*test.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/Oxen-gl"
+    ],
+    "python.terminal.useEnvFile": true
+}

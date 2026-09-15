@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from hmac import compare_digest
 from os import getenv
-from typing import Generator, Optional
+from typing import Any, Generator, Optional
 
 from backend.schemas import AccountMoveLineCreate
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect, status
@@ -27,6 +27,7 @@ try:
 		AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
 		AuthVerifyRequest, AuthVerifyResponse, CompanyRegistrationCreate, CompanyRegistrationRead, DirectAccessRequest,
 		CompanyBrandingUpdate, CompanyUpdate, IsolationAuditRead, LicenseIssueRequest,
+		PlatformAssetUploadRequest, PlatformAssetUploadResponse,
 		ProductProductCreate, ProductProductRead, ResPartnerCreate, ResPartnerRead, ResPartnerUpdate, UserRegistrationCreate,
 		ResCompanyRead, PublicTenantRead, StockLocationCreate, StockLocationRead, WeighbridgeOperationCreate, WeighbridgeOperationRead,
 		VehicleCreate, VehicleUpdate, VehicleRead,
@@ -82,12 +83,17 @@ try:
 	from .services.ai_parser import ai_document_parser
 	from .services.ai_forecasting import ai_forecasting_service
 	from .two_tier_auth import router as two_tier_auth_router
-	from .app.core.middleware import CorrelationIdMiddleware
-	from .app.domains.iam.routes import router as iam_auth_router
+	from .core.middleware import CorrelationIdMiddleware
+	from .domains.iam.routes import router as iam_auth_router
 	from backend.app.api.v1.procurement import router as procurement_router
 	from backend.app.api.v1.inventory import router as inventory_router
 	from backend.app.api.v1.finance import router as finance_router
 	from backend.app.api.v1.reports import router as reports_router
+	from backend.app.services.fleet_service import router as logistics_router
+	from backend.app.api.v1.hr import router as hr_router
+	from backend.app.api.v1.saas import router as saas_router
+	from backend.app.api.v1.ai import router as ai_router
+	from backend.app.api.v1.planning import router as planning_router
 except ImportError:
 	from .database import SessionLocal
 	from . import models  # type: ignore[no-redef]
@@ -96,6 +102,7 @@ except ImportError:
 		AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
 		AuthVerifyRequest, AuthVerifyResponse, CompanyRegistrationCreate, CompanyRegistrationRead, DirectAccessRequest,
 		CompanyBrandingUpdate, CompanyUpdate, IsolationAuditRead, LicenseIssueRequest,
+		PlatformAssetUploadRequest, PlatformAssetUploadResponse,
 		ProductProductCreate, ProductProductRead, ResPartnerCreate, ResPartnerRead, ResPartnerUpdate, UserRegistrationCreate,
 		ResCompanyRead, PublicTenantRead, StockLocationCreate, StockLocationRead, WeighbridgeOperationCreate, WeighbridgeOperationRead,
 		VehicleCreate, VehicleUpdate, VehicleRead,
@@ -156,6 +163,11 @@ except ImportError:
 	from backend.app.api.v1.inventory import router as inventory_router  # type: ignore[no-redef]
 	from backend.app.api.v1.finance import router as finance_router  # type: ignore[no-redef]
 	from backend.app.api.v1.reports import router as reports_router  # type: ignore[no-redef]
+	from backend.app.services.fleet_service import router as logistics_router  # type: ignore[no-redef]
+	from backend.app.api.v1.hr import router as hr_router  # type: ignore[no-redef]
+	from backend.app.api.v1.saas import router as saas_router  # type: ignore[no-redef]
+	from backend.app.api.v1.ai import router as ai_router  # type: ignore[no-redef]
+	from backend.app.api.v1.planning import router as planning_router  # type: ignore[no-redef]
 
 
 app = FastAPI(
@@ -190,7 +202,16 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, password_hash: str | None) -> bool:
 	if not password_hash:
 		return False
-	return pwd_context.verify(plain_password, password_hash)
+	if password_hash.startswith(("$2a$", "$2b$", "$2y$")):
+		try:
+			import bcrypt
+			return bcrypt.checkpw(plain_password.encode("utf-8"), password_hash.encode("utf-8"))
+		except Exception:
+			return False
+	try:
+		return pwd_context.verify(plain_password, password_hash)
+	except Exception:
+		return False
 
 
 def _base64url_encode(payload: bytes) -> str:
@@ -263,6 +284,18 @@ app.include_router(procurement_router)
 app.include_router(inventory_router)
 app.include_router(finance_router)
 app.include_router(reports_router)
+from backend.app.domains.finance import audit_export
+app.include_router(audit_export.router)
+from backend.app.domains.auth import onboard_tenant
+app.include_router(onboard_tenant.router)
+from backend.app.domains.logistics.ws_stream import router as ws_stream_router
+app.include_router(ws_stream_router)
+app.include_router(logistics_router)
+app.include_router(hr_router, prefix="/api/v1/hr")
+app.include_router(saas_router, prefix="/api/v1/saas")
+app.include_router(ai_router, prefix="/api/v1/ai")
+app.include_router(planning_router, prefix="/api/tenant/planning")
+app.include_router(planning_router, prefix="/api/v1/planning")
 
 def get_db() -> Generator[Session, None, None]:
 	database = SessionLocal()
@@ -581,6 +614,7 @@ async def root():
 
 
 @app.get("/health", tags=["Health Check"])
+@app.get("/api/v1/health", tags=["Health Check"])
 async def health_check():
 	return {
 		"status": "healthy",
@@ -714,9 +748,81 @@ def update_company_branding(company_id: uuid.UUID, payload: CompanyBrandingUpdat
 	company.ui_logo_url = payload.ui_logo_url
 	company.ui_primary_color = payload.ui_primary_color
 	company.ui_secondary_color = payload.ui_secondary_color
+	if payload.wallpaper_url is not None:
+		company.wallpaper_url = payload.wallpaper_url
+	if payload.background_url is not None:
+		company.background_url = payload.background_url
 	database.commit()
 	database.refresh(company)
 	return company
+
+
+@app.post("/api/platform/assets/upload", response_model=PlatformAssetUploadResponse, tags=["Platform"])
+def upload_platform_asset(
+	payload: PlatformAssetUploadRequest,
+	database: Session = Depends(get_db),
+):
+	target_company = None
+	if payload.company_id:
+		target_company = database.get(models.ResCompany, payload.company_id)
+	if not target_company:
+		target_company = database.query(models.ResCompany).first()
+
+	asset_url = payload.file_buffer
+	if payload.file_buffer and payload.file_buffer.startswith("data:image"):
+		try:
+			import os
+			ext = "png"
+			if "image/svg+xml" in payload.file_buffer:
+				ext = "svg"
+			elif "image/jpeg" in payload.file_buffer or "image/jpg" in payload.file_buffer:
+				ext = "jpg"
+			elif "image/webp" in payload.file_buffer:
+				ext = "webp"
+
+			_, encoded = payload.file_buffer.split(",", 1)
+			file_bytes = base64.b64decode(encoded)
+			file_name = f"uploaded_{payload.asset_type or 'asset'}_{int(time.time())}.{ext}"
+
+			for target_dir in [
+				"/var/www/oxengl/dist/assets",
+				"/var/www/erp/frontend/dist/assets",
+				"/root/oxen-gl/frontend/public/assets",
+			]:
+				if os.path.exists(target_dir):
+					with open(os.path.join(target_dir, file_name), "wb") as f:
+						f.write(file_bytes)
+			asset_url = f"/assets/{file_name}"
+		except Exception:
+			asset_url = payload.file_buffer
+
+	resolved_wallpaper = payload.wallpaper_url or (asset_url if payload.asset_type in ("platform_wallpaper", "wallpaper", "background", "platform_background") else None)
+	resolved_background = payload.background_url or (asset_url if payload.asset_type in ("platform_wallpaper", "wallpaper", "background", "platform_background") else None)
+
+	if target_company:
+		if payload.asset_type in ("platform_logo", "logo", "platform_branding") and asset_url:
+			target_company.ui_logo_url = asset_url
+		if resolved_wallpaper:
+			target_company.wallpaper_url = resolved_wallpaper
+		if resolved_background:
+			target_company.background_url = resolved_background
+		if payload.primary_color:
+			target_company.ui_primary_color = payload.primary_color
+		if payload.secondary_color:
+			target_company.ui_secondary_color = payload.secondary_color
+		database.commit()
+		database.refresh(target_company)
+
+	return PlatformAssetUploadResponse(
+		status="success",
+		url=asset_url,
+		file_name=payload.file_name,
+		asset_type=payload.asset_type,
+		primary_color=payload.primary_color,
+		secondary_color=payload.secondary_color,
+		wallpaper_url=resolved_wallpaper or (target_company.wallpaper_url if target_company else None),
+		background_url=resolved_background or (target_company.background_url if target_company else None),
+	)
 
 
 @app.post("/api/companies/register", response_model=CompanyRegistrationRead, status_code=status.HTTP_201_CREATED, tags=["Companies"])
@@ -4839,4 +4945,11 @@ def create_restock_proposal(
 		hitl_approval_token=gov_log.hitl_approval_token,
 		message=msg,
 	)
+
+# File segment: backend/app/main.py
+from backend.app.domains.planning.logo_upload import router as logo_upload_router
+
+# Include the branding router alongside active application resource domains
+app.include_router(logo_upload_router)
+
 

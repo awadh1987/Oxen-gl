@@ -4,6 +4,10 @@ export interface Company {
   id: string;
   parentId?: string | null;
   name: string;
+  company_name?: string;
+  company_name_ar?: string;
+  name_ar?: string;
+  name_en?: string;
   slug: string;
   commercialRegistration?: string;
   taxId?: string;
@@ -19,6 +23,11 @@ export interface Company {
   uiPrimaryColor?: string;
   uiSecondaryColor?: string;
   uiLogoUrl?: string | null;
+  logo_url?: string | null;
+  logoUrl?: string | null;
+  wallpaper_url?: string | null;
+  background_url?: string | null;
+  uiBackgroundUrl?: string | null;
 }
 
 export interface DocumentAttachment {
@@ -71,6 +80,7 @@ export interface Crusher {
   id: string;
   crusherName: string;
   crusherNameEn: string;
+  name?: string;
   location: string;
   bankDetails: string;
   accountNumber?: string;
@@ -90,12 +100,14 @@ export interface Transporter {
   id: string;
   transporterName: string;
   transporterNameEn: string;
+  name?: string;
   driverName: string;
   phone: string;
   truckDetails: string;
   defaultTruckNo?: string;
   capacityTons?: number;
   ratePerTon?: number;
+  taxNumber?: string;
   is_deleted?: boolean;
   deleted_at?: string;
   deleted_by?: string;
@@ -117,6 +129,7 @@ export interface MaterialOption {
 export interface OperationRecord {
   id: string;
   loading_date: string; // YYYY-MM-DD
+  date?: string;
   truck_no: string;
   transporter_name: string;
   loading_source: string; // Crusher Name
@@ -135,6 +148,8 @@ export interface OperationRecord {
   purchases_cost: number; // Payable to Crusher
   crusher_payment: number; // Paid to Crusher
   net_profit: number; // Computed: sales_amount - purchases_cost
+  transporter_cost_amount?: number;
+  crusher_cost_amount?: number;
   operation_month: number; // 1-12
   operation_year: number;
   notes?: string;
@@ -319,6 +334,8 @@ export interface BrandConfig {
   primaryColor: string; // e.g. #4f46e5
   secondaryColor: string; // e.g. #9333ea
   customLogoUrl?: string;
+  wallpaperUrl?: string;
+  backgroundUrl?: string;
   ceoSignatureUrl?: string;
   companyStampUrl?: string;
   ceoNameAr: string;
@@ -354,6 +371,24 @@ export interface BrandConfig {
   aboutTextEn?: string;
   workingHoursAr?: string;
   workingHoursEn?: string;
+  sloganAr?: string;
+  sloganEn?: string;
+  homepageBadgeAr?: string;
+  homepageBadgeEn?: string;
+  homepageHeroTitleAr?: string;
+  homepageHeroTitleEn?: string;
+  homepageHeroSubtitleAr?: string;
+  homepageHeroSubtitleEn?: string;
+  homepageAnnualTonnage?: string;
+  homepageFleetCount?: string;
+  homepageCrushersCount?: string;
+  homepageAboutTitleAr?: string;
+  homepageAboutTitleEn?: string;
+  homepageAboutDescriptionAr?: string;
+  homepageAboutDescriptionEn?: string;
+  bankAccountNumber?: string;
+  bankIban?: string;
+  [key: string]: any;
 }
 
 export interface AuditLogEntry {
@@ -375,7 +410,8 @@ export interface AuditLogEntry {
     | 'LOGIN'
     | 'OVERRIDE_DB'
     | 'BRAND_CONFIG'
-    | 'ATTACH_FILE';
+    | 'ATTACH_FILE'
+    | 'ISSUE';
   entityType:
     | 'Operation'
     | 'Customer'
@@ -440,6 +476,26 @@ export interface FinancialVoucher {
   updated_at: string;
 }
 
+export interface BalancedJournalLineItem {
+  id?: string;
+  account_code: string;
+  account_name?: string;
+  description?: string;
+  debit: number;
+  credit: number;
+}
+
+export interface BalancedJournalVoucher {
+  id: string;
+  entry_number: string;
+  description: string;
+  entry_date: string;
+  total_debit: number;
+  total_credit: number;
+  status: string;
+  lines: BalancedJournalLineItem[];
+}
+
 // ==============================================================================
 // Hierarchical Chart of Accounts Recursive Data Contract (finance-tree-contract.json)
 // ==============================================================================
@@ -476,6 +532,19 @@ export interface GPSVehicleTelemetry {
   route_id?: string;
   destination?: string;
   alerts?: string[];
+  cargo_temperature_celsius?: number;
+  ambient_humidity_percentage?: number;
+  device_battery_voltage?: number;
+  temp?: number;
+  humidity?: number;
+  voltage?: number;
+  routing_status?: 'ON_SCHEDULE' | 'VECTOR_DEVIATION_ALERT' | 'OPTIMAL' | 'CONGESTION_AVOIDANCE' | string;
+  deviation_magnitude_km?: number;
+  eta_hours?: number;
+  weighted_cost_index?: number;
+  target_lat?: number;
+  target_lon?: number;
+  congestion_index?: number;
 }
 
 export interface FleetStreamMessage {

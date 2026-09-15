@@ -1,0 +1,109 @@
+services:
+  # The OxenGL High-Precision Multi-Tenant Database Engine
+  postgres_db:
+    image: pgvector/pgvector:pg15
+    container_name: oxengl_postgres_container
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: erp_db
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg_data_volume:/var/lib/postgresql/data
+    command: >
+      postgres 
+      -c max_connections=200 
+      -c shared_buffers=512MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d erp_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oxengl_internal_network
+
+  # The OxenGL High-Velocity Cache & State Broker
+  redis_cache:
+    image: redis:7-alpine
+    container_name: oxengl_redis_container
+    restart: always
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data_volume:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oxengl_internal_network
+
+  # OxenGL Enterprise Core Backend API Engine
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oxengl_backend_container
+    restart: always
+    environment:
+      DATABASE_URL: "postgresql+asyncpg://postgres:postgres@postgres_db:5432/erp_db"
+      REDIS_URL: "redis://redis_cache:6379/0"
+      JWT_SECRET: "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - oxengl_internal_network
+
+  # Decoupled Asynchronous Audit & Analytics Celery Worker
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: oxengl_celery_worker_container
+    restart: always
+    command: celery -A backend.app.core.celery_app.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://postgres:postgres@postgres_db:5432/erp_db"
+      REDIS_URL: "redis://redis_cache:6379/0"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+    networks:
+      - oxengl_internal_network
+
+  # OxenGL React/Vite Frontend Interface
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: oxengl_frontend_container
+    restart: always
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - oxengl_internal_network
+
+volumes:
+  pg_data_volume:
+  redis_data_volume:
+
+networks:
+  oxengl_internal_network:
+    driver: bridge
