@@ -20,6 +20,11 @@ import {
   Layers,
   FileSpreadsheet,
   Search,
+  UserPlus,
+  Key,
+  Copy,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { EntityCRUDModal, CRUDModalType } from '../components/EntityCRUDModal';
@@ -32,6 +37,7 @@ export const MasterDataView: React.FC = () => {
     transporters,
     materials,
     users,
+    refreshUsers,
     currentCompany,
     setCurrentCompany,
     refreshCompanies,
@@ -52,6 +58,19 @@ export const MasterDataView: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<CRUDModalType>('customer');
   const [selectedEntityData, setSelectedEntityData] = useState<any | null>(null);
+
+  // Invite User Modal State (Task 4.2 & 4.3)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'Admin' | 'Accountant' | 'Data_Entry' | 'Guest'>('Accountant');
+  const [inviteFullName, setInviteFullName] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{
+    email: string;
+    temporary_password: string;
+    role: string;
+  } | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
 
   // CSV Batch Modal State
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -149,7 +168,48 @@ export const MasterDataView: React.FC = () => {
     setBackendPartners((current) => current.filter((partner) => partner.id !== partnerId));
   };
 
+  useEffect(() => {
+    if (activeSubTab === 'user') {
+      refreshUsers();
+    }
+  }, [activeSubTab]);
+
+  const handleInviteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteLoading(true);
+    try {
+      const res = await erpApi.inviteUser({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        full_name: inviteFullName.trim() || undefined,
+      });
+      setInviteResult({
+        email: res.email,
+        temporary_password: res.temporary_password,
+        role: res.role,
+      });
+      alert(
+        isAr
+          ? `تم إنشاء المستخدم بنجاح. يُرجى مشاركة كلمة المرور المؤقتة بأمان: ${res.temporary_password}`
+          : `User created. Please share this temporary password securely: ${res.temporary_password}`
+      );
+      await refreshUsers();
+      setInviteEmail('');
+      setInviteFullName('');
+    } catch (err: any) {
+      console.error('Invite user failed:', err);
+      alert(err.message || (isAr ? 'فشلت دعوة المستخدم' : 'Failed to invite user'));
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
   const handleOpenCreate = (type: CRUDModalType) => {
+    if (type === 'user') {
+      setInviteResult(null);
+      setIsInviteModalOpen(true);
+      return;
+    }
     setModalType(type);
     setSelectedEntityData(null);
     setIsModalOpen(true);
@@ -651,13 +711,42 @@ export const MasterDataView: React.FC = () => {
       {/* Tab 5: Users & RBAC */}
       {activeSubTab === 'user' && (
         <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-900">
-              {isAr ? 'إدارة المستخدمين ومصفوفة صلاحيات الوصول (RBAC)' : 'User Management & Permissions Matrix'}
-            </h3>
-            <span className="text-xs font-bold text-orange-700 font-mono">
-              {activeUsers.length} {isAr ? 'مستخدمين' : 'Users'}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black text-slate-900">
+                {isAr ? 'إدارة المستخدمين ومصفوفة صلاحيات الوصول (RBAC)' : 'User Management & Permissions Matrix'}
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {isAr
+                  ? 'حسابات المستخدمين المعتمدة لمساحة عمل المنشأة الحالية مع العزل الكامل'
+                  : 'Authorized tenant workspace user accounts with strict multi-tenant isolation'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <button
+                id="btn-refresh-users"
+                onClick={() => refreshUsers()}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
+                title={isAr ? 'تحديث قائمة المستخدمين' : 'Refresh Users'}
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-slate-500" />
+                <span>{isAr ? 'تحديث' : 'Refresh'}</span>
+              </button>
+              <button
+                id="btn-invite-user"
+                onClick={() => {
+                  setInviteResult(null);
+                  setIsInviteModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-orange-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-orange-700 transition-colors"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>{isAr ? 'دعوة مستخدم جديد' : 'Invite New User'}</span>
+              </button>
+              <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-lg">
+                {activeUsers.length} {isAr ? 'مستخدمين' : 'Users'}
+              </span>
+            </div>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
@@ -713,9 +802,10 @@ export const MasterDataView: React.FC = () => {
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => {
-                            if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذا المستخدم؟' : 'Delete user?')) {
-                              deleteUser(u.id);
+                          onClick={async () => {
+                            if (window.confirm(isAr ? 'هل أنت متأكد من حذف هذا المستخدم نهائياً؟' : 'Permanently delete this user?')) {
+                              await deleteUser(u.id);
+                              await refreshUsers();
                             }
                           }}
                           className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
@@ -729,6 +819,154 @@ export const MasterDataView: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Invite New User Modal (Task 4.2 & 4.3) */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div
+            dir={isAr ? 'rtl' : 'ltr'}
+            className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                  <UserPlus className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">
+                    {isAr ? 'دعوة مستخدم جديد للمنظومة' : 'Invite New Workspace User'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {isAr ? 'إنشاء حساب موظف ضمن مساحة عمل المنشأة الحالية' : 'Create an employee account under current tenant'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsInviteModalOpen(false);
+                  setInviteResult(null);
+                }}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {inviteResult ? (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-900">
+                  <div className="flex items-center gap-2 text-xs font-black">
+                    <CheckCircle className="h-4 w-4 text-emerald-600" />
+                    <span>{isAr ? 'تم إنشاء حساب المستخدم بنجاح!' : 'User created successfully!'}</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-emerald-800">
+                    {isAr
+                      ? `تم ربط المستخدم (${inviteResult.email}) بدور (${inviteResult.role}). يُرجى مشاركة كلمة المرور المؤقتة التالية بأمان مع الموظف:`
+                      : `User (${inviteResult.email}) created with role (${inviteResult.role}). Please share this temporary password securely:`}
+                  </p>
+                  <div className="mt-3 flex items-center justify-between rounded-xl border border-emerald-300 bg-white px-3 py-2">
+                    <code className="font-mono text-sm font-black text-emerald-950">
+                      {inviteResult.temporary_password}
+                    </code>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteResult.temporary_password);
+                        setCopiedPassword(true);
+                        setTimeout(() => setCopiedPassword(false), 2000);
+                      }}
+                      className="flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-emerald-700 transition-colors"
+                    >
+                      {copiedPassword ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      <span>{copiedPassword ? (isAr ? 'تم النسخ' : 'Copied!') : (isAr ? 'نسخ' : 'Copy')}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={() => {
+                      setIsInviteModalOpen(false);
+                      setInviteResult(null);
+                    }}
+                    className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-bold text-white hover:bg-slate-800 transition-colors"
+                  >
+                    {isAr ? 'إغلاق ومتابعة' : 'Close'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleInviteUser} className="space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? 'البريد الإلكتروني المهني للمستخدم *' : 'Corporate Email Address *'}
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="user@corporate.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? 'الاسم الكامل (اختياري)' : 'Full Name (Optional)'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={isAr ? 'مثال: أحمد محمد' : 'e.g. Ahmed Mohamed'}
+                    value={inviteFullName}
+                    onChange={(e) => setInviteFullName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-semibold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? 'الدور ومستوى الصلاحيات (RBAC Role) *' : 'Assigned Role & Permissions *'}
+                  </label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  >
+                    <option value="Admin">{isAr ? 'Admin - مدير عام (كامل الصلاحيات)' : 'Admin - Full Administrator'}</option>
+                    <option value="Accountant">{isAr ? 'Accountant - محاسب مالي (الفواتير والتقارير)' : 'Accountant - Invoices & Financial Reports'}</option>
+                    <option value="Data_Entry">{isAr ? 'Data_Entry - مدخل بيانات (العمليات والموازين)' : 'Data_Entry - Operations & Tickets'}</option>
+                    <option value="Guest">{isAr ? 'Guest - زائر (قراءة فقط بدون أسعار)' : 'Guest - Read-Only Access'}</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    {isAr ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={inviteLoading}
+                    className="flex items-center gap-1.5 rounded-xl bg-orange-600 px-5 py-2 text-xs font-bold text-white hover:bg-orange-700 disabled:opacity-50 transition-colors shadow-xs"
+                  >
+                    {inviteLoading ? (
+                      <span>{isAr ? 'جارِ الإرسال...' : 'Inviting...'}</span>
+                    ) : (
+                      <>
+                        <UserPlus className="h-4 w-4" />
+                        <span>{isAr ? 'إنشاء ودعوة المستخدم' : 'Create & Invite'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -29,6 +29,8 @@ import backend.app.domains.logistics.models
 sys.modules["app.domains.logistics.models"] = sys.modules["backend.app.domains.logistics.models"]
 import backend.app.domains.logistics.phase4_models
 sys.modules["app.domains.logistics.phase4_models"] = sys.modules["backend.app.domains.logistics.phase4_models"]
+import backend.app.domains.logistics.customs_models
+sys.modules["app.domains.logistics.customs_models"] = sys.modules["backend.app.domains.logistics.customs_models"]
 
 
 

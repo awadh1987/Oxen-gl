@@ -5,6 +5,7 @@ from backend.app.main import app  # Master FastAPI core instance
 from backend.app.database import SessionLocal
 from backend.app.domains.planning.models import ResCompany
 from backend.app.domains.finance.models import AccountChart
+from backend.models import ResUser
 
 client = TestClient(app)  # Virtualized browser test harness client
 
@@ -79,6 +80,7 @@ def test_end_to_end_tenant_onboarding_seeds_5_deep_ledger():
     finally:
         # Clean teardown pass: remove mock records to keep staging tables clean
         db.query(AccountChart).filter(AccountChart.tenant_id == generated_tenant_id).delete()
+        db.query(ResUser).filter(ResUser.company_id == generated_tenant_id).delete()
         db.query(ResCompany).filter(ResCompany.id == generated_tenant_id).delete()
         db.commit()
         db.close()

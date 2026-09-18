@@ -95,6 +95,7 @@ export interface NativeLoginPayload {
 export interface NativeAuthResponse {
   status: 'Active' | 'Pending';
   message: string;
+  token?: string;
   user: {
     id: string;
     email: string;
@@ -103,6 +104,9 @@ export interface NativeAuthResponse {
     role: 'Super_Admin' | 'Admin' | 'COO' | 'Accountant' | 'Data_Entry' | 'Guest';
     status: 'Active' | 'Pending';
     company_id: string | null;
+    tenant_id?: string | null;
+    tenant_slug?: string | null;
+    domain_slug?: string | null;
   };
 }
 
@@ -115,6 +119,15 @@ export interface TenantLoginPayload {
   tenant_slug: string;
   identity: string;
   password: string;
+}
+
+export interface TwoFactorVerifyPayload {
+  two_factor_token?: string;
+  code: string;
+  tenant?: string;
+  tenant_slug?: string;
+  workspace_slug?: string;
+  email?: string;
 }
 
 export interface TwoTierTenantRegistrationPayload {
@@ -145,18 +158,22 @@ export interface PasswordResetPayload {
 }
 
 export interface TwoTierAuthResponse {
-  access_token: string;
-  token_type: string;
-  tier: 'master' | 'tenant';
+  access_token?: string;
+  token_type?: string;
+  tier?: 'master' | 'tenant';
   role?: string;
   tenant_id?: string;
   tenant_slug?: string;
-  user: {
+  status?: string;
+  two_factor_token?: string;
+  message?: string;
+  user?: {
     id: string;
     email: string;
     mobile?: string;
-    fullName: string;
-    role: string;
+    fullName?: string;
+    fullNameAr?: string;
+    role?: string;
   };
 }
 
@@ -200,7 +217,8 @@ export interface ApiAccount {
 }
 
 export interface AccountMoveLinePayload {
-  account_id: string;
+  account_id?: string;
+  account_code?: string;
   partner_id?: string | null;
   cost_center_id?: string | null;
   debit: number;
@@ -295,30 +313,53 @@ interface Product { id: string; sku: string; name: string; }
 export const OXENGL_AUTH_TOKEN_KEY = 'oxengl_auth_jwt';
 export const OXENGL_AUTH_TIER_KEY = 'oxengl_auth_tier';
 export const OXENGL_TENANT_SLUG_KEY = 'oxengl_tenant_slug';
+export const OXENGL_TENANT_ID_KEY = 'oxengl_tenant_id';
 
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(OXENGL_AUTH_TOKEN_KEY);
+  return localStorage.getItem(OXENGL_AUTH_TOKEN_KEY) || localStorage.getItem('token') || localStorage.getItem('access_token');
 }
 
 export function getAuthTier(): 'master' | 'tenant' | null {
   if (typeof window === 'undefined') return null;
-  return (localStorage.getItem(OXENGL_AUTH_TIER_KEY) as 'master' | 'tenant') || null;
+  const tier = (localStorage.getItem(OXENGL_AUTH_TIER_KEY) as 'master' | 'tenant');
+  if (tier) return tier;
+  if (localStorage.getItem('tenant_slug') || localStorage.getItem(OXENGL_TENANT_SLUG_KEY)) return 'tenant';
+  if (localStorage.getItem('role') === 'Super_Admin') return 'master';
+  return null;
 }
 
 export function getTenantSlug(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(OXENGL_TENANT_SLUG_KEY);
+  return localStorage.getItem(OXENGL_TENANT_SLUG_KEY) || localStorage.getItem('tenant_slug');
 }
 
-export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantSlug?: string | null): void {
+export function getTenantId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(OXENGL_TENANT_ID_KEY) || localStorage.getItem('tenant_id') || localStorage.getItem('company_id');
+}
+
+export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantSlug?: string | null, tenantId?: string | null): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(OXENGL_AUTH_TOKEN_KEY, token);
+  localStorage.setItem('token', token);
+  localStorage.setItem('access_token', token);
   localStorage.setItem(OXENGL_AUTH_TIER_KEY, tier);
   if (tenantSlug) {
     localStorage.setItem(OXENGL_TENANT_SLUG_KEY, tenantSlug);
+    localStorage.setItem('tenant_slug', tenantSlug);
   } else {
     localStorage.removeItem(OXENGL_TENANT_SLUG_KEY);
+    localStorage.removeItem('tenant_slug');
+  }
+  if (tenantId) {
+    localStorage.setItem(OXENGL_TENANT_ID_KEY, tenantId);
+    localStorage.setItem('tenant_id', tenantId);
+    localStorage.setItem('company_id', tenantId);
+  } else {
+    localStorage.removeItem(OXENGL_TENANT_ID_KEY);
+    localStorage.removeItem('tenant_id');
+    localStorage.removeItem('company_id');
   }
   localStorage.setItem('oxengl_session_active', 'true');
 }
@@ -326,9 +367,18 @@ export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantS
 export function clearAuthSession(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(OXENGL_AUTH_TOKEN_KEY);
+  localStorage.removeItem('token');
+  localStorage.removeItem('access_token');
   localStorage.removeItem(OXENGL_AUTH_TIER_KEY);
   localStorage.removeItem(OXENGL_TENANT_SLUG_KEY);
+  localStorage.removeItem('tenant_slug');
+  localStorage.removeItem(OXENGL_TENANT_ID_KEY);
+  localStorage.removeItem('tenant_id');
+  localStorage.removeItem('company_id');
+  localStorage.removeItem('oxengl_current_company');
+  localStorage.removeItem('role');
   localStorage.removeItem('oxengl_session_active');
+  localStorage.removeItem('oxengl_user');
   localStorage.removeItem('meayon_user');
 }
 
@@ -337,12 +387,13 @@ const apiBaseUrl = typeof window === 'undefined' ? '' : window.location.origin;
 async function request<T>(path: string, companyId?: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const activeTenantSlug = getTenantSlug();
+  const activeTenantId = companyId || getTenantId();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(activeTenantSlug ? { 'X-Tenant-Slug': activeTenantSlug } : {}),
-    ...(companyId ? { 'X-Company-ID': companyId } : {}),
+    ...(activeTenantId ? { 'X-Company-ID': activeTenantId, 'X-Tenant-ID': activeTenantId } : {}),
     ...((options?.headers as Record<string, string>) || {}),
   };
 
@@ -402,8 +453,27 @@ export const erpApi = {
   // Two-Tier Identity & Auth Endpoints
   masterLogin: (payload: MasterLoginPayload) =>
     request<TwoTierAuthResponse>('/api/auth/master/login', undefined, { method: 'POST', body: JSON.stringify(payload) }),
-  tenantLogin: (payload: TenantLoginPayload) =>
-    request<TwoTierAuthResponse>('/api/auth/tenant/login', undefined, { method: 'POST', body: JSON.stringify(payload) }),
+  tenantLogin: async (payload: TenantLoginPayload) => {
+    const res = await request<TwoTierAuthResponse>('/api/auth/tenant/login', undefined, { method: 'POST', body: JSON.stringify(payload) });
+    if (res?.access_token) {
+      setAuthSession(res.access_token, 'tenant', res.tenant_slug || payload.tenant_slug, res.tenant_id);
+    }
+    return res;
+  },
+  loginTenant: async (payload: TenantLoginPayload) => {
+    const res = await request<TwoTierAuthResponse>('/api/auth/tenant/login', undefined, { method: 'POST', body: JSON.stringify(payload) });
+    if (res?.access_token) {
+      setAuthSession(res.access_token, 'tenant', res.tenant_slug || payload.tenant_slug, res.tenant_id);
+    }
+    return res;
+  },
+  verifyTwoFactor: async (payload: TwoFactorVerifyPayload) => {
+    const res = await request<TwoTierAuthResponse>('/auth/2fa/verify', undefined, { method: 'POST', body: JSON.stringify(payload) });
+    if (res?.access_token) {
+      setAuthSession(res.access_token, 'tenant', res.tenant_slug || payload.tenant_slug || payload.workspace_slug, res.tenant_id);
+    }
+    return res;
+  },
   registerTenant: (payload: TwoTierTenantRegistrationPayload) =>
     request<{ message: string; tenant_id: string; tenant_slug: string; tenant: any; admin_user_id: string }>('/api/auth/register-tenant', undefined, { method: 'POST', body: JSON.stringify(payload) }),
   recoverPassword: (payload: PasswordRecoveryPayload) =>
@@ -418,7 +488,23 @@ export const erpApi = {
   getCompanies: () => request<ApiCompany[]>('/api/companies'),
   getCompany: (companyId: string) => request<ApiCompany>(`/api/companies/${companyId}`, companyId),
   updateCompany: (companyId: string, payload: CompanyUpdatePayload) => request<ApiCompany>(`/api/companies/${companyId}`, companyId, { method: 'PATCH', body: JSON.stringify(payload) }),
-  login: (payload: NativeLoginPayload) => request<NativeAuthResponse>('/api/auth/verify', undefined, { method: 'POST', body: JSON.stringify(payload) }),
+  login: async (payload: NativeLoginPayload) => {
+    const res = await request<NativeAuthResponse>('/api/auth/verify', undefined, { method: 'POST', body: JSON.stringify(payload) });
+    const tenantId = res?.user?.company_id || res?.user?.tenant_id;
+    const tenantSlug = res?.user?.tenant_slug || res?.user?.domain_slug;
+    if (res?.token) {
+      setAuthSession(res.token, 'tenant', tenantSlug, tenantId);
+    } else if (tenantId) {
+      localStorage.setItem(OXENGL_TENANT_ID_KEY, tenantId);
+      localStorage.setItem('tenant_id', tenantId);
+      localStorage.setItem('company_id', tenantId);
+      if (tenantSlug) {
+        localStorage.setItem(OXENGL_TENANT_SLUG_KEY, tenantSlug);
+        localStorage.setItem('tenant_slug', tenantSlug);
+      }
+    }
+    return res;
+  },
   logout: () => {
     clearAuthSession();
     return request<{ message: string }>('/api/auth/logout', undefined, { method: 'POST' });
@@ -434,6 +520,9 @@ export const erpApi = {
     body: JSON.stringify(payload),
   }),
   getOperations: (companyId: string) => request<ApiOperation[]>('/api/operations', companyId),
+  deleteOperation: (companyId: string, pickingId: string) => request<void>(`/api/operations/${pickingId}`, companyId, {
+    method: 'DELETE',
+  }),
   getAccountingAccounts: (companyId: string) => request<ApiAccount[]>('/api/accounting/accounts', companyId),
   getAccountingMoves: (companyId: string) => request<ApiAccountMove[]>('/api/accounting/moves', companyId),
   getAccountingMove: (companyId: string, moveId: string) => request<ApiAccountMove>(`/api/accounting/moves/${moveId}`, companyId),
@@ -464,6 +553,11 @@ export const erpApi = {
     method: 'POST',
   }),
   getSettlements: (companyId: string) => request<ApiSettlement[]>('/api/settlements', companyId),
+  getVouchers: (companyId: string) => request<any[]>('/api/accounting/moves', companyId),
+  createVoucher: (companyId: string, payload: any) => request<any>('/api/accounting/moves', companyId, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
   getPartners: (companyId: string) => request<Partner[]>('/api/partners', companyId),
   createPartner: (companyId: string, payload: PartnerPayload) => request<Partner>('/api/partners', companyId, { method: 'POST', body: JSON.stringify(payload) }),
   updatePartner: (companyId: string, partnerId: string, payload: Partial<PartnerPayload>) => request<Partner>(`/api/partners/${partnerId}`, companyId, { method: 'PATCH', body: JSON.stringify(payload) }),
@@ -496,6 +590,49 @@ export const erpApi = {
   // Phase 5: Multi-Tenant Real-Time Analytics
   getTenantAnalyticsSummary: (companyId: string) => request<any>('/api/analytics/tenant-summary', companyId),
 
+  // Tenant User Management API (Live Backend Integration)
+  getUsers: () =>
+    request<
+      Array<{
+        id: string;
+        email: string;
+        full_name: string;
+        role: string;
+        is_active: boolean;
+        created_at?: string;
+        tenant_id: string;
+      }>
+    >('/api/v1/users'),
+
+  inviteUser: (payload: { email: string; role: string; full_name?: string }) =>
+    request<{
+      status: string;
+      user_id: string;
+      email: string;
+      full_name: string;
+      role: string;
+      temporary_password: string;
+      message: string;
+    }>('/api/v1/users/invite', undefined, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteUser: (userId: string) =>
+    request<{ status: string; user_id: string; message: string }>(`/api/v1/users/${userId}`, undefined, {
+      method: 'DELETE',
+    }),
+
+  updateUserRole: (userId: string, role: string) =>
+    request<{ status: string; user_id: string; role: string; message: string }>(
+      `/api/v1/users/${userId}/role`,
+      undefined,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ role }),
+      }
+    ),
+
   async createWeighbridgeOperation(input: {
     companyId: string;
     transporterName: string;
@@ -518,17 +655,75 @@ export const erpApi = {
     const destination = await findOrCreate<Location>('/api/locations', input.companyId, (record) => record.name === input.destinationName, {
       name: input.destinationName, location_type: 'customer',
     });
-    return request<ApiOperation>('/api/operations/weighbridge', input.companyId, {
+      return request<ApiOperation>('/api/operations/weighbridge', input.companyId, {
+        method: 'POST',
+        body: JSON.stringify({
+          partner_id: partner.id,
+          product_id: product.id,
+          source_location_id: source.id,
+          dest_location_id: destination.id,
+          truck_number: input.truckNumber,
+          gross_weight: input.grossWeight,
+          tare_weight: input.tareWeight,
+        }),
+      });
+    },
+
+  getCustomsManifests: (companyId: string) =>
+    request<ApiCustomsManifest[]>('/api/v1/logistics/customs/manifests', companyId),
+
+  createCustomsManifest: (companyId: string, payload: CreateCustomsManifestPayload) =>
+    request<ApiCustomsManifest>('/api/v1/logistics/customs/manifests', companyId, {
       method: 'POST',
-      body: JSON.stringify({
-        partner_id: partner.id,
-        product_id: product.id,
-        source_location_id: source.id,
-        dest_location_id: destination.id,
-        truck_number: input.truckNumber,
-        gross_weight: input.grossWeight,
-        tare_weight: input.tareWeight,
-      }),
-    });
-  },
+      body: JSON.stringify(payload),
+    }),
+
+  updateCustomsStatus: (companyId: string, manifestId: string, status: string, reviewNotes?: string) =>
+    request<ApiCustomsManifest>(`/api/v1/logistics/customs/manifests/${manifestId}/status`, companyId, {
+      method: 'PUT',
+      body: JSON.stringify({ status, review_notes: reviewNotes }),
+    }),
 };
+
+export interface ApiCustomsManifest {
+  id: string;
+  tenant_id: string;
+  company_id?: string;
+  manifest_number: string;
+  declaration_number?: string;
+  declaration_type: 'IMPORT' | 'EXPORT' | 'TRANSIT';
+  port_of_entry?: string;
+  border_port_name: string;
+  carrier_name?: string;
+  status: string;
+  clearance_status: 'CLEARED' | 'PENDING_DOCUMENTATION' | 'UNDER_INSPECTION' | 'HELD';
+  zatca_compliance_status: 'REPORTED' | 'NOT_SUBMITTED' | 'REJECTED';
+  duty_amount: number;
+  vat_amount: number;
+  total_customs_amount: number;
+  total_value_sar: number;
+  hs_codes: string[];
+  payload_hash?: string;
+  block_hash: string;
+  previous_hash: string;
+  block_index: number;
+  created_at: string;
+  updated_at: string;
+  timestamp: string;
+}
+
+export interface CreateCustomsManifestPayload {
+  manifest_number?: string;
+  declaration_number?: string;
+  declaration_type?: 'IMPORT' | 'EXPORT' | 'TRANSIT';
+  port_of_entry?: string;
+  border_port_name?: string;
+  carrier_name?: string;
+  status?: string;
+  duty_amount?: number;
+  vat_amount?: number;
+  total_customs_amount?: number;
+  total_value_sar?: number;
+  hs_codes?: string[];
+}
+

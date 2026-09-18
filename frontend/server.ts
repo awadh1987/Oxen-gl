@@ -1,11 +1,10 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 import { GoogleGenAI, ThinkingLevel, GenerateVideosOperation } from '@google/genai';
 import dotenv from 'dotenv';
 import { tenantResolverMiddleware, ExtendedRequest } from './src/middleware/tenantResolver';
-import { masterPlatformController } from './src/controllers/masterPlatformController';
-import { tenantControlController } from './src/controllers/tenantControlController';
-import { planningModuleController } from './src/controllers/planningModuleController';
 
 dotenv.config();
 
@@ -61,33 +60,72 @@ app.get('/api/platform/resolve-tenant', (req: ExtendedRequest, res) => {
   });
 });
 
+const ALLOWED_ASSET_MIMES: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/webp': 'webp',
+  'image/svg+xml': 'svg',
+};
+
 app.post('/api/platform/assets/upload', (req: ExtendedRequest, res) => {
+  // 1. Enforce authentication on the upload endpoint
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized: Authentication token is required to upload platform assets',
+    });
+  }
+
   const { fileName, fileType, fileSize, fileBuffer, assetType, primaryColor, secondaryColor, wallpaperUrl, backgroundUrl } = req.body || {};
   let assetUrl = fileBuffer || (assetType?.includes('wallpaper') ? '/assets/default-mesh-bg.jpg' : '/assets/default-crown.svg');
-  if (typeof fileBuffer === 'string' && fileBuffer.startsWith('data:image')) {
+
+  if (typeof fileBuffer === 'string' && fileBuffer.startsWith('data:')) {
+    // 2. Strict MIME-type and extension allowlisting
+    const mimeMatch = fileBuffer.match(/^data:([^;]+);base64,/);
+    const detectedMime = mimeMatch ? mimeMatch[1].toLowerCase().trim() : null;
+    const ext = detectedMime ? ALLOWED_ASSET_MIMES[detectedMime] : null;
+
+    if (!ext) {
+      return res.status(400).json({
+        error: 'Invalid file type: allowed types are .png, .jpg, .jpeg, .webp, .svg',
+      });
+    }
+
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const ext = fileBuffer.includes('image/svg+xml') ? 'svg' : fileBuffer.includes('image/jpeg') ? 'jpg' : 'png';
       const base64Data = fileBuffer.split(',')[1];
-      const fname = `uploaded_${assetType || 'asset'}_${Date.now()}.${ext}`;
-      const targets = ['/var/www/oxengl/dist/assets', '/var/www/erp/frontend/dist/assets', path.join(__dirname, 'public/assets')];
-      for (const t of targets) {
-        if (fs.existsSync(t)) {
-          fs.writeFileSync(path.join(t, fname), Buffer.from(base64Data, 'base64'));
+      // 3. Cryptographically secure random UUID filename (no user-supplied strings in path)
+      const secureId = crypto.randomUUID();
+      const fname = `asset_${secureId}.${ext}`;
+
+      // 4. Normalized path traversal prevention
+      const targets = [
+        path.resolve('/var/www/oxengl/dist/assets'),
+        path.resolve('/var/www/erp/frontend/dist/assets'),
+        path.resolve(__dirname, 'public/assets'),
+      ];
+
+      for (const targetDir of targets) {
+        if (fs.existsSync(targetDir)) {
+          const destPath = path.resolve(targetDir, fname);
+          if (destPath.startsWith(targetDir + path.sep)) {
+            fs.writeFileSync(destPath, Buffer.from(base64Data, 'base64'));
+          }
         }
       }
       assetUrl = `/assets/${fname}`;
     } catch (e) {
-      // fallback
+      return res.status(500).json({ error: 'Failed to write uploaded asset' });
     }
   }
+
   const resolvedWallpaper = wallpaperUrl || (assetType?.includes('wallpaper') ? assetUrl : null);
   const resolvedBackground = backgroundUrl || (assetType?.includes('wallpaper') ? assetUrl : null);
   res.json({
     status: 'success',
     url: assetUrl,
-    fileName,
+    fileName: `asset_${Date.now()}`,
     assetType,
     primaryColor,
     secondaryColor,
@@ -96,59 +134,27 @@ app.post('/api/platform/assets/upload', (req: ExtendedRequest, res) => {
   });
 });
 
-// Master Platform Control Panel (DevOps / SuperAdmin)
-app.get('/api/master/platform/tenants', masterPlatformController.listTenants);
-app.post('/api/master/platform/tenants', masterPlatformController.provisionTenant);
-app.delete('/api/master/platform/tenants/:tenantId', masterPlatformController.deleteTenantWithSafetyGuard);
-app.get('/api/master/platform/search', masterPlatformController.globalSearch);
-app.get('/api/master/platform/health', masterPlatformController.getSystemHealth);
-app.get('/api/master/platform/feature-flags', masterPlatformController.getFeatureFlags);
-app.post('/api/master/platform/feature-flags/toggle', masterPlatformController.toggleFeatureFlag);
-
-// Tenant Control Panel (Tenant Workspace Admin)
-app.get('/api/tenant/control/team', tenantControlController.listTeam);
-app.post('/api/tenant/control/team/invite', tenantControlController.inviteMember);
-app.delete('/api/tenant/control/team/:memberId', tenantControlController.deleteMember);
-app.get('/api/tenant/control/settings', tenantControlController.getSettings);
-app.post('/api/tenant/control/settings', tenantControlController.updateSettings);
-app.get('/api/tenant/control/domains', tenantControlController.listDomains);
-app.post('/api/tenant/control/domains', tenantControlController.registerDomain);
-app.post('/api/tenant/control/domains/:domainId/verify', tenantControlController.verifyDomain);
-
-// Planning Department Module (Tier 1: Charters, Tier 2: Execution Tasks, Tier 3: Strategic Hazards)
-app.get('/api/tenant/planning/charters', planningModuleController.listCharters);
-app.post('/api/tenant/planning/charters', planningModuleController.provisionCharter);
-app.get('/api/tenant/planning/charters/:charterId', planningModuleController.getCharterDetails);
-app.post('/api/tenant/planning/tasks/batch', planningModuleController.batchCreateExecutionTasks);
-app.put('/api/tenant/planning/tasks/:taskId/status', planningModuleController.updateTaskStatus);
-app.post('/api/tenant/planning/hazards', planningModuleController.logStrategicHazard);
-app.put('/api/tenant/planning/hazards/:hazardId/mitigate', planningModuleController.updateHazardMitigation);
-app.get('/api/tenant/planning/analytics', planningModuleController.getPlanningAnalytics);
-
-
 // Authoritative API Proxy to FastAPI Backend (port 8000) for all non-AI ERP domains
 app.use('/api', async (req, res, next) => {
   if (
     req.path.startsWith('/ai') ||
     req.path.startsWith('/platform/resolve-tenant') ||
-    req.path.startsWith('/master/platform') ||
-    req.path.startsWith('/tenant/control') ||
-    req.path.startsWith('/tenant/planning')
+    req.path.startsWith('/platform/assets')
   ) {
     return next();
   }
   try {
     const targetUrl = `http://127.0.0.1:8000${req.originalUrl}`;
-    const forwardHeaders: Record<string, string> = {
-      'content-type': 'application/json',
-    };
-    if (req.headers.cookie) forwardHeaders['cookie'] = String(req.headers.cookie);
-    if (req.headers['x-company-id']) forwardHeaders['x-company-id'] = String(req.headers['x-company-id']);
-    if (req.headers['authorization']) forwardHeaders['authorization'] = String(req.headers['authorization']);
-    if (req.headers['x-tenant-slug']) forwardHeaders['x-tenant-slug'] = String(req.headers['x-tenant-slug']);
-    if (req.headers['x-tenant-id']) forwardHeaders['x-tenant-id'] = String(req.headers['x-tenant-id']);
-    if (req.headers['x-recovery-code']) forwardHeaders['x-recovery-code'] = String(req.headers['x-recovery-code']);
-    if (req.headers['x-impersonate-tenant']) forwardHeaders['x-impersonate-tenant'] = String(req.headers['x-impersonate-tenant']);
+    const forwardHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (!value) continue;
+      const lower = key.toLowerCase();
+      if (lower === 'host' || lower === 'connection' || lower === 'content-length') continue;
+      forwardHeaders[lower] = Array.isArray(value) ? value.join(', ') : String(value);
+    }
+    if (!forwardHeaders['content-type'] && ['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      forwardHeaders['content-type'] = 'application/json';
+    }
 
     let requestBody: string | undefined = undefined;
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && req.body) {

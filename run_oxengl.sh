@@ -62,7 +62,7 @@ echo "  ✅ PostgreSQL container (port 5432) is ONLINE and healthy."
 
 echo "  ⏳ Polling Redis readiness (port 6379)..."
 RETRIES=0
-until docker exec -i "$REDIS_CONTAINER" redis-cli ping 2>/dev/null | grep -q "PONG"; do
+until redis-cli -h 127.0.0.1 -p 6379 ping 2>/dev/null | grep -q "PONG" || docker exec -i "$REDIS_CONTAINER" redis-cli ping 2>/dev/null | grep -q "PONG"; do
     RETRIES=$((RETRIES + 1))
     if [ $RETRIES -ge $MAX_RETRIES ]; then
         echo "❌ ERROR: Redis container failed to report online status. Aborting launch."

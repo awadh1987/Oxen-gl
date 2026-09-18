@@ -182,7 +182,7 @@ export const OxenGLCloudPortal: React.FC<OxenGLCloudPortalProps> = ({ onLoginSuc
       if (scope === 'tenant' && resolvedCompany) setCurrentCompany?.(resolvedCompany);
 
       // Persisted before the state swap so a remount or forced reload still boots into the session.
-      localStorage.setItem('meayon_user', JSON.stringify(recoveredUser));
+      localStorage.setItem('oxengl_user', JSON.stringify(recoveredUser));
       localStorage.setItem('oxengl_session_active', 'true');
       localStorage.setItem('oxengl_recovery_session', 'true');
       if (resolvedCompany) localStorage.setItem('oxengl_current_company', JSON.stringify(resolvedCompany));

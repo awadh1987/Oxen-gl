@@ -51,7 +51,7 @@ interface TrialBalanceAccount {
 }
 
 export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialMode = 'chart' }) => {
-  const { language, currentCompany, tenantId } = useApp();
+  const { language, currentCompany, tenantId, brandConfig } = useApp();
   const isAr = language === 'ar';
 
   const [activeSubTab, setActiveSubTab] = useState<FinanceReportMode>(initialMode);
@@ -88,8 +88,8 @@ export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialM
     '5': true,
   });
 
-  const effectiveTenantId = tenantId || currentCompany?.id || '6ab52593-ab47-4eee-8779-0cdfbb2762da';
-  const companyDisplayName = currentCompany?.name || (isAr ? 'شركة ميون الاقتصادية المحدودة' : 'Myon Economic Co Ltd.');
+  const effectiveTenantId = tenantId || currentCompany?.id || '';
+  const companyDisplayName = currentCompany?.name || (isAr ? brandConfig.companyNameAr || 'المنشأة المعتمدة' : brandConfig.companyNameEn || 'Authorized Company');
 
   const toggleExpand = (path: string) => {
     setExpandedPaths((prev) => ({ ...prev, [path]: !prev[path] }));
@@ -950,7 +950,7 @@ function getFallbackCoaTree(): CoaNode[] {
                   children: [
                     {
                       account_code: '311101',
-                      account_name: 'رأس مال شركة ميون الاقتصادية',
+                      account_name: 'رأس مال المنشأة (Capital)',
                       node_path: '3.1.1.1.1',
                       account_type: 'EQUITY',
                       accumulated_balance: '800000.0000',
@@ -1217,7 +1217,7 @@ function getFallbackTrialBalance() {
       },
       {
         account_code: '311101',
-        account_name: 'رأس مال شركة ميون الاقتصادية (Capital)',
+        account_name: 'رأس مال المنشأة (Capital)',
         node_path: '3.1.1.1.1',
         account_type: 'Equity',
         total_debit: 0.0,

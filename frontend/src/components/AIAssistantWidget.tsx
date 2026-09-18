@@ -255,7 +255,7 @@ How can I assist you with your operations today?`,
       // Build lightweight live ERP context snapshot
       const erpContext = {
         company: brandConfig.companyNameAr,
-        user: { name: currentUser.fullName, role: currentUser.role },
+        user: { name: currentUser?.fullName ?? '', role: currentUser?.role ?? 'Guest' },
         kpis: {
           totalSales: kpis.totalSales,
           totalPurchasesCost: kpis.totalPurchasesCost,

@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
 class ORMReadModel(BaseModel):
@@ -160,6 +160,7 @@ class UserRegistrationCreate(BaseModel):
 class AuthVerifyResponse(BaseModel):
     status: Literal["Active", "Pending"]
     message: str
+    token: str | None = None
     user: dict[str, str | None]
 
 
@@ -230,20 +231,38 @@ class ProductProductRead(ProductProductCreate, ORMReadModel):
 
 
 class WeighbridgeOperationCreate(BaseModel):
-    partner_id: UUID
-    product_id: UUID
-    source_location_id: UUID
-    dest_location_id: UUID
-    truck_number: str = Field(min_length=1, max_length=64)
+    partner_id: UUID | None = None
+    product_id: UUID | None = None
+    source_location_id: UUID | None = None
+    dest_location_id: UUID | None = None
+    partner_name: str | None = None
+    product_name: str | None = None
+    source_location_name: str | None = None
+    dest_location_name: str | None = None
+    truck_number: str | None = Field(default=None, max_length=64)
+    plate_number: str | None = Field(default=None, max_length=64)
     gross_weight: Decimal = Field(gt=0, decimal_places=4)
     tare_weight: Decimal = Field(ge=0, decimal_places=4)
+    net_weight: Decimal | None = None
+    ticket_number: str | None = None
+    driver_name: str | None = None
+    unit_of_measure: str | None = "MT"
+    company_id: UUID | None = None
 
     @model_validator(mode="after")
-    def gross_weight_must_exceed_tare_weight(self) -> "WeighbridgeOperationCreate":
+    def validate_weighbridge_operation(self) -> "WeighbridgeOperationCreate":
+        if not self.truck_number and not self.plate_number:
+            raise ValueError("Either truck_number or plate_number must be provided")
+        if not self.truck_number and self.plate_number:
+            self.truck_number = self.plate_number
+        if not self.plate_number and self.truck_number:
+            self.plate_number = self.truck_number
         if self.gross_weight <= self.tare_weight:
             raise ValueError("gross_weight must be greater than tare_weight")
-        if self.source_location_id == self.dest_location_id:
+        if self.source_location_id and self.dest_location_id and self.source_location_id == self.dest_location_id:
             raise ValueError("source_location_id and dest_location_id must differ")
+        if self.source_location_name and self.dest_location_name and self.source_location_name.strip().lower() == self.dest_location_name.strip().lower():
+            raise ValueError("source_location_name and dest_location_name must differ")
         return self
 
 
@@ -308,15 +327,18 @@ class CostCenterRead(CostCenterCreate, ORMReadModel):
 
 
 class AccountMoveLineCreate(BaseModel):
-    account_id: UUID
+    account_id: UUID | None = None
+    account_code: str | None = None
     partner_id: UUID | None = None
     cost_center_id: UUID | None = None
     debit: Decimal = Field(default=Decimal("0"), ge=0)
     credit: Decimal = Field(default=Decimal("0"), ge=0)
-    name: str = Field(min_length=1, max_length=255)
+    name: str = Field(default="Journal Line", min_length=1, max_length=255)
 
     @model_validator(mode="after")
-    def single_side_only(self) -> "AccountMoveLineCreate":
+    def validate_line(self) -> "AccountMoveLineCreate":
+        if not self.account_id and not self.account_code:
+            raise ValueError("Either account_id or account_code must be provided")
         if (self.debit > 0 and self.credit > 0) or (self.debit == 0 and self.credit == 0):
             raise ValueError("Journal line must have either debit or credit greater than zero, not both or neither")
         return self
@@ -346,12 +368,12 @@ class AccountMoveCreate(BaseModel):
 
     @model_validator(mode="after")
     def must_balance(self) -> "AccountMoveCreate":
-        debit_total = sum((line.debit for line in self.lines), Decimal("0"))
-        credit_total = sum((line.credit for line in self.lines), Decimal("0"))
-        if debit_total <= 0:
+        debit_total = sum((line.debit for line in self.lines), Decimal("0")).quantize(Decimal("0.0001"))
+        credit_total = sum((line.credit for line in self.lines), Decimal("0")).quantize(Decimal("0.0001"))
+        if debit_total <= Decimal("0"):
             raise ValueError("Journal entry total debit must be greater than zero")
         if debit_total != credit_total:
-            raise ValueError("Journal entry debits must equal credits")
+            raise ValueError(f"Journal entry debits ({debit_total}) must strictly equal credits ({credit_total})")
         return self
 
 
@@ -371,6 +393,11 @@ class AccountMoveRead(ORMReadModel):
     posted_at: datetime | None = None
     lines: list[AccountMoveLineRead] = []
 
+    @computed_field
+    @property
+    def amount_total(self) -> Decimal:
+        return sum((line.debit for line in self.lines), Decimal("0.0000"))
+
 
 class CustomerInvoiceCreate(BaseModel):
     partner_id: UUID | None = None
@@ -385,6 +412,9 @@ class CustomerInvoiceCreate(BaseModel):
 
     @model_validator(mode="after")
     def totals_must_balance(self) -> "CustomerInvoiceCreate":
+        self.subtotal = self.subtotal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        self.vat_amount = self.vat_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        self.grand_total = self.grand_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if self.subtotal + self.vat_amount != self.grand_total:
             raise ValueError("Invoice totals are unbalanced: subtotal plus VAT must equal grand total")
         return self
@@ -402,6 +432,12 @@ class CustomerInvoiceUpdate(BaseModel):
 
     @model_validator(mode="after")
     def totals_must_balance(self) -> "CustomerInvoiceUpdate":
+        if self.subtotal is not None:
+            self.subtotal = self.subtotal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if self.vat_amount is not None:
+            self.vat_amount = self.vat_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if self.grand_total is not None:
+            self.grand_total = self.grand_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if self.subtotal is not None and self.vat_amount is not None and self.grand_total is not None:
             if self.subtotal + self.vat_amount != self.grand_total:
                 raise ValueError("Invoice totals are unbalanced: subtotal plus VAT must equal grand total")

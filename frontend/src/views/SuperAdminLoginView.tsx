@@ -49,10 +49,15 @@ export const SuperAdminLoginView: React.FC<SuperAdminLoginViewProps> = ({ onLogi
     ]);
 
     try {
-      await loginMaster({
+      const res = await loginMaster({
         identity: credentials.admin_email.trim(),
         password: credentials.security_passphrase,
       });
+
+      if (res?.access_token) {
+        localStorage.setItem('token', res.access_token);
+      }
+      localStorage.setItem('role', res?.role ?? res?.user?.role ?? 'Super_Admin');
 
       const successTime = new Date().toISOString().substring(11, 19);
       setSystemLog((prev) => [
@@ -62,8 +67,9 @@ export const SuperAdminLoginView: React.FC<SuperAdminLoginViewProps> = ({ onLogi
 
       if (onLoginSuccess) {
         onLoginSuccess();
-      } else if (typeof window !== 'undefined') {
-        window.location.assign('/');
+      }
+      if (typeof window !== 'undefined') {
+        window.location.href = '/admin';
       }
     } catch (err: any) {
       const failTime = new Date().toISOString().substring(11, 19);

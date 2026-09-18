@@ -44,6 +44,10 @@ class ResCompany(TimestampMixin, Base):
     ui_primary_color: Mapped[str] = mapped_column(String(9), nullable=False, default="#1E3A8A")
     ui_logo_url: Mapped[Optional[str]] = mapped_column(Text)
     logo_url = Column(String(500), nullable=True, default=None)
+    is_active = Column(Boolean, default=True, server_default="true", nullable=False)
+    status = Column(String(20), default="ACTIVE", server_default="ACTIVE", nullable=False)
+    primary_color = Column(String(7), default="#0ea5e9", server_default="#0ea5e9", nullable=False)
+    secondary_color = Column(String(7), default="#0f172a", server_default="#0f172a", nullable=False)
     wallpaper_url: Mapped[Optional[str]] = mapped_column(Text)
     background_url: Mapped[Optional[str]] = mapped_column(Text)
     database_config: Mapped[Optional["TenantDatabaseConfig"]] = relationship(
@@ -54,12 +58,23 @@ class ResCompany(TimestampMixin, Base):
     )
 
     def __init__(self, *args, **kwargs):
-        kwargs.pop("is_active", None)
         if "slug" not in kwargs:
             name_val = kwargs.get("name", "")
             base_slug = name_val.lower().replace(" ", "_")[:50]
             kwargs["slug"] = f"{base_slug}_{uuid.uuid4().hex[:6]}"
         super().__init__(*args, **kwargs)
+
+
+class TenantAuditLog(Base):
+    __tablename__ = "tenant_audit_logs"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(String(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey("res_companies.id", ondelete="SET NULL"), nullable=True)
+    action_type = Column(String(50), nullable=False, index=True)
+    actor = Column(String(100), default="CRON_SYSTEM_DAEMON")
+    details = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 class Tenant(Base):
@@ -112,8 +127,31 @@ class ResUser(TimestampMixin, Base):
         CheckConstraint("role IN ('Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest')", name="ck_res_user_role"),
     )
 
+    @property
+    def tenant_id(self) -> uuid.UUID:
+        return self.company_id
+
+    @tenant_id.setter
+    def tenant_id(self, val: uuid.UUID):
+        self.company_id = val
+
+    @property
+    def hashed_password(self) -> str:
+        return self.password_hash
+
+    @hashed_password.setter
+    def hashed_password(self, val: str):
+        self.password_hash = val
+
     def __init__(self, *args, **kwargs):
-        kwargs.pop("tenant_id", None)
+        if "tenant_id" in kwargs and "company_id" not in kwargs:
+            kwargs["company_id"] = kwargs.pop("tenant_id")
+        else:
+            kwargs.pop("tenant_id", None)
+
+        if "hashed_password" in kwargs and "password_hash" not in kwargs:
+            kwargs["password_hash"] = kwargs.pop("hashed_password")
+
         username = kwargs.pop("username", None)
         if "full_name" not in kwargs:
             kwargs["full_name"] = username or kwargs.get("email", "Admin User")
@@ -230,7 +268,7 @@ class StockPicking(TimestampMixin, Base):
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     moves: Mapped[list[StockMove]] = relationship(back_populates="picking", cascade="all, delete-orphan")
-    weighbridge_tickets: Mapped[list[WeighbridgeTicket]] = relationship(back_populates="picking")
+    weighbridge_tickets: Mapped[list[WeighbridgeTicket]] = relationship(back_populates="picking", cascade="all, delete-orphan")
     partner: Mapped[Optional[ResPartner]] = relationship(back_populates="pickings")
 
     __table_args__ = (
@@ -1559,6 +1597,8 @@ class MasterUser(TimestampMixin, Base):
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    tfa_secret: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, default=None)
+    tfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     __table_args__ = (
         CheckConstraint("role IN ('super_admin', 'admin', 'user')", name="ck_master_user_role"),
@@ -1618,6 +1658,8 @@ class TenantUser(TimestampMixin, Base):
     locked_until: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     invited_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("tenant_users.id", ondelete="SET NULL"))
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    tfa_secret: Mapped[Optional[str]] = mapped_column(String(32), nullable=True, default=None)
+    tfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     __table_args__ = (
         CheckConstraint("role IN ('admin', 'user', 'guest_user')", name="ck_tenant_user_role"),
@@ -1779,4 +1821,12 @@ from backend.app.domains.iam.models import (  # noqa: E402
     RefreshToken,
     LoginAttempt,
     SecurityToken,
+)
+
+# ==============================================================================
+# Cross-Border Logistics & Customs Models (REM-P2-03)
+# ==============================================================================
+from backend.app.domains.logistics.customs_models import (  # noqa: E402
+    CustomsManifest,
+    CustomsDeclaration,
 )

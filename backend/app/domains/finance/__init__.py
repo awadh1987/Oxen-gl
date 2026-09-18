@@ -6,6 +6,7 @@ from .schemas import (
     BalancedJournalVoucher,
 )
 from .guards import enforce_double_entry_balance, validate_double_entry_invariance
+from .services import TransactionProcessingService
 
 __all__ = [
     "JournalLineItem",
@@ -14,4 +15,5 @@ __all__ = [
     "BalancedJournalVoucher",
     "enforce_double_entry_balance",
     "validate_double_entry_invariance",
+    "TransactionProcessingService",
 ]

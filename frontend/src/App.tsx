@@ -38,6 +38,10 @@ const ApprovalQueueView = React.lazy(() => import('./views/ApprovalQueueView').t
 const MfaVerificationView = React.lazy(() => import('./views/MfaVerificationView').then(m => ({ default: m.MfaVerificationView })));
 const CustomsClearanceView = React.lazy(() => import('./views/CustomsClearanceView').then(m => ({ default: m.CustomsClearanceView })));
 const FinanceReportsView = React.lazy(() => import('./views/FinanceReportsView').then(m => ({ default: m.FinanceReportsView })));
+const SuperAdminTenantsView = React.lazy(() => import('./views/SuperAdminTenantsView').then(m => ({ default: m.SuperAdminTenantsView })));
+const SuperAdminLogsView = React.lazy(() => import('./views/SuperAdminLogsView').then(m => ({ default: m.SuperAdminLogsView })));
+const SuperAdminAnalyticsView = React.lazy(() => import('./views/SuperAdminAnalyticsView').then(m => ({ default: m.SuperAdminAnalyticsView })));
+const ResetPasswordView = React.lazy(() => import('./views/ResetPasswordView').then(m => ({ default: m.ResetPasswordView })));
 
 const ViewLoadingFallback = () => (
   <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-12 text-center">
@@ -62,7 +66,12 @@ function AppContent() {
   const isAr = language === 'ar';
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return Boolean(localStorage.getItem('oxengl_session_active') === 'true' || localStorage.getItem('oxengl_auth_jwt'));
+    return Boolean(
+      localStorage.getItem('oxengl_session_active') === 'true' ||
+      localStorage.getItem('oxengl_auth_jwt') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('access_token')
+    );
   });
 
   useEffect(() => {
@@ -142,9 +151,9 @@ function AppContent() {
 
   useEffect(() => {
     localStorage.setItem('oxengl_session_active', String(isLoggedIn));
-    if (isLoggedIn) setActiveTab(currentUser.role === 'Super_Admin' ? 'dashboard' : 'hub');
+    if (isLoggedIn) setActiveTab(currentUser?.role === 'Super_Admin' ? 'dashboard' : 'hub');
     else localStorage.removeItem('oxengl_recovery_session');
-  }, [isLoggedIn, currentUser.role]);
+  }, [isLoggedIn, currentUser?.role]);
 
   // If driver mode is turned on and current tab is restricted, switch to operations
   useEffect(() => {
@@ -187,6 +196,16 @@ function AppContent() {
     return null;
   });
 
+  const leaveWorkspace = () => {
+    logoutUser();
+    setIsLoggedIn(false);
+    setInspectingWorkspace(false);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', '/');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  };
+
   // If a public shared invoice link was accessed, render the standalone auditor view
   if (sharedInvoiceParams) {
     return (
@@ -212,10 +231,115 @@ function AppContent() {
     );
   }
 
-  if (currentPath === '/admin') {
+  if (currentPath === '/admin' || currentPath === '/admin/cockpit') {
+    if (isLoggedIn) {
+      return (
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute
+                tier="master"
+                isLoggedIn={isLoggedIn}
+                onRequireLogin={leaveWorkspace}
+                onNavigateHome={() => setIsLoggedIn(false)}
+              >
+                <SuperAdminCockpitView
+                  onOpenTenantOnboarding={() => {
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/admin/tenants';
+                    }
+                  }}
+                  onLogout={leaveWorkspace}
+                  onInspectTenantWorkspace={() => {
+                    setInspectingWorkspace(true);
+                    setActiveTab('hub');
+                    if (typeof window !== 'undefined') {
+                      window.location.href = '/';
+                    }
+                  }}
+                />
+              </ProtectedRoute>
+            }
+          />
+        </Suspense>
+      );
+    }
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/admin" element={<SuperAdminLoginView onLoginSuccess={() => setIsLoggedIn(true)} />} />
+        <Route
+          path="/admin"
+          element={
+            <SuperAdminLoginView
+              onLoginSuccess={() => {
+                setIsLoggedIn(true);
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/admin';
+                }
+              }}
+            />
+          }
+        />
+      </Suspense>
+    );
+  }
+
+  if (currentPath === '/admin/tenants') {
+    if (!isLoggedIn) {
+      return (
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <Route path="/admin" element={<SuperAdminLoginView onLoginSuccess={() => {
+            setIsLoggedIn(true);
+            if (typeof window !== 'undefined') {
+              window.location.href = '/admin/tenants';
+            }
+          }} />} />
+        </Suspense>
+      );
+    }
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route path="/admin/tenants" element={<SuperAdminTenantsView />} />
+      </Suspense>
+    );
+  }
+
+  if (currentPath === '/admin/logs') {
+    if (!isLoggedIn) {
+      return (
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <Route path="/admin" element={<SuperAdminLoginView onLoginSuccess={() => {
+            setIsLoggedIn(true);
+            if (typeof window !== 'undefined') {
+              window.location.href = '/admin/logs';
+            }
+          }} />} />
+        </Suspense>
+      );
+    }
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route path="/admin/logs" element={<SuperAdminLogsView />} />
+      </Suspense>
+    );
+  }
+
+  if (currentPath === '/admin/analytics') {
+    if (!isLoggedIn) {
+      return (
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <Route path="/admin" element={<SuperAdminLoginView onLoginSuccess={() => {
+            setIsLoggedIn(true);
+            if (typeof window !== 'undefined') {
+              window.location.href = '/admin/analytics';
+            }
+          }} />} />
+        </Suspense>
+      );
+    }
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route path="/admin/analytics" element={<SuperAdminAnalyticsView />} />
       </Suspense>
     );
   }
@@ -240,18 +364,54 @@ function AppContent() {
     );
   }
 
-  if (currentPath === '/login') {
+  if (currentPath === '/reset-password') {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/login" element={<TenantLoginView onLoginSuccess={() => setIsLoggedIn(true)} />} />
+        <Route
+          path="/reset-password"
+          element={
+            <ResetPasswordView
+              onSuccessRedirect={() => {
+                if (typeof window !== 'undefined') {
+                  window.history.pushState({}, '', '/login');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+            />
+          }
+        />
       </Suspense>
     );
+  }
+
+  if (currentPath === '/login') {
+    if (isLoggedIn) {
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', '/');
+      }
+    } else {
+      return (
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <Route path="/login" element={<TenantLoginView onLoginSuccess={() => {
+            setIsLoggedIn(true);
+            if (typeof window !== 'undefined') {
+              window.location.href = '/';
+            }
+          }} />} />
+        </Suspense>
+      );
+    }
   }
 
   if (currentPath === '/' && !isLoggedIn) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/" element={<LandingPageView onLoginSuccess={() => setIsLoggedIn(true)} />} />
+        <Route path="/" element={<LandingPageView onLoginSuccess={() => {
+          setIsLoggedIn(true);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          }
+        }} />} />
       </Suspense>
     );
   }
@@ -259,20 +419,15 @@ function AppContent() {
   if (!isLoggedIn) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/login" element={<TenantLoginView onLoginSuccess={() => setIsLoggedIn(true)} />} />
+        <Route path="/login" element={<TenantLoginView onLoginSuccess={() => {
+          setIsLoggedIn(true);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/';
+          }
+        }} />} />
       </Suspense>
     );
   }
-
-  const leaveWorkspace = () => {
-    logoutUser();
-    setIsLoggedIn(false);
-    setInspectingWorkspace(false);
-    if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', '/');
-      window.dispatchEvent(new PopStateEvent('popstate'));
-    }
-  };
 
   if ((authTier === 'master' || currentUser.role === 'Super_Admin') && !inspectingWorkspace) {
     return (

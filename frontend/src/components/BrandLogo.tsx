@@ -37,10 +37,8 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   }
 
   const effectiveLogoUrl = propCustomLogoUrl ?? currentCompany?.logo_url ?? currentCompany?.uiLogoUrl ?? appBrandConfig?.customLogoUrl;
-  const rawNameAr = propCompanyNameAr ?? currentCompany?.name_ar ?? currentCompany?.company_name_ar ?? currentCompany?.name ?? appBrandConfig?.companyNameAr;
-  const effectiveNameAr = (!rawNameAr || rawNameAr.includes('أوكسن')) ? 'شركة ميون الاقتصادية المحدودة' : rawNameAr;
-  const rawNameEn = propCompanyNameEn ?? currentCompany?.company_name ?? currentCompany?.name ?? appBrandConfig?.companyNameEn;
-  const effectiveNameEn = (!rawNameEn || /oxengl/i.test(rawNameEn)) ? 'Myon Economic Co Ltd.' : rawNameEn;
+  const effectiveNameAr = propCompanyNameAr ?? currentCompany?.name_ar ?? currentCompany?.company_name_ar ?? currentCompany?.name ?? appBrandConfig?.companyNameAr ?? 'مساحة عمل المنشأة';
+  const effectiveNameEn = propCompanyNameEn ?? currentCompany?.company_name ?? currentCompany?.name ?? appBrandConfig?.companyNameEn ?? 'Enterprise Workspace';
   const effectivePrimaryColor = propPrimaryColor ?? currentCompany?.uiPrimaryColor ?? appBrandConfig?.primaryColor ?? '#1E3A8A';
   const effectiveSecondaryColor = propSecondaryColor ?? currentCompany?.uiSecondaryColor ?? appBrandConfig?.secondaryColor ?? '#7C3AED';
   const useTenantFallback = Boolean(propCompanyNameEn || propCompanyNameAr || propPrimaryColor || propSecondaryColor);

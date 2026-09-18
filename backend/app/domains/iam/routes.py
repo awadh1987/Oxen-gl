@@ -144,6 +144,9 @@ def login(
         db, user, ip_address=ip_address, device_name=payload.device_name
     )
 
+    company = db.query(models.ResCompany).filter(models.ResCompany.id == user.company_id).first() if user.company_id else None
+    comp_slug = company.slug if company else None
+
     # 7. Issue 15-minute Access Token
     access_token, _ = create_access_token(
         user_id=user.id,
@@ -152,6 +155,8 @@ def login(
         email=user.email,
         session_id=session.id,
         correlation_id=x_correlation_id,
+        domain_slug=comp_slug,
+        tenant_slug=comp_slug,
     )
 
     return {

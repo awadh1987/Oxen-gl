@@ -310,7 +310,7 @@ export const TenantSettingsPanel: React.FC<TenantSettingsPanelProps> = ({ tenant
                     <td className="px-4 py-3 font-mono text-slate-400">{member.email}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded font-mono text-[10px] uppercase font-bold">
-                        {member.role}
+                        {member?.role ?? 'User'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-400">{member.department}</td>

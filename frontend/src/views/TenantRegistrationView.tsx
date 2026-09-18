@@ -12,6 +12,7 @@ export const TenantRegistrationView: React.FC<TenantRegistrationViewProps> = ({ 
     }
   };
   const [formData, setFormData] = useState({ nameAr: '', nameEn: '', slug: '', email: '' });
+  const [adminPassword, setAdminPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<any | null>(null);
@@ -30,6 +31,8 @@ export const TenantRegistrationView: React.FC<TenantRegistrationViewProps> = ({ 
           company_name_en: formData.nameEn,
           domain_slug: formData.slug.toLowerCase().trim(),
           admin_email: formData.email,
+          admin_password: adminPassword,
+          password: adminPassword,
         }),
       });
 
@@ -57,9 +60,14 @@ export const TenantRegistrationView: React.FC<TenantRegistrationViewProps> = ({ 
           
           <div className="my-6 p-4 bg-[#030712] border border-slate-800 rounded-xl font-mono text-left text-xs space-y-2">
             <div className="text-slate-500">Corporate System Link:</div>
-            <div className="text-cyan-400 font-bold underline select-all">
-              https://oxengl.me{successData.workspace_slug}
-            </div>
+            <a
+              href={successData.workspace_url || `https://${successData.workspace_slug}.oxengl.me`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cyan-400 font-bold underline select-all block truncate hover:text-cyan-300"
+            >
+              {successData.workspace_url || `https://${successData.workspace_slug}.oxengl.me`}
+            </a>
             <div className="text-[10px] text-emerald-500/70 pt-1">✓ Seeded Default 5-Deep General Ledger Hierarchy</div>
           </div>
 
@@ -110,6 +118,11 @@ export const TenantRegistrationView: React.FC<TenantRegistrationViewProps> = ({ 
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Super Admin Account Email</label>
             <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} placeholder="admin@company.com" className="w-full px-4 py-2.5 bg-[#030712] border border-slate-800 focus:border-cyan-500 rounded-xl text-sm text-slate-200 outline-none" required />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Super Admin Password</label>
+            <input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="••••••••••••" className="w-full px-4 py-2.5 bg-[#030712] border border-slate-800 focus:border-cyan-500 rounded-xl text-sm text-slate-200 outline-none font-mono" required />
           </div>
 
           <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl py-3 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50">

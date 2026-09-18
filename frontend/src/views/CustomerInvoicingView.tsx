@@ -29,7 +29,7 @@ import {
   ExternalLink,
   Archive,
 } from 'lucide-react';
-import { formatCurrency, formatDate, formatNumber, formatTonnage, getMonthName, generateZatcaQR } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber, formatTonnage, getMonthName, generateZatcaQR, roundHalala, calculateVatBreakdown } from '../utils/formatters';
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
 import { exportInvoiceToExcel } from '../utils/excelExporter';
 import { BrandLogo } from '../components/BrandLogo';
@@ -118,17 +118,18 @@ export const CustomerInvoicingView: React.FC = () => {
     });
 
     return Object.entries(map).map(([materialType, data]) => {
-      const unitPrice = data.delivered > 0 ? Number((data.sales / data.delivered).toFixed(2)) : 44;
-      const subtotal = Number(data.sales.toFixed(2));
-      const vatAmount = Number((subtotal * 0.15).toFixed(2));
-      const total = Number((subtotal + vatAmount).toFixed(2));
+      const unitPrice = data.delivered > 0 ? roundHalala(data.sales / data.delivered) : 44;
+      const breakdown = calculateVatBreakdown(data.sales, 0.15);
+      const subtotal = breakdown.subtotal;
+      const vatAmount = breakdown.vatAmount;
+      const total = breakdown.grandTotal;
 
       return {
         materialType,
         tripsCount: data.trips,
-        loadedWeight: Number(data.loaded.toFixed(2)),
-        deliveredWeight: Number(data.delivered.toFixed(2)),
-        wastageWeight: Number(data.wastage.toFixed(2)),
+        loadedWeight: roundHalala(data.loaded),
+        deliveredWeight: roundHalala(data.delivered),
+        wastageWeight: roundHalala(data.wastage),
         unitPrice,
         subtotal,
         vatAmount,
@@ -137,9 +138,9 @@ export const CustomerInvoicingView: React.FC = () => {
     });
   }, [matchingTrips]);
 
-  const subtotal = Number(invoiceItems.reduce((acc, item) => acc + item.subtotal, 0).toFixed(2));
-  const totalVat = Number(invoiceItems.reduce((acc, item) => acc + item.vatAmount, 0).toFixed(2));
-  const grandTotal = Number((subtotal + totalVat).toFixed(2));
+  const subtotal = roundHalala(invoiceItems.reduce((acc, item) => acc + item.subtotal, 0));
+  const totalVat = roundHalala(invoiceItems.reduce((acc, item) => acc + item.vatAmount, 0));
+  const grandTotal = roundHalala(subtotal + totalVat);
   const totalTrips = invoiceItems.reduce((acc, item) => acc + item.tripsCount, 0);
   const totalLoaded = invoiceItems.reduce((acc, item) => acc + item.loadedWeight, 0);
   const totalDelivered = invoiceItems.reduce((acc, item) => acc + item.deliveredWeight, 0);

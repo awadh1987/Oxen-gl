@@ -1,43 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Building2,
   Lock,
   Mail,
+  ShieldCheck,
   ArrowRight,
   ArrowLeft,
-  ShieldCheck,
-  CheckCircle2,
   AlertCircle,
   Loader2,
-  Globe2,
-  Sparkles,
   KeyRound,
   Eye,
   EyeOff,
-  RefreshCw,
+  CheckCircle2,
+  Globe2,
+  Sparkles,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-export interface TenantLoginViewProps {
+interface TenantLoginViewProps {
   onLoginSuccess?: () => void;
+  onNavigate?: (view: string) => void;
+  forcedSlug?: string;
 }
 
-export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess }) => {
+export const TenantLoginView: React.FC<TenantLoginViewProps> = ({
+  onLoginSuccess,
+  onNavigate,
+  forcedSlug,
+}) => {
   const { language, setLanguage, loginTenant } = useApp();
   const isAr = language === 'ar';
 
-  // 2-Step verification state
-  const [step, setStep] = useState<1 | 2>(1);
-  const [tenantSlug, setTenantSlug] = useState('');
+  const [step, setStep] = useState<1 | 2>(forcedSlug ? 2 : 1);
+  const [tenantSlug, setTenantSlug] = useState(forcedSlug || '');
+  const [slugValidated, setSlugValidated] = useState(Boolean(forcedSlug));
   const [validatedTarget, setValidatedTarget] = useState<string | null>(null);
-  const [isValidatingSlug, setIsValidatingSlug] = useState(false);
-  const [slugValidated, setSlugValidated] = useState(false);
 
-  // Step 2 credentials
   const [identity, setIdentity] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  const [isValidatingSlug, setIsValidatingSlug] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const isAuthenticatingRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const navigateTo = (path: string) => {
@@ -48,8 +53,12 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
   };
 
   // Step 1: Blind Live Validation against /api/v1/tenants/validate-slug
-  const handleValidateSlug = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleValidateSlug = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation?.();
+    }
+    if (isValidatingSlug) return;
     setErrorMessage(null);
 
     const cleanSlug = tenantSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
@@ -110,8 +119,12 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
   };
 
   // Step 2: User Credentials Authentication
-  const handleCredentialAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCredentialAuth = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation?.();
+    }
+    if (isAuthenticating || isAuthenticatingRef.current) return;
     setErrorMessage(null);
 
     const cleanIdentity = identity.trim();
@@ -126,18 +139,38 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
       return;
     }
 
+    isAuthenticatingRef.current = true;
     setIsAuthenticating(true);
     try {
-      await loginTenant({
+      const res = await loginTenant({
         tenant_slug: tenantSlug,
         identity: cleanIdentity,
         password,
       });
 
-      if (onLoginSuccess) {
-        onLoginSuccess();
-      } else if (typeof window !== 'undefined') {
-        window.location.assign('/');
+      if (res?.status === '2FA_REQUIRED' || (!res?.access_token && res?.two_factor_token)) {
+        setErrorMessage(
+          isAr
+            ? 'مطلوب رمز التحقق الثنائي (2FA). يرجى إكمال التحقق.'
+            : 'Two-factor authentication required. Please complete verification.'
+        );
+        return;
+      }
+
+      if (res?.access_token) {
+        localStorage.setItem('token', res.access_token);
+        localStorage.setItem('tenant_slug', res.tenant_slug || tenantSlug);
+        localStorage.setItem('role', res.role || res.user?.role || 'admin');
+
+        if (onLoginSuccess) {
+          onLoginSuccess();
+        }
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+      } else {
+        const failureMsg = res?.message || (isAr ? 'بيانات الاعتماد غير صحيحة لمساحة العمل المحددة.' : 'Invalid credentials for this workspace. Please verify your details.');
+        setErrorMessage(failureMsg);
       }
     } catch (err: any) {
       setErrorMessage(
@@ -147,6 +180,7 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
             : 'Invalid credentials for this workspace. Please verify your details.')
       );
     } finally {
+      isAuthenticatingRef.current = false;
       setIsAuthenticating(false);
     }
   };
@@ -271,7 +305,7 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
 
           {/* STEP 1 FORM: Blind Live Validation */}
           {step === 1 && (
-            <form onSubmit={handleValidateSlug} className="space-y-4">
+            <form noValidate onSubmit={handleValidateSlug} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-300 mb-1.5">
                   {isAr ? 'رمز المنشأة (Tenant Slug)' : 'Tenant Workspace Slug'}
@@ -301,6 +335,7 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
 
               <button
                 type="submit"
+                onClick={handleValidateSlug}
                 disabled={isValidatingSlug || !tenantSlug.trim()}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 py-3 text-xs font-bold text-white shadow-lg shadow-orange-500/20 hover:from-orange-600 hover:to-amber-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -321,7 +356,7 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
 
           {/* STEP 2 FORM: User Credentials */}
           {step === 2 && (
-            <form onSubmit={handleCredentialAuth} className="space-y-4">
+            <form noValidate onSubmit={handleCredentialAuth} className="space-y-4">
               {/* Verified Workspace Badge */}
               <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5">
                 <div className="flex items-center gap-2">
@@ -362,9 +397,18 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({ onLoginSuccess
 
               {/* Password Input */}
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                  {isAr ? 'كلمة المرور' : 'Password'}
-                </label>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300">
+                    {isAr ? 'كلمة المرور' : 'Password'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => navigateTo('/reset-password')}
+                    className="text-[11px] font-semibold text-orange-400 hover:text-orange-300 transition"
+                  >
+                    {isAr ? 'نسيت كلمة المرور؟' : 'Forgot Password?'}
+                  </button>
+                </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none text-slate-500">
                     <Lock className="h-4 w-4" />

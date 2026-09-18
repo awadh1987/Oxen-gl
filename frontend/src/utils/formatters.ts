@@ -47,6 +47,36 @@ export function getMonthName(monthIndex: number, lang: 'ar' | 'en' = 'ar'): stri
   return lang === 'ar' ? arabicMonths[idx] : englishMonths[idx];
 }
 
+/**
+ * Precise halala rounding (ROUND_HALF_UP) avoiding IEEE-754 floating-point drift.
+ * Multiplies by 100, rounds using Math.round(val + EPSILON) or integer halalas, returns exact 2-decimal number.
+ */
+export function roundHalala(amount: number): number {
+  if (!amount || isNaN(amount)) return 0;
+  // Use integer halalas with Math.round to enforce ROUND_HALF_UP
+  const halalas = Math.round(Number((Math.abs(amount) * 100).toFixed(6)));
+  const rounded = halalas / 100;
+  return amount < 0 ? -rounded : rounded;
+}
+
+/**
+ * Computes standard 15% VAT breakdown with exact halala precision.
+ * vatAmount = roundHalala(subtotal * 0.15)
+ * total = roundHalala(subtotal + vatAmount)
+ */
+export function calculateVatBreakdown(subtotal: number, vatRate = 0.15): { subtotal: number; vatAmount: number; grandTotal: number } {
+  const cleanSubtotal = roundHalala(subtotal);
+  // Compute VAT in halalas: subtotal * 100 * 0.15 = subtotal * 15 halalas
+  const vatHalalas = Math.round(Number((cleanSubtotal * vatRate * 100).toFixed(6)));
+  const vatAmount = vatHalalas / 100;
+  const grandTotal = roundHalala(cleanSubtotal + vatAmount);
+  return {
+    subtotal: cleanSubtotal,
+    vatAmount,
+    grandTotal,
+  };
+}
+
 // Generate TLV format / base64 string for Saudi ZATCA e-invoices QR Code
 export function generateZatcaQR(
   sellerName: string,
@@ -68,8 +98,8 @@ export function generateZatcaQR(
   const t1 = formatTLV(1, sellerName);
   const t2 = formatTLV(2, vatRegistrationNumber);
   const t3 = formatTLV(3, timestamp);
-  const t4 = formatTLV(4, invoiceTotal.toFixed(2));
-  const t5 = formatTLV(5, vatTotal.toFixed(2));
+  const t4 = formatTLV(4, roundHalala(invoiceTotal).toFixed(2));
+  const t5 = formatTLV(5, roundHalala(vatTotal).toFixed(2));
 
   const combined = new Uint8Array(t1.length + t2.length + t3.length + t4.length + t5.length);
   let offset = 0;
@@ -84,3 +114,4 @@ export function generateZatcaQR(
   }
   return btoa(binary);
 }
+

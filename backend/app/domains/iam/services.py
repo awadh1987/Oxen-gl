@@ -65,12 +65,15 @@ def create_access_token(
     email: str,
     session_id: Optional[uuid.UUID] = None,
     correlation_id: Optional[str] = None,
+    domain_slug: Optional[str] = None,
+    tenant_slug: Optional[str] = None,
 ) -> Tuple[str, datetime]:
     """
     Issue short-lived JWT access token strictly limited to 15 minutes.
     """
     now = utcnow()
     expires_at = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    slug = domain_slug or tenant_slug
     payload: Dict[str, Any] = {
         "sub": str(user_id),
         "user_id": str(user_id),
@@ -82,6 +85,9 @@ def create_access_token(
         "exp": int(expires_at.timestamp()),
         "token_type": "access",
     }
+    if slug:
+        payload["domain_slug"] = slug
+        payload["tenant_slug"] = slug
     if session_id:
         payload["session_id"] = str(session_id)
     if correlation_id:
@@ -280,6 +286,11 @@ def rotate_refresh_token(
             detail="User account is inactive or deleted.",
         )
 
+    company = db.execute(
+        select(models.ResCompany).where(models.ResCompany.id == user.company_id)
+    ).scalar_one_or_none() if user.company_id else None
+    comp_slug = company.slug if company else None
+
     new_access_token, access_exp = create_access_token(
         user_id=user.id,
         company_id=user.company_id,
@@ -287,6 +298,8 @@ def rotate_refresh_token(
         email=user.email,
         session_id=session.id if session else None,
         correlation_id=correlation_id,
+        domain_slug=comp_slug,
+        tenant_slug=comp_slug,
     )
 
     db.commit()

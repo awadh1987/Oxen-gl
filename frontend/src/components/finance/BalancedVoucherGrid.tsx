@@ -104,9 +104,12 @@ export const BalancedVoucherGrid: React.FC<BalancedVoucherGridProps> = ({ onVouc
   const loadHistory = async () => {
     setIsLoadingHistory(true);
     try {
+      const token = localStorage.getItem('oxengl_auth_jwt') || localStorage.getItem('token');
+      const activeTenantId = currentCompany?.id || localStorage.getItem('oxengl_tenant_id') || localStorage.getItem('tenant_id') || '';
       const resp = await fetch('/api/v1/finance/vouchers/balanced', {
         headers: {
-          'X-Tenant-ID': currentCompany?.id || 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeTenantId ? { 'X-Tenant-ID': activeTenantId } : {}),
         },
       });
       if (resp.ok) {
@@ -256,11 +259,14 @@ export const BalancedVoucherGrid: React.FC<BalancedVoucherGridProps> = ({ onVouc
         })),
       };
 
+      const token = localStorage.getItem('oxengl_auth_jwt') || localStorage.getItem('token');
+      const activeTenantId = currentCompany?.id || localStorage.getItem('oxengl_tenant_id') || localStorage.getItem('tenant_id') || '';
       const resp = await fetch('/api/v1/finance/vouchers/balanced', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Tenant-ID': currentCompany?.id || 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(activeTenantId ? { 'X-Tenant-ID': activeTenantId } : {}),
         },
         body: JSON.stringify(payload),
       });

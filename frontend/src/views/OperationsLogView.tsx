@@ -32,6 +32,7 @@ export const OperationsLogView: React.FC = () => {
   const {
     accessibleOperations,
     deleteOperation,
+    refreshOperations,
     language,
     currentUser,
     canEditOperations,
@@ -46,6 +47,7 @@ export const OperationsLogView: React.FC = () => {
   } = useApp();
 
   const isAr = language === 'ar';
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,6 +129,15 @@ export const OperationsLogView: React.FC = () => {
     exportDailyOperationsSnapshotJSON();
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshOperations();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <div className="space-y-5" id="operations-log-view">
       {/* Top Header & Actions */}
@@ -154,6 +165,18 @@ export const OperationsLogView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Live Server Refresh Button */}
+          <button
+            id="refresh-operations-btn"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-xs font-bold text-neutral-700 shadow-xs hover:bg-neutral-50 disabled:opacity-50 transition-colors"
+            title={isAr ? 'تحديث العمليات مباشرة من خادم PostgreSQL' : 'Refresh Operations Live from Server'}
+          >
+            <RefreshCw className={`h-4 w-4 text-orange-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isAr ? (isRefreshing ? 'جارِ التحديث...' : 'تحديث السجل') : (isRefreshing ? 'Refreshing...' : 'Refresh')}</span>
+          </button>
+
           {/* JSON Data Snapshot Export Button */}
           <button
             id="export-json-snapshot-btn"

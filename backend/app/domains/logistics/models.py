@@ -25,6 +25,7 @@ except ImportError:
     from models import Vehicle
 
 from .phase4_models import DeliveryManifest, ManifestStop, IoTTelemetryEvent
+from .customs_models import CustomsManifest, CustomsDeclaration
 
 __all__ = [
     "Driver",
@@ -33,6 +34,8 @@ __all__ = [
     "DeliveryManifest",
     "ManifestStop",
     "IoTTelemetryEvent",
+    "CustomsManifest",
+    "CustomsDeclaration",
 ]
 
 

@@ -18,8 +18,8 @@ import { BrandLogo } from './BrandLogo';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
-  isLoggedIn: boolean;
-  onRequireLogin: () => void;
+  isLoggedIn?: boolean;
+  onRequireLogin?: () => void;
   onNavigateHome?: () => void;
   tier?: 'master' | 'tenant';
 }
@@ -32,12 +32,36 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   onNavigateHome,
   tier,
 }) => {
-  const { currentUser, language, brandConfig, users, setCurrentUser, authTier } = useApp();
+  const { currentUser, language, brandConfig, users, setCurrentUser, authTier, isAuthReady } = useApp();
   const isAr = language === 'ar';
 
+  // Safeguard: Wait for user auth context initialization
+  if (!isAuthReady) {
+    return (
+      <div className="flex min-h-[50vh] w-full flex-col items-center justify-center p-8 text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent mb-3" />
+        <p className="text-xs font-bold text-slate-500">
+          {isAr ? 'جاري التحقق من الجلسة والصلاحيات...' : 'Initializing security context...'}
+        </p>
+      </div>
+    );
+  }
+
+  const authenticated = isLoggedIn !== undefined ? isLoggedIn : Boolean(
+    localStorage.getItem('oxengl_session_active') === 'true' ||
+    localStorage.getItem('oxengl_auth_jwt') ||
+    localStorage.getItem('token') ||
+    localStorage.getItem('access_token')
+  );
+
+  const handleRequireLogin = onRequireLogin || (() => {
+    if (typeof window !== 'undefined') {
+      window.location.href = tier === 'master' ? '/admin' : '/login';
+    }
+  });
+
   // 1. Check Authentication Status
-  if (!isLoggedIn || !currentUser) {
-    onRequireLogin();
+  if (!authenticated || !currentUser) {
     return (
       <div
         id="protected-route-unauthenticated"
@@ -55,7 +79,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             : 'Please sign in with verified credentials to access the ERP platform.'}
         </p>
         <button
-          onClick={onRequireLogin}
+          onClick={handleRequireLogin}
           className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-orange-500 px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-orange-500/20 hover:from-orange-700 hover:to-orange-600 transition-all"
         >
           <span>{isAr ? 'الانتقال إلى بوابة الدخول' : 'Go to Login Portal'}</span>
@@ -66,8 +90,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // 1.5. Two-Tier Plane Isolation Guard
-  if (tier && authTier && authTier !== tier) {
-    const isMasterViolation = tier === 'master' && authTier === 'tenant';
+  const effectiveTier = authTier || (currentUser?.role === 'Super_Admin' ? 'master' : 'tenant');
+  if (tier && effectiveTier && effectiveTier !== tier) {
+    const isMasterViolation = tier === 'master' && effectiveTier === 'tenant';
     return (
       <div
         id="cross-plane-isolation-violation"
@@ -114,7 +139,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             </button>
           )}
           <button
-            onClick={onRequireLogin}
+            onClick={handleRequireLogin}
             className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-orange-500/20 hover:from-orange-700 hover:to-amber-700 transition-all"
           >
             <LogOut className="h-4 w-4" />
@@ -162,11 +187,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           <div className="mt-6 rounded-2xl bg-neutral-50 p-4 text-right border border-neutral-200/80 text-xs space-y-2">
             <div className="flex justify-between items-center text-neutral-600">
               <span className="font-bold">{isAr ? 'البريد الإلكتروني:' : 'Email:'}</span>
-              <span className="font-mono text-neutral-900 font-semibold">{currentUser.email}</span>
+              <span className="font-mono text-neutral-900 font-semibold">{currentUser?.email ?? ''}</span>
             </div>
             <div className="flex justify-between items-center text-neutral-600">
               <span className="font-bold">{isAr ? 'الصلاحية المطلوبة:' : 'Requested Role:'}</span>
-              <span className="font-semibold text-orange-600">{currentUser.role}</span>
+              <span className="font-semibold text-orange-600">{currentUser?.role ?? 'Guest'}</span>
             </div>
             <div className="flex justify-between items-center text-neutral-600">
               <span className="font-bold">{isAr ? 'حالة الحساب:' : 'Account Status:'}</span>
@@ -184,7 +209,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             </p>
             <p className="font-mono text-neutral-600 flex items-center justify-center gap-2">
               <Mail className="h-3.5 w-3.5 text-orange-500" />
-              <span>info@meayon.com</span>
+              <span>support@oxengl.com</span>
               <span className="text-neutral-300">|</span>
               <Phone className="h-3.5 w-3.5 text-orange-500" />
               <span dir="ltr">+966 11 482 9900</span>
@@ -202,7 +227,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             </button>
 
             <button
-              onClick={onRequireLogin}
+              onClick={handleRequireLogin}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 py-2 text-xs font-bold text-white hover:bg-neutral-800 transition-all shadow-xs"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -215,7 +240,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // 3. Check Suspended Status
-  if (currentUser.status === 'Suspended') {
+  if (currentUser?.status === 'Suspended') {
     return (
       <div
         id="suspended-account-view"
@@ -234,7 +259,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
             : 'Access for this user has been suspended. Please contact ERP Administration.'}
         </p>
         <button
-          onClick={onRequireLogin}
+          onClick={handleRequireLogin}
           className="mt-5 inline-flex items-center gap-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-neutral-800 transition-all"
         >
           <LogOut className="h-4 w-4" />
@@ -245,7 +270,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // 4. Role-Based Access Control (RBAC) Guard
-  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(currentUser.role)) {
+  const activeUserRole: UserRole = currentUser?.role ?? 'Guest';
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(activeUserRole)) {
     return (
       <div
         id="unauthorized-rbac-view"
@@ -260,8 +286,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         </h2>
         <p className="mt-2 max-w-md text-xs leading-relaxed text-neutral-600">
           {isAr
-            ? `صلاحية حسابك الحالية (${currentUser.role}) لا تخولك لعرض هذا القسم الإداري أو تعديل بياناته وفق مصفوفة الأمان التشغيلية.`
-            : `Your current assigned role (${currentUser.role}) does not have permission to view this section according to company security matrix.`}
+            ? `صلاحية حسابك الحالية (${activeUserRole}) لا تخولك لعرض هذا القسم الإداري أو تعديل بياناته وفق مصفوفة الأمان التشغيلية.`
+            : `Your current assigned role (${activeUserRole}) does not have permission to view this section according to company security matrix.`}
         </p>
 
         <div className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs text-neutral-600">

@@ -13,8 +13,14 @@ from typing import Any, Generator, Optional
 
 from backend.schemas import AccountMoveLineCreate
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect, status
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
+from slowapi.errors import RateLimitExceeded
+try:
+	from backend.rate_limiter import limiter
+except (ImportError, ValueError):
+	from rate_limiter import limiter
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
@@ -90,10 +96,12 @@ try:
 	from backend.app.api.v1.finance import router as finance_router
 	from backend.app.api.v1.reports import router as reports_router
 	from backend.app.services.fleet_service import router as logistics_router
+	from backend.app.api.v1.customs import router as customs_router
 	from backend.app.api.v1.hr import router as hr_router
 	from backend.app.api.v1.saas import router as saas_router
 	from backend.app.api.v1.ai import router as ai_router
 	from backend.app.api.v1.planning import router as planning_router
+	from backend.app.api.v1.auth import router as recovery_auth_router
 except ImportError:
 	from .database import SessionLocal
 	from . import models  # type: ignore[no-redef]
@@ -164,10 +172,12 @@ except ImportError:
 	from backend.app.api.v1.finance import router as finance_router  # type: ignore[no-redef]
 	from backend.app.api.v1.reports import router as reports_router  # type: ignore[no-redef]
 	from backend.app.services.fleet_service import router as logistics_router  # type: ignore[no-redef]
+	from backend.app.api.v1.customs import router as customs_router  # type: ignore[no-redef]
 	from backend.app.api.v1.hr import router as hr_router  # type: ignore[no-redef]
 	from backend.app.api.v1.saas import router as saas_router  # type: ignore[no-redef]
 	from backend.app.api.v1.ai import router as ai_router  # type: ignore[no-redef]
 	from backend.app.api.v1.planning import router as planning_router  # type: ignore[no-redef]
+	from backend.app.api.v1.auth import router as recovery_auth_router  # type: ignore[no-redef]
 
 
 app = FastAPI(
@@ -175,6 +185,19 @@ app = FastAPI(
 	version="1.0.0",
 	description="نظام إدارة عمليات النقل والشحن والمالية لشركة ميون",
 )
+
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+	return JSONResponse(
+		status_code=429,
+		content={
+			"detail": "Too many access attempts detected. Your IP signature has been locked out for 60 seconds.",
+			"error_code": "BRUTE_FORCE_PREVENTION_TRIGGERED",
+		},
+	)
 
 DEFAULT_ACCOUNT_SEEDS = (
 	("101000", "Operating Cash / Bank", "asset"),
@@ -190,7 +213,8 @@ DEFAULT_ACCOUNT_SEEDS = (
 
 SESSION_COOKIE_NAME = getenv("SESSION_COOKIE_NAME", "oxengl_session")
 SESSION_COOKIE_SECURE = getenv("SESSION_COOKIE_SECURE", "true").strip().lower() not in {"0", "false", "no"}
-JWT_SECRET_KEY = getenv("JWT_SECRET_KEY", getenv("OXENGL_JWT_SECRET", "development-secret-change-me"))
+INSECURE_DEFAULT_SECRETS = {"development-secret-change-me", "secret", "changeme", "default", ""}
+JWT_SECRET_KEY = getenv("JWT_SECRET") or getenv("JWT_SECRET_KEY") or getenv("OXENGL_JWT_SECRET") or "development-secret-change-me"
 JWT_EXPIRE_SECONDS = int(getenv("JWT_EXPIRE_SECONDS", "7200"))
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -222,10 +246,21 @@ def _base64url_decode(payload: str) -> bytes:
 	return base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
 
 
-def create_session_token(*, subject: str, company_id: uuid.UUID | None, role: str) -> str:
+def create_session_token(*, subject: str, company_id: uuid.UUID | None, role: str, tenant_slug: str | None = None, domain_slug: str | None = None) -> str:
 	now = int(time.time())
 	header = {"alg": "HS256", "typ": "JWT"}
-	payload = {"sub": subject, "company_id": str(company_id) if company_id else None, "role": role, "iat": now, "exp": now + JWT_EXPIRE_SECONDS}
+	cid_str = str(company_id) if company_id else None
+	slug = tenant_slug or domain_slug
+	payload = {
+		"sub": subject,
+		"company_id": cid_str,
+		"tenant_id": cid_str,
+		"tenant_slug": slug,
+		"domain_slug": slug,
+		"role": role,
+		"iat": now,
+		"exp": now + JWT_EXPIRE_SECONDS,
+	}
 	signing_input = f"{_base64url_encode(json.dumps(header, separators=(',', ':')).encode())}.{_base64url_encode(json.dumps(payload, separators=(',', ':')).encode())}"
 	signature = hmac.new(JWT_SECRET_KEY.encode(), signing_input.encode(), hashlib.sha256).digest()
 	return f"{signing_input}.{_base64url_encode(signature)}"
@@ -255,22 +290,30 @@ def seed_default_accounts(database: Session, company: models.ResCompany) -> None
 
 @app.on_event("startup")
 def verify_migration_managed_schema() -> None:
-	"""Schema creation is managed by Alembic migrations, not application startup."""
+	"""Validate security baseline and ensure schema is managed by migrations."""
+	current_env = getenv("ENVIRONMENT", getenv("NODE_ENV", "production")).strip().lower()
+	secret = JWT_SECRET_KEY.strip()
+	if not secret or secret in INSECURE_DEFAULT_SECRETS:
+		if current_env not in {"development", "test", "testing", "sandbox_audit"}:
+			raise RuntimeError(
+				"CRITICAL SECURITY CONFIGURATION ERROR: Production JWT secret is unconfigured or using an insecure default. "
+				"Set JWT_SECRET to a strong, high-entropy secret (>= 32 bytes) in environment configuration."
+			)
 	return None
 
 
 app.add_middleware(
 	CORSMiddleware,
 	allow_origins=[
+		"https://oxengl.me",
+		"https://app.oxengl.me",
+		"https://oxengl.com",
 		"http://localhost:5173",
 		"http://127.0.0.1:5173",
 		"http://localhost:3000",
 		"http://127.0.0.1:3000",
-		"http://localhost:8000",
-		"http://127.0.0.1:8000",
-		getenv("FRONTEND_ORIGIN", "https://oxengl.com"),
 	],
-	allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:[0-9]+)?|https://.*\.devtunnels\.ms",
+	allow_origin_regex=r"^https://([a-zA-Z0-9-]+\.)*oxengl\.(me|com)$|^http://(localhost|127\.0\.0\.1):(3000|5173)$",
 	allow_credentials=True,
 	allow_methods=["*"],
 	allow_headers=["*"],
@@ -280,6 +323,9 @@ app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(two_tier_auth_router)
 app.include_router(iam_auth_router)
+app.include_router(recovery_auth_router)
+app.include_router(recovery_auth_router, prefix="/api")
+app.include_router(recovery_auth_router, prefix="/api/v1")
 app.include_router(procurement_router)
 app.include_router(inventory_router)
 app.include_router(finance_router)
@@ -291,11 +337,22 @@ app.include_router(onboard_tenant.router)
 from backend.app.domains.logistics.ws_stream import router as ws_stream_router
 app.include_router(ws_stream_router)
 app.include_router(logistics_router)
+app.include_router(customs_router, prefix="/api/v1/logistics/customs/manifests")
+app.include_router(customs_router, prefix="/api/logistics/customs/manifests")
 app.include_router(hr_router, prefix="/api/v1/hr")
 app.include_router(saas_router, prefix="/api/v1/saas")
 app.include_router(ai_router, prefix="/api/v1/ai")
 app.include_router(planning_router, prefix="/api/tenant/planning")
 app.include_router(planning_router, prefix="/api/v1/planning")
+from backend.app.api.v1 import super_admin
+app.include_router(super_admin.router)
+from backend.app.api.v1 import users as users_api
+app.include_router(users_api.router)
+from backend.app.api.v1 import tenant_control, master_platform
+app.include_router(tenant_control.router, prefix="/api/tenant/control")
+app.include_router(tenant_control.router, prefix="/api/v1/tenant/control")
+app.include_router(master_platform.router, prefix="/api/master/platform")
+app.include_router(master_platform.router, prefix="/api/v1/master/platform")
 
 def get_db() -> Generator[Session, None, None]:
 	database = SessionLocal()
@@ -401,18 +458,24 @@ def get_authenticated_user(request: Request, database: Session = Depends(get_db)
 	email = str(claims.get("identity") or claims.get("sub") or "").lower().strip()
 	if not email:
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is missing an authenticated subject")
-	tenant_slug = claims.get("tenant_slug") or request.headers.get("x-tenant-slug")
+	tenant_slug = claims.get("tenant_slug") or claims.get("domain_slug") or request.headers.get("x-tenant-slug")
+	tenant_id = claims.get("tenant_id") or claims.get("company_id") or request.headers.get("x-tenant-id") or request.headers.get("x-company-id")
 	target_company = None
-	if tenant_slug:
+	if tenant_id:
+		try:
+			target_company = database.scalar(select(models.ResCompany).where(models.ResCompany.id == uuid.UUID(str(tenant_id))))
+		except Exception:
+			pass
+	if target_company is None and tenant_slug:
 		target_company = database.scalar(select(models.ResCompany).where(models.ResCompany.slug == tenant_slug))
-	if target_company is None:
-		target_company = database.scalar(select(models.ResCompany).limit(1))
 
 	user = database.scalar(select(models.ResUser).where(models.ResUser.email == email, models.ResUser.is_active.is_(True)))
 	if user is not None and target_company and (user.company_id is None or (tenant_slug and user.company_id != target_company.id)):
 		user.company_id = target_company.id
 		database.commit()
 		database.refresh(user)
+	elif user is not None and not target_company and user.company_id:
+		target_company = database.scalar(select(models.ResCompany).where(models.ResCompany.id == user.company_id))
 
 	if user is None:
 		raw_role = str(claims.get("role") or "User").lower()
@@ -438,6 +501,8 @@ def get_authenticated_user(request: Request, database: Session = Depends(get_db)
 		if claim_uuid != user.company_id:
 			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Session company does not match authenticated user membership")
 	return user
+get_current_active_user = get_authenticated_user
+
 
 
 def get_optional_authenticated_user(request: Request, database: Session = Depends(get_db)) -> models.ResUser | None:
@@ -448,6 +513,7 @@ def get_optional_authenticated_user(request: Request, database: Session = Depend
 
 
 def get_active_company_id(request: Request, x_company_id: str | None = Header(default=None), database: Session = Depends(get_db), current_user: models.ResUser = Depends(get_authenticated_user)) -> uuid.UUID:
+	x_company_id = x_company_id or request.headers.get("x-tenant-id") or request.headers.get("x-company-id")
 	if not x_company_id:
 		if current_user.company_id:
 			return current_user.company_id
@@ -459,15 +525,6 @@ def get_active_company_id(request: Request, x_company_id: str | None = Header(de
 	if database.get(models.ResCompany, company_id) is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active company was not found")
 	if current_user.role != "Super_Admin" and current_user.company_id and company_id != current_user.company_id:
-		# Check if request has matching tenant slug
-		slug_header = request.headers.get("x-tenant-slug")
-		if slug_header:
-			comp = database.scalar(select(models.ResCompany).where(models.ResCompany.slug == slug_header))
-			if comp and comp.id == company_id:
-				current_user.company_id = company_id
-				database.commit()
-				return company_id
-
 		record_security_event(
 			database,
 			event_type="idor_attempt",
@@ -761,40 +818,65 @@ def update_company_branding(company_id: uuid.UUID, payload: CompanyBrandingUpdat
 def upload_platform_asset(
 	payload: PlatformAssetUploadRequest,
 	database: Session = Depends(get_db),
+	current_user: models.ResUser = Depends(get_authenticated_user),
 ):
 	target_company = None
-	if payload.company_id:
-		target_company = database.get(models.ResCompany, payload.company_id)
-	if not target_company:
-		target_company = database.query(models.ResCompany).first()
+	target_cid = payload.company_id or current_user.company_id
+	if target_cid:
+		target_company = database.get(models.ResCompany, target_cid)
 
-	asset_url = payload.file_buffer
-	if payload.file_buffer and payload.file_buffer.startswith("data:image"):
+	asset_url = None
+	file_name = None
+	if payload.file_buffer:
+		import os
+		ALLOWED_ASSET_MIMES = {
+			"data:image/png;base64,": "png",
+			"data:image/jpeg;base64,": "jpg",
+			"data:image/jpg;base64,": "jpg",
+			"data:image/webp;base64,": "webp",
+			"data:image/svg+xml;base64,": "svg",
+		}
+		matched_ext = None
+		prefix_len = 0
+		for prefix, ext in ALLOWED_ASSET_MIMES.items():
+			if payload.file_buffer.startswith(prefix):
+				matched_ext = ext
+				prefix_len = len(prefix)
+				break
+		if not matched_ext:
+			raise HTTPException(
+				status_code=status.HTTP_400_BAD_REQUEST,
+				detail="Invalid file type: allowed types are .png, .jpg, .jpeg, .webp, .svg",
+			)
+
+		if payload.file_name:
+			_, user_ext = os.path.splitext(payload.file_name)
+			if user_ext and user_ext.lower().lstrip(".") not in ("png", "jpg", "jpeg", "webp", "svg"):
+				raise HTTPException(
+					status_code=status.HTTP_400_BAD_REQUEST,
+					detail=f"Disallowed file extension: {user_ext}",
+				)
+
 		try:
-			import os
-			ext = "png"
-			if "image/svg+xml" in payload.file_buffer:
-				ext = "svg"
-			elif "image/jpeg" in payload.file_buffer or "image/jpg" in payload.file_buffer:
-				ext = "jpg"
-			elif "image/webp" in payload.file_buffer:
-				ext = "webp"
-
-			_, encoded = payload.file_buffer.split(",", 1)
-			file_bytes = base64.b64decode(encoded)
-			file_name = f"uploaded_{payload.asset_type or 'asset'}_{int(time.time())}.{ext}"
+			file_bytes = base64.b64decode(payload.file_buffer[prefix_len:])
+			file_name = f"asset_{uuid.uuid4().hex}.{matched_ext}"
 
 			for target_dir in [
 				"/var/www/oxengl/dist/assets",
 				"/var/www/erp/frontend/dist/assets",
-				"/root/oxen-gl/frontend/public/assets",
+				os.path.abspath(os.path.join(os.path.dirname(__file__), "../../frontend/public/assets")),
 			]:
 				if os.path.exists(target_dir):
-					with open(os.path.join(target_dir, file_name), "wb") as f:
-						f.write(file_bytes)
+					abs_target = os.path.abspath(target_dir)
+					dest_path = os.path.abspath(os.path.join(abs_target, file_name))
+					if dest_path.startswith(abs_target + os.sep):
+						with open(dest_path, "wb") as f:
+							f.write(file_bytes)
 			asset_url = f"/assets/{file_name}"
+		except HTTPException:
+			raise
 		except Exception:
-			asset_url = payload.file_buffer
+			asset_url = f"/assets/{file_name}" if file_name else None
 
 	resolved_wallpaper = payload.wallpaper_url or (asset_url if payload.asset_type in ("platform_wallpaper", "wallpaper", "background", "platform_background") else None)
 	resolved_background = payload.background_url or (asset_url if payload.asset_type in ("platform_wallpaper", "wallpaper", "background", "platform_background") else None)
@@ -815,8 +897,8 @@ def upload_platform_asset(
 
 	return PlatformAssetUploadResponse(
 		status="success",
-		url=asset_url,
-		file_name=payload.file_name,
+		url=asset_url or "",
+		file_name=file_name or (f"asset_{uuid.uuid4().hex}.png"),
 		asset_type=payload.asset_type,
 		primary_color=payload.primary_color,
 		secondary_color=payload.secondary_color,
@@ -858,10 +940,34 @@ def verify_user(payload: AuthVerifyRequest, request: Request, response: Response
 	if not verify_password(payload.password, user.password_hash):
 		record_platform_audit(database, actor_email=email, action="LOGIN_FAILED", endpoint="/api/auth/verify", ip_address=resolve_client_ip(request), company_id=user.company_id)
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
-	token = create_session_token(subject=user.email, company_id=user.company_id, role=user.role)
+	company = database.get(models.ResCompany, user.company_id) if user.company_id else None
+	company_slug = company.slug if company else None
+	token = create_session_token(
+		subject=user.email,
+		company_id=user.company_id,
+		role=user.role,
+		tenant_slug=company_slug,
+		domain_slug=company_slug,
+	)
 	set_session_cookie(response, token)
 	record_platform_audit(database, actor_email=user.email, action="LOGIN", endpoint="/api/auth/verify", ip_address=resolve_client_ip(request), company_id=user.company_id)
-	return {"message": "Authenticated", "status": "Active", "user": {"id": str(user.id), "email": user.email, "fullName": user.full_name, "fullNameAr": user.full_name, "role": user.role, "status": "Active", "company_id": str(user.company_id)}}
+	return {
+		"message": "Authenticated",
+		"status": "Active",
+		"token": token,
+		"user": {
+			"id": str(user.id),
+			"email": user.email,
+			"fullName": user.full_name,
+			"fullNameAr": user.full_name,
+			"role": user.role,
+			"status": "Active",
+			"company_id": str(user.company_id) if user.company_id else None,
+			"tenant_id": str(user.company_id) if user.company_id else None,
+			"tenant_slug": company_slug,
+			"domain_slug": company_slug,
+		},
+	}
 
 
 @app.post("/api/auth/logout", tags=["Authentication"])
@@ -1339,70 +1445,84 @@ def validate_balanced_lines(lines: list[AccountMoveLineCreate]) -> None:
 
 
 def create_posted_account_move(database: Session, company_id: uuid.UUID, payload: AccountMoveCreate) -> models.AccountMove:
-	validate_balanced_lines(payload.lines)
-	if payload.journal_code == "STK":
-		journal_name = "Stock Valuation Journal"
-		journal_type = "general"
-	elif payload.journal_code == "BILL":
-		journal_name = "Purchase Journal"
-		journal_type = "purchase"
-	elif payload.journal_code == "MISC":
-		journal_name = "Miscellaneous Journal"
-		journal_type = "general"
-	else:
-		journal_name = "Sales Journal"
-		journal_type = "sale"
-	move_date = payload.date or datetime.now(timezone.utc)
-	journal = journal_by_code(database, company_id, payload.journal_code, journal_name, journal_type, payload.journal_code)
-	fiscal_year = fiscal_year_for_date(database, company_id, move_date)
-	account_ids = {line.account_id for line in payload.lines}
-	accounts = database.scalars(select(models.AccountAccount).where(models.AccountAccount.company_id == company_id, models.AccountAccount.id.in_(account_ids))).all()
-	if len(accounts) != len(account_ids):
-		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One or more accounts do not belong to the active company")
-	partner_ids = {line.partner_id for line in payload.lines if line.partner_id}
-	if payload.partner_id:
-		partner_ids.add(payload.partner_id)
-	if partner_ids:
-		partners = database.scalars(select(models.ResPartner.id).where(models.ResPartner.company_id == company_id, models.ResPartner.id.in_(partner_ids))).all()
-		if len(partners) != len(partner_ids):
-			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One or more partners do not belong to the active company")
-	move = models.AccountMove(company_id=company_id, journal_id=journal.id, fiscal_year_id=fiscal_year.id, name=payload.name or "", move_type=payload.move_type, partner_id=payload.partner_id, cost_center_id=payload.cost_center_id, date=move_date, state="draft", ref=payload.ref)
-	assign_move_sequence(move, journal, move_date)
-	database.add(move)
-	database.flush()
-	for line in payload.lines:
-		database.add(models.AccountMoveLine(company_id=company_id, move_id=move.id, account_id=line.account_id, partner_id=line.partner_id, cost_center_id=line.cost_center_id or payload.cost_center_id, debit=line.debit, credit=line.credit, name=line.name))
-	move.state = "posted"
-	move.posted_at = datetime.now(timezone.utc)
-	return move
+	from backend.app.domains.finance import TransactionProcessingService
+	return TransactionProcessingService.create_posted_account_move(database, company_id, payload)
 
 
 @app.post("/api/operations/weighbridge", response_model=WeighbridgeOperationRead, status_code=status.HTTP_201_CREATED, tags=["Operations"])
+@app.post("/api/v1/operations/weighbridge", response_model=WeighbridgeOperationRead, status_code=status.HTTP_201_CREATED, tags=["Operations"])
 def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
-	net_weight = payload.gross_weight - payload.tare_weight
-	reference = f"WB-{datetime.now(timezone.utc):%Y%m%d%H%M%S}-{uuid.uuid4().hex[:8]}"
-	ticket_number = f"TKT-{uuid.uuid4().hex[:12].upper()}"
+	gross_weight = payload.gross_weight.quantize(Decimal("0.0001"))
+	tare_weight = payload.tare_weight.quantize(Decimal("0.0001"))
+	net_weight = (gross_weight - tare_weight).quantize(Decimal("0.0001"))
+	reference = payload.ticket_number or f"WB-{datetime.now(timezone.utc):%Y%m%d%H%M%S}-{uuid.uuid4().hex[:8]}"
+	ticket_number = payload.ticket_number or f"TKT-{uuid.uuid4().hex[:12].upper()}"
 	try:
 		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
 		with tx_ctx:
-			partner = database.scalar(select(models.ResPartner).where(models.ResPartner.id == payload.partner_id, models.ResPartner.company_id == company_id))
-			product = database.scalar(select(models.ProductProduct).where(models.ProductProduct.id == payload.product_id, models.ProductProduct.company_id == company_id))
-			source = database.scalar(select(models.StockLocation).where(models.StockLocation.id == payload.source_location_id, models.StockLocation.company_id == company_id))
-			destination = database.scalar(select(models.StockLocation).where(models.StockLocation.id == payload.dest_location_id, models.StockLocation.company_id == company_id))
+			# 1. Resolve partner
+			partner = None
+			if payload.partner_id:
+				partner = database.scalar(select(models.ResPartner).where(models.ResPartner.id == payload.partner_id, models.ResPartner.company_id == company_id))
+			if partner is None and payload.partner_name:
+				partner = database.scalar(select(models.ResPartner).where(models.ResPartner.company_id == company_id, models.ResPartner.name == payload.partner_name.strip()))
+				if partner is None:
+					partner = models.ResPartner(company_id=company_id, name=payload.partner_name.strip(), partner_type="supplier")
+					database.add(partner)
+					database.flush()
+
+			# 2. Resolve product
+			product = None
+			if payload.product_id:
+				product = database.scalar(select(models.ProductProduct).where(models.ProductProduct.id == payload.product_id, models.ProductProduct.company_id == company_id))
+			if product is None and payload.product_name:
+				product = database.scalar(select(models.ProductProduct).where(models.ProductProduct.company_id == company_id, models.ProductProduct.name == payload.product_name.strip()))
+				if product is None:
+					sku = f"AUTO-{uuid.uuid4().hex[:8].upper()}"
+					product = models.ProductProduct(company_id=company_id, name=payload.product_name.strip(), sku=sku, product_type="storable")
+					database.add(product)
+					database.flush()
+
+			# 3. Resolve source location
+			source = None
+			if payload.source_location_id:
+				source = database.scalar(select(models.StockLocation).where(models.StockLocation.id == payload.source_location_id, models.StockLocation.company_id == company_id))
+			if source is None and payload.source_location_name:
+				source = database.scalar(select(models.StockLocation).where(models.StockLocation.company_id == company_id, models.StockLocation.name == payload.source_location_name.strip()))
+				if source is None:
+					source = models.StockLocation(company_id=company_id, name=payload.source_location_name.strip(), location_type="supplier")
+					database.add(source)
+					database.flush()
+
+			# 4. Resolve destination location
+			destination = None
+			if payload.dest_location_id:
+				destination = database.scalar(select(models.StockLocation).where(models.StockLocation.id == payload.dest_location_id, models.StockLocation.company_id == company_id))
+			if destination is None and payload.dest_location_name:
+				destination = database.scalar(select(models.StockLocation).where(models.StockLocation.company_id == company_id, models.StockLocation.name == payload.dest_location_name.strip()))
+				if destination is None:
+					destination = models.StockLocation(company_id=company_id, name=payload.dest_location_name.strip(), location_type="customer")
+					database.add(destination)
+					database.flush()
+
 			if not all((partner, product, source, destination)):
-				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner, product, or stock location was not found")
+				raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner, product, or stock location was not found or could not be resolved")
+
 			picking = models.StockPicking(company_id=company_id, reference=reference, picking_type="outgoing", state="done", partner_id=partner.id, completed_at=datetime.now(timezone.utc))
 			database.add(picking)
 			database.flush()
+
 			move = models.StockMove(company_id=company_id, picking_id=picking.id, product_id=product.id, location_id=source.id, location_dest_id=destination.id, quantity_planned=net_weight, quantity_done=net_weight, state="done", moved_at=datetime.now(timezone.utc))
 			database.add(move)
+
 			for location_id, quantity_change in ((source.id, -net_weight), (destination.id, net_weight)):
 				quant = database.scalar(select(models.StockQuant).where(models.StockQuant.company_id == company_id, models.StockQuant.product_id == product.id, models.StockQuant.location_id == location_id).with_for_update())
 				if quant:
 					quant.quantity += quantity_change
 				else:
 					database.add(models.StockQuant(company_id=company_id, product_id=product.id, location_id=location_id, quantity=quantity_change))
-			ticket = models.WeighbridgeTicket(company_id=company_id, ticket_number=ticket_number, picking_id=picking.id, truck_number=payload.truck_number, gross_weight=payload.gross_weight, tare_weight=payload.tare_weight, net_weight=net_weight, weighed_in_at=datetime.now(timezone.utc), weighed_out_at=datetime.now(timezone.utc))
+
+			ticket = models.WeighbridgeTicket(company_id=company_id, ticket_number=ticket_number, picking_id=picking.id, truck_number=payload.truck_number, gross_weight=gross_weight, tare_weight=tare_weight, net_weight=net_weight, weighed_in_at=datetime.now(timezone.utc), weighed_out_at=datetime.now(timezone.utc))
 			database.add(ticket)
 		database.commit()
 		database.refresh(ticket)
@@ -1413,32 +1533,58 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 
 
 @app.get("/api/operations", response_model=list[WeighbridgeOperationRead], tags=["Operations"])
+@app.get("/api/v1/operations", response_model=list[WeighbridgeOperationRead], tags=["Operations"])
 def get_operations(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	tickets = database.scalars(select(models.WeighbridgeTicket).join(models.WeighbridgeTicket.picking).where(models.WeighbridgeTicket.company_id == company_id).order_by(models.WeighbridgeTicket.weighed_in_at.desc()).limit(100)).all()
 	return [operation_response(ticket) for ticket in tickets]
 
 
+@app.get("/api/operations/{picking_id}", response_model=WeighbridgeOperationRead, tags=["Operations"])
+@app.get("/api/v1/operations/{picking_id}", response_model=WeighbridgeOperationRead, tags=["Operations"])
+def get_operation_by_picking_id(picking_id: uuid.UUID, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
+	ticket = database.scalar(select(models.WeighbridgeTicket).where(models.WeighbridgeTicket.picking_id == picking_id, models.WeighbridgeTicket.company_id == company_id))
+	if ticket is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Weighbridge operation not found")
+	return operation_response(ticket)
+
+
+@app.delete("/api/operations/{picking_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Operations"])
+@app.delete("/api/v1/operations/{picking_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Operations"])
+def delete_operation_by_picking_id(picking_id: uuid.UUID, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
+	picking = database.scalar(select(models.StockPicking).where(models.StockPicking.id == picking_id, models.StockPicking.company_id == company_id))
+	if picking is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Operation picking not found")
+	database.delete(picking)
+	database.commit()
+	return None
+
+
 @app.get("/api/accounting/accounts", response_model=list[AccountAccountRead], tags=["Accounting"])
+@app.get("/api/v1/accounting/accounts", response_model=list[AccountAccountRead], tags=["Accounting"])
 def list_accounts(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	return database.scalars(select(models.AccountAccount).where(models.AccountAccount.company_id == company_id).order_by(models.AccountAccount.code)).all()
 
 
 @app.get("/api/accounting/journals", response_model=list[AccountJournalRead], tags=["Accounting"])
+@app.get("/api/v1/accounting/journals", response_model=list[AccountJournalRead], tags=["Accounting"])
 def list_journals(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	return database.scalars(select(models.AccountJournal).where(models.AccountJournal.company_id == company_id, models.AccountJournal.is_active.is_(True)).order_by(models.AccountJournal.code)).all()
 
 
 @app.get("/api/accounting/fiscal-years", response_model=list[FiscalYearRead], tags=["Accounting"])
+@app.get("/api/v1/accounting/fiscal-years", response_model=list[FiscalYearRead], tags=["Accounting"])
 def list_fiscal_years(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	return database.scalars(select(models.FiscalYear).where(models.FiscalYear.company_id == company_id).order_by(models.FiscalYear.date_start.desc())).all()
 
 
 @app.get("/api/accounting/cost-centers", response_model=list[CostCenterRead], tags=["Accounting"])
+@app.get("/api/v1/accounting/cost-centers", response_model=list[CostCenterRead], tags=["Accounting"])
 def list_cost_centers(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	return database.scalars(select(models.CostCenter).where(models.CostCenter.company_id == company_id, models.CostCenter.is_active.is_(True)).order_by(models.CostCenter.code)).all()
 
 
 @app.post("/api/accounting/cost-centers", response_model=CostCenterRead, status_code=status.HTTP_201_CREATED, tags=["Accounting"])
+@app.post("/api/v1/accounting/cost-centers", response_model=CostCenterRead, status_code=status.HTTP_201_CREATED, tags=["Accounting"])
 def create_cost_center(payload: CostCenterCreate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	if payload.parent_id and database.scalar(select(models.CostCenter).where(models.CostCenter.id == payload.parent_id, models.CostCenter.company_id == company_id)) is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Parent cost center was not found")
@@ -1450,11 +1596,13 @@ def create_cost_center(payload: CostCenterCreate, company_id: uuid.UUID = Depend
 
 
 @app.get("/api/accounting/moves", response_model=list[AccountMoveRead], tags=["Accounting"])
+@app.get("/api/v1/accounting/moves", response_model=list[AccountMoveRead], tags=["Accounting"])
 def list_account_moves(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	return database.scalars(select(models.AccountMove).where(models.AccountMove.company_id == company_id).order_by(models.AccountMove.date.desc()).limit(100)).all()
 
 
 @app.get("/api/accounting/moves/{move_id}", response_model=AccountMoveRead, tags=["Accounting"])
+@app.get("/api/v1/accounting/moves/{move_id}", response_model=AccountMoveRead, tags=["Accounting"])
 def get_account_move(move_id: uuid.UUID, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	move = database.scalar(select(models.AccountMove).where(models.AccountMove.id == move_id, models.AccountMove.company_id == company_id))
 	if move is None:
@@ -1463,15 +1611,33 @@ def get_account_move(move_id: uuid.UUID, company_id: uuid.UUID = Depends(get_act
 
 
 @app.post("/api/accounting/moves", response_model=AccountMoveRead, status_code=status.HTTP_201_CREATED, tags=["Accounting"])
+@app.post("/api/v1/accounting/moves", response_model=AccountMoveRead, status_code=status.HTTP_201_CREATED, tags=["Accounting"])
 def create_account_move(payload: AccountMoveCreate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	database.rollback()
 	try:
 		with database.begin():
 			move = create_posted_account_move(database, company_id, payload)
 		database.refresh(move)
+	except HTTPException:
+		database.rollback()
+		raise
 	except IntegrityError as error:
 		database.rollback()
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to create the journal entry") from error
+	return move
+
+
+@app.post("/api/accounting/moves/{move_id}/post", response_model=AccountMoveRead, tags=["Accounting"])
+@app.post("/api/v1/accounting/moves/{move_id}/post", response_model=AccountMoveRead, tags=["Accounting"])
+def post_account_move(move_id: uuid.UUID, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
+	move = database.scalar(select(models.AccountMove).where(models.AccountMove.id == move_id, models.AccountMove.company_id == company_id))
+	if move is None:
+		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry was not found")
+	if move.state != "posted":
+		move.state = "posted"
+		move.posted_at = datetime.now(timezone.utc)
+		database.commit()
+		database.refresh(move)
 	return move
 
 
@@ -1487,13 +1653,16 @@ def create_customer_invoice(payload: CustomerInvoiceCreate, company_id: uuid.UUI
 		if partner is None:
 			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer partner was not found")
 	issue_date = payload.issue_date or datetime.now(timezone.utc)
+	subtotal = payload.subtotal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	vat_amount = payload.vat_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	grand_total = payload.grand_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 	database.rollback()
 	try:
 		with database.begin():
 			journal = journal_by_code(database, company_id, "INV", "Sales Invoices", "sale", "INV")
 			invoice_number = payload.invoice_number or f"INV/{issue_date:%Y}/{journal.next_sequence:05d}"
 			journal.next_sequence += 1
-			invoice = models.CustomerInvoice(company_id=company_id, partner_id=payload.partner_id, invoice_number=invoice_number, customer_name=payload.customer_name, customer_tax_number=payload.customer_tax_number, issue_date=issue_date, due_date=payload.due_date, subtotal=payload.subtotal, vat_amount=payload.vat_amount, grand_total=payload.grand_total, status="Draft")
+			invoice = models.CustomerInvoice(company_id=company_id, partner_id=payload.partner_id, invoice_number=invoice_number, customer_name=payload.customer_name, customer_tax_number=payload.customer_tax_number, issue_date=issue_date, due_date=payload.due_date, subtotal=subtotal, vat_amount=vat_amount, grand_total=grand_total, status="Draft")
 			database.add(invoice)
 		database.refresh(invoice)
 	except IntegrityError as error:
@@ -1518,9 +1687,9 @@ def update_customer_invoice(invoice_id: uuid.UUID, payload: CustomerInvoiceUpdat
 	if invoice.status != "Draft":
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only draft invoices can be modified")
 
-	new_subtotal = payload.subtotal if payload.subtotal is not None else invoice.subtotal
-	new_vat = payload.vat_amount if payload.vat_amount is not None else invoice.vat_amount
-	new_grand_total = payload.grand_total if payload.grand_total is not None else invoice.grand_total
+	new_subtotal = (payload.subtotal if payload.subtotal is not None else invoice.subtotal).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	new_vat = (payload.vat_amount if payload.vat_amount is not None else invoice.vat_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	new_grand_total = (payload.grand_total if payload.grand_total is not None else invoice.grand_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 	if new_subtotal + new_vat != new_grand_total:
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invoice totals are unbalanced: subtotal plus VAT must equal grand total")
 

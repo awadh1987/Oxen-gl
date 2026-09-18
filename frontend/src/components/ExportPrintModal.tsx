@@ -344,7 +344,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
       });
 
       const pdfBytes = await pdfDoc.save();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
       downloadBlob(blob, `Meayon_${docType}_${docRefNumber}.pdf`);
     } catch (err) {
       console.error('PDF Generation Error:', err);
@@ -375,8 +375,8 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
         totalDeliveredWeight: summaryMetrics.totalDelivered,
         totalWastageWeight: summaryMetrics.totalWastage,
         status: 'Approved' as const,
-        preparedBy: currentUser.fullNameAr || currentUser.fullName,
-        preparedByRole: currentUser.role,
+        preparedBy: currentUser?.fullNameAr || currentUser?.fullName || 'Operator',
+        preparedByRole: currentUser?.role || 'Admin',
       };
       exportInvoiceToExcel(mockInvoice, matchingTripsForInvoice());
     } else {

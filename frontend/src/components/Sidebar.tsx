@@ -83,14 +83,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Fetch tenant configurations using the active X-Tenant-ID header to pull available views from isolated schema
   React.useEffect(() => {
-    const activeTenantId = tenantId || (authTier === 'tenant' ? currentCompany?.id : null) || 'tenant_001';
+    const activeTenantId = tenantId || (authTier === 'tenant' ? currentCompany?.id : null) || localStorage.getItem('oxengl_tenant_id') || localStorage.getItem('tenant_id');
+    if (!activeTenantId) return;
 
+    const token = localStorage.getItem('oxengl_auth_jwt') || localStorage.getItem('token');
     const fetchTenantConfig = async () => {
       try {
         const response = await fetch('/api/tenant/control/settings', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             'X-Tenant-ID': activeTenantId,
           },
         });
@@ -276,6 +279,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       roles: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
       badge: 'Phase 5',
     },
+    ...(currentUser?.role === 'Super_Admin' || authTier === 'master'
+      ? [
+          {
+            id: 'admin-hub' as ActiveTab,
+            label: 'Admin Hub',
+            labelAr: 'مركز تحكم المنصة الرئيسي',
+            labelEn: 'Admin Hub',
+            path: '/admin',
+            icon: LayoutDashboard,
+            roles: ['Super_Admin', 'Admin'],
+            badge: 'Cockpit',
+          },
+        ]
+      : []),
   ];
 
   // Restrict super-admin elements to master path and pull available views from isolated schema
@@ -385,7 +402,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <div className="space-y-1">
               {displayedMenuItems.map((item) => {
-                const isAllowed = item.roles.includes(currentUser.role);
+                const isAllowed = item.roles.includes(currentUser?.role ?? 'Guest');
                 const isActive = activeTab === item.id;
                 const renderIconNode = (icon: any, className: string) => {
                   if (typeof icon === 'string') {
@@ -417,6 +434,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     key={item.id}
                     onClick={() => {
                       if ((item as any).path) {
+                        if ((item as any).path === '/admin') {
+                          window.location.href = '/admin';
+                          return;
+                        }
                         window.history.pushState({}, '', (item as any).path);
                         window.dispatchEvent(new PopStateEvent('popstate'));
                       }
@@ -489,18 +510,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               />
               <div className="overflow-hidden">
                 <p className="truncate text-xs font-black text-white">
-                  {currentUser.fullNameAr || currentUser.fullName}
+                  {currentUser?.fullNameAr || currentUser?.fullName || 'User'}
                 </p>
                 <div className="flex items-center gap-1">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                   <span className="text-[10px] font-bold text-blue-300">
-                    {currentUser.role === 'Admin'
+                    {currentUser?.role === 'Admin'
                       ? 'المدير التنفيذي CEO'
-                      : currentUser.role === 'COO'
+                      : currentUser?.role === 'COO'
                       ? 'المدير التنفيذي للعمليات COO'
-                      : currentUser.role === 'Accountant'
+                      : currentUser?.role === 'Accountant'
                       ? 'المحاسب المالي'
-                      : currentUser.role === 'Data_Entry'
+                      : currentUser?.role === 'Data_Entry'
                       ? 'مدخل بيانات العمليات'
                       : 'بوابة العميل / مدقق'}
                   </span>

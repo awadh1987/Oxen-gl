@@ -6,8 +6,6 @@ import {
   UserCheck,
   Shield,
   LogOut,
-  ChevronDown,
-  RefreshCw,
   AlertTriangle,
   WifiOff,
   Settings,
@@ -29,11 +27,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   const {
     currentUser,
-    setCurrentUser,
-    users,
     language,
     setLanguage,
-    resetToDefaults,
     kpis,
     isOnline,
     signOutAuth,
@@ -49,10 +44,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
     setTenantTheme,
     isolationTelemetry,
     tenantId,
+    tenantSlug,
     authTier,
   } = useApp();
 
-  const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -107,8 +102,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   };
 
   const highLossAlertCount = kpis.overallWastagePercent > 2.0 ? 3 : 1;
-  const isMasterAdmin = authTier === 'master' || currentUser.role === 'Super_Admin';
-  const currentTenantId = !isMasterAdmin ? (tenantId || currentCompany?.id || 'tenant_001') : tenantId;
+  const isMasterAdmin = authTier === 'master' || currentUser?.role === 'Super_Admin';
+  const currentTenantId = !isMasterAdmin ? (tenantId || currentCompany?.id || localStorage.getItem('oxengl_tenant_id') || '') : tenantId;
 
   const CompanyDropdown: React.FC = () => {
     if (!currentCompany) return null;
@@ -167,7 +162,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
             /* Global Standard Fallback Minimalist Monogram */
             <div className="h-8 w-8 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md shrink-0">
               <span className="text-white text-sm font-bold">
-                {currentCompany?.name ? currentCompany.name.charAt(0).toUpperCase() : 'M'}
+                {currentCompany?.name ? currentCompany.name.trim().charAt(0).toUpperCase() : (tenantSlug ? tenantSlug.charAt(0).toUpperCase() : 'W')}
               </span>
             </div>
           )}
@@ -176,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
           <div className="hidden flex-col md:flex">
             {/* Dynamic Isolated Tenant Title */}
             <span className="text-sm font-semibold tracking-wide text-slate-200">
-              {currentCompany?.name || 'Enterprise Workspace'}
+              {currentCompany?.name || (tenantSlug ? `${tenantSlug.toUpperCase()} Workspace` : 'Enterprise Workspace')}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-slate-400 font-medium">
               {isAr ? 'المملكة العربية السعودية • ZATCA Compatible' : 'Kingdom of Saudi Arabia • ZATCA'}
@@ -216,7 +211,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
             onClick={() => {
               setShowSettings(!showSettings);
               setShowNotifications(false);
-              setShowRoleDropdown(false);
             }}
             className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
               showSettings
@@ -383,7 +377,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
             onClick={() => {
               setShowNotifications(!showNotifications);
               setShowSettings(false);
-              setShowRoleDropdown(false);
             }}
             className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
               showNotifications
@@ -467,107 +460,34 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
           <span>{language === 'ar' ? 'English' : 'عربي'}</span>
         </button>
 
-        {/* Role Quick-Switch Dropdown */}
-        <div className="relative">
-          <button
-            id="nav-role-switcher-btn"
-            onClick={() => {
-              setShowRoleDropdown(!showRoleDropdown);
-              setShowSettings(false);
-              setShowNotifications(false);
-            }}
-            className={`flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all ${
-              roleColors[currentUser.role].bg
-            } ${roleColors[currentUser.role].border} ${roleColors[currentUser.role].text}`}
-          >
-            <Shield className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">
-              {isAr ? roleColors[currentUser.role].labelAr : roleColors[currentUser.role].labelEn}
-            </span>
-            <span className="sm:hidden">{currentUser.role}</span>
-            <ChevronDown className="h-3.5 w-3.5 opacity-60" />
-          </button>
-
-          {showRoleDropdown && (
-            <>
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setShowRoleDropdown(false)}
-              />
-              <div
-                className={`absolute top-11 ${
-                  isAr ? 'left-0' : 'right-0'
-                } z-50 w-72 rounded-2xl border p-2 shadow-xl backdrop-blur-xl ${
-                  isDark
-                    ? 'border-slate-800 bg-[#0e1324]/95 text-slate-100 shadow-black/80'
-                    : 'border-neutral-200 bg-white/95 text-neutral-900 shadow-xl'
-                }`}
-              >
-                <div className="mb-2 border-b border-neutral-100 dark:border-slate-800 px-3 py-1.5 text-[11px] font-semibold text-neutral-500 dark:text-slate-400">
-                  {isAr ? 'تبديل الحساب والدور (RBAC Switcher):' : 'Switch Role / User:'}
-                </div>
-                <div className="space-y-1">
-                  {users.map((u) => {
-                    const isSelected = u.id === currentUser.id;
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => {
-                          setCurrentUser(u);
-                          setShowRoleDropdown(false);
-                        }}
-                        className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-right text-xs transition-colors ${
-                          isSelected
-                            ? isDark
-                              ? 'bg-orange-950/50 font-bold text-orange-300 ring-1 ring-orange-500/50'
-                              : 'bg-orange-50 font-bold text-orange-950 ring-1 ring-orange-200'
-                            : isDark
-                            ? 'hover:bg-slate-800/60 text-slate-300'
-                            : 'hover:bg-neutral-50 text-neutral-700'
-                        }`}
-                      >
-                        <div className="flex flex-col text-right">
-                          <span className="font-semibold text-neutral-900 dark:text-slate-100">{isAr ? u.fullNameAr : u.fullName}</span>
-                          <span className="text-[10px] text-neutral-500 dark:text-slate-400">{u.email}</span>
-                        </div>
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                            roleColors[u.role].bg
-                          } ${roleColors[u.role].text}`}
-                        >
-                          {u.role}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-2 border-t border-neutral-100 dark:border-slate-800 pt-2">
-                  <button
-                    onClick={() => {
-                      if (confirm(isAr ? 'هل تود إعادة تعيين كافة البيانات إلى الحالة الافتراضية؟' : 'Reset all data to defaults?')) {
-                        resetToDefaults();
-                        setShowRoleDropdown(false);
-                      }
-                    }}
-                    className="flex w-full items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] text-neutral-500 dark:text-slate-400 hover:bg-neutral-50 dark:hover:bg-slate-800 hover:text-neutral-800 dark:hover:text-slate-200"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    <span>{isAr ? 'إعادة ضبط البيانات النموذجية' : 'Reset Demo Seed'}</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        {/* Authenticated User Role Badge (Derived strictly from Authentication Context) */}
+        {(() => {
+          const activeUserRole: UserRole = (currentUser?.role && roleColors[currentUser.role]) ? currentUser.role : 'Guest';
+          const activeRoleBadge = roleColors[activeUserRole] ?? roleColors.Guest;
+          return (
+            <div
+              id="nav-user-role-badge"
+              className={`flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold select-none ${
+                activeRoleBadge.bg
+              } ${activeRoleBadge.border} ${activeRoleBadge.text}`}
+              title={isAr ? `صلاحية الحساب الحالية: ${activeRoleBadge.labelAr}` : `Active Account Role: ${activeRoleBadge.labelEn}`}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">
+                {isAr ? activeRoleBadge.labelAr : activeRoleBadge.labelEn}
+              </span>
+              <span className="sm:hidden">{activeUserRole}</span>
+            </div>
+          );
+        })()}
 
         {/* User Profile Avatar & Logout */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           <div
             className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#1A1A1A] to-[#F05627] font-bold text-white shadow-xs text-xs"
-            title={`${currentUser.fullName} (${currentUser.role})`}
+            title={`${currentUser?.fullName ?? ''} (${currentUser?.role ?? 'Guest'})`}
           >
-            {currentUser.username.slice(0, 2).toUpperCase()}
+            {(currentUser?.username ?? 'US').slice(0, 2).toUpperCase()}
           </div>
           {onLogout && (
             <button

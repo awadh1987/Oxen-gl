@@ -9,7 +9,9 @@ from decimal import Decimal
 from fastapi import HTTPException
 from starlette.testclient import TestClient
 
-from backend.app.main import app
+from backend.app.main import app, create_session_token
+from backend.database import SessionLocal
+from backend.models import ResCompany, ResUser, AccountMove, AccountMoveLine, AccountAccount, AccountJournal, FiscalYear
 from backend.app.domains.finance.guards import (
     enforce_double_entry_balance,
     validate_double_entry_invariance,
@@ -116,3 +118,178 @@ def test_api_balanced_voucher_endpoint():
     assert data["status"] == "SUCCESS"
     assert data["total_debit"] == 10000.0
     assert data["total_credit"] == 10000.0
+
+
+@pytest.fixture
+def accounting_test_company():
+    """Provides a temporary company, admin user, and auth headers for accounting move tests."""
+    db = SessionLocal()
+    cid = uuid.uuid4()
+    company = ResCompany(
+        id=cid,
+        name=f"Accounting Test Corp {cid.hex[:6]}",
+        slug=f"acct-{cid.hex[:6]}",
+        domain_slug=f"acct-{cid.hex[:6]}",
+        currency="SAR",
+        tax_id=f"300{cid.hex[:8]}",
+        commercial_registration=f"101{cid.hex[:7]}",
+        is_active=True,
+    )
+    db.add(company)
+
+    user = ResUser(
+        id=uuid.uuid4(),
+        firebase_uid=f"acct-user-{cid.hex[:6]}",
+        email=f"acct-{cid.hex[:6]}@example.com",
+        full_name="Accounting Test Admin",
+        company_id=cid,
+        role="Admin",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+
+    token = create_session_token(
+        subject=user.email,
+        company_id=company.id,
+        role="Admin",
+        tenant_slug=company.slug,
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Tenant-ID": str(company.id),
+    }
+
+    yield {"company": company, "headers": headers, "cid": str(cid)}
+
+    db.query(AccountMoveLine).filter(AccountMoveLine.company_id == cid).delete(synchronize_session=False)
+    db.query(AccountMove).filter(AccountMove.company_id == cid).delete(synchronize_session=False)
+    db.query(AccountAccount).filter(AccountAccount.company_id == cid).delete(synchronize_session=False)
+    db.query(AccountJournal).filter(AccountJournal.company_id == cid).delete(synchronize_session=False)
+    db.query(FiscalYear).filter(FiscalYear.company_id == cid).delete(synchronize_session=False)
+    db.delete(user)
+    db.delete(company)
+    db.commit()
+    db.close()
+
+
+def test_accounting_move_balanced_posting(accounting_test_company):
+    """POST /api/accounting/moves creates a balanced posted AccountMove and lines."""
+    client = TestClient(app)
+    cid = accounting_test_company["cid"]
+    headers = accounting_test_company["headers"]
+
+    payload = {
+        "date": "2026-09-18",
+        "journal_code": "GEN",
+        "ref": "VOUCH-TEST-2026-001",
+        "narration": "Voucher settlement payroll allocation",
+        "company_id": cid,
+        "lines": [
+            {
+                "account_code": "511000",
+                "name": "Direct Labor Payroll",
+                "debit": 15000.0,
+                "credit": 0.0,
+            },
+            {
+                "account_code": "111101",
+                "name": "Al Rajhi Main Operating",
+                "debit": 0.0,
+                "credit": 15000.0,
+            },
+        ],
+    }
+
+    resp = client.post("/api/accounting/moves", json=payload, headers=headers)
+    assert resp.status_code == 201, resp.text
+    data = resp.json()
+
+    assert data["id"] is not None
+    assert data["state"] == "posted"
+    assert data["ref"] == "VOUCH-TEST-2026-001"
+    assert len(data["lines"]) == 2
+    assert Decimal(str(data["amount_total"])) == Decimal("15000.0000")
+
+    # Verify via GET endpoint
+    move_id = data["id"]
+    get_resp = client.get(f"/api/accounting/moves/{move_id}", headers=headers)
+    assert get_resp.status_code == 200
+    assert get_resp.json()["id"] == move_id
+
+    # Verify in list
+    list_resp = client.get("/api/accounting/moves", headers=headers)
+    assert list_resp.status_code == 200
+    assert any(m["id"] == move_id for m in list_resp.json())
+
+
+def test_accounting_move_unbalanced_rejection(accounting_test_company):
+    """POST /api/accounting/moves rejects unbalanced lines with 400 or 422."""
+    client = TestClient(app)
+    cid = accounting_test_company["cid"]
+    headers = accounting_test_company["headers"]
+
+    unbalanced_payload = {
+        "date": "2026-09-18",
+        "journal_code": "GEN",
+        "ref": "VOUCH-TEST-FAIL",
+        "narration": "Unbalanced Voucher",
+        "company_id": cid,
+        "lines": [
+            {
+                "account_code": "511000",
+                "name": "Direct Labor Payroll",
+                "debit": 15000.0,
+                "credit": 0.0,
+            },
+            {
+                "account_code": "111101",
+                "name": "Al Rajhi Main Operating",
+                "debit": 0.0,
+                "credit": 14000.0,  # 1000 SAR gap
+            },
+        ],
+    }
+
+    resp = client.post("/api/accounting/moves", json=unbalanced_payload, headers=headers)
+    # Either pydantic validator (422) or guard (400) catches imbalance
+    assert resp.status_code in (400, 422)
+
+
+def test_accounting_move_post_action(accounting_test_company):
+    """POST /api/accounting/moves/{move_id}/post transitions draft move to posted."""
+    client = TestClient(app)
+    cid = accounting_test_company["cid"]
+    headers = accounting_test_company["headers"]
+
+    # First create a balanced move
+    payload = {
+        "date": "2026-09-18",
+        "journal_code": "GEN",
+        "ref": "MOVE-POST-TRANSITION",
+        "narration": "Testing post transition endpoint",
+        "company_id": cid,
+        "lines": [
+            {
+                "account_code": "511000",
+                "name": "Expense",
+                "debit": 500.0,
+                "credit": 0.0,
+            },
+            {
+                "account_code": "111101",
+                "name": "Bank",
+                "debit": 0.0,
+                "credit": 500.0,
+            },
+        ],
+    }
+
+    create_resp = client.post("/api/accounting/moves", json=payload, headers=headers)
+    assert create_resp.status_code == 201
+    move_id = create_resp.json()["id"]
+
+    post_resp = client.post(f"/api/accounting/moves/{move_id}/post", headers=headers)
+    assert post_resp.status_code == 200
+    assert post_resp.json()["state"] == "posted"
+

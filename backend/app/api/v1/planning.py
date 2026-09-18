@@ -80,12 +80,14 @@ class HazardMitigateUpdate(BaseModel):
 def resolve_tenant_id(
     query_tenant: Optional[str] = None,
     header_tenant: Optional[str] = None,
-) -> uuid.UUID:
-    raw = header_tenant or query_tenant or "49edafb3-1b7e-40a7-8802-180af5c1e7d6"
+) -> Optional[uuid.UUID]:
+    raw = header_tenant or query_tenant
+    if not raw:
+        return None
     try:
         return uuid.UUID(str(raw).strip())
     except Exception:
-        return uuid.UUID("49edafb3-1b7e-40a7-8802-180af5c1e7d6")
+        return None
 
 
 # ==============================================================================
@@ -103,6 +105,8 @@ def list_project_charters(
     if 0 records are found, preventing frontend null dereference failures.
     """
     target_tenant_uuid = resolve_tenant_id(query_tenant=tenant_id, header_tenant=x_tenant_id)
+    if not target_tenant_uuid:
+        return []
     
     try:
         stmt = (
@@ -131,6 +135,8 @@ def create_project_charter(
 ):
     """Creates a Tier 1 Strategic Project Charter."""
     target_tenant_uuid = resolve_tenant_id(query_tenant=tenant_id, header_tenant=x_tenant_id)
+    if not target_tenant_uuid:
+        raise HTTPException(status_code=400, detail="Missing or invalid tenant context (X-Tenant-ID)")
 
     now = datetime.now(timezone.utc)
     start_dt = now
@@ -215,6 +221,8 @@ def batch_create_execution_tasks(
 ):
     """Batch-creates execution tasks for a specific Project Charter."""
     target_tenant_uuid = resolve_tenant_id(query_tenant=tenant_id, header_tenant=x_tenant_id)
+    if not target_tenant_uuid:
+        raise HTTPException(status_code=400, detail="Missing or invalid tenant context (X-Tenant-ID)")
     try:
         charter_uuid = uuid.UUID(payload.charter_id)
     except Exception:
@@ -288,6 +296,8 @@ def create_strategic_hazard(
 ):
     """Logs a strategic hazard against an execution task."""
     target_tenant_uuid = resolve_tenant_id(query_tenant=tenant_id, header_tenant=x_tenant_id)
+    if not target_tenant_uuid:
+        raise HTTPException(status_code=400, detail="Missing or invalid tenant context (X-Tenant-ID)")
     try:
         task_uuid = uuid.UUID(payload.execution_task_id)
     except Exception:
@@ -342,3 +352,62 @@ def update_hazard_mitigation(
     db.commit()
 
     return {"status": "SUCCESS", "hazard_id": hazard_id, "mitigation_status": payload.mitigation_status}
+
+
+@router.get("/analytics", status_code=status.HTTP_200_OK)
+def get_planning_analytics(
+    tenant_id: Optional[str] = Query(None),
+    x_tenant_id: Optional[str] = Header(None, alias="X-Tenant-ID"),
+    db: Session = Depends(get_db),
+):
+    """Calculates live planning department analytics strictly from PostgreSQL."""
+    target_tenant_uuid = resolve_tenant_id(query_tenant=tenant_id, header_tenant=x_tenant_id)
+    if not target_tenant_uuid:
+        return {
+            "total_charters": 0,
+            "active_charters": 0,
+            "total_allocated_budget": 0,
+            "total_committed_task_cost": 0,
+            "budget_variance": 0,
+            "budget_consumption_rate": 0,
+            "total_tasks_count": 0,
+            "completed_tasks_count": 0,
+            "blocked_tasks_count": 0,
+            "task_completion_rate": 0,
+            "total_hazards_count": 0,
+            "active_hazards_count": 0,
+            "mitigated_hazards_count": 0,
+        }
+
+    charters = db.scalars(
+        select(ProjectCharter).where(ProjectCharter.tenant_id == target_tenant_uuid)
+    ).all()
+    tasks = db.scalars(
+        select(ExecutionTask).where(ExecutionTask.tenant_id == target_tenant_uuid)
+    ).all()
+    hazards = db.scalars(
+        select(StrategicHazard).where(StrategicHazard.tenant_id == target_tenant_uuid)
+    ).all()
+
+    total_allocated = sum(float(c.total_budget or 0) for c in charters)
+    total_committed = sum(float(t.task_cost or 0) for t in tasks)
+    completed_tasks = len([t for t in tasks if t.status == "COMPLETED"])
+    blocked_tasks = len([t for t in tasks if t.status == "BLOCKED"])
+    active_hazards = len([h for h in hazards if h.mitigation_status != "MITIGATED"])
+    mitigated_hazards = len([h for h in hazards if h.mitigation_status == "MITIGATED"])
+
+    return {
+        "total_charters": len(charters),
+        "active_charters": len([c for c in charters if c.status == "ACTIVE"]),
+        "total_allocated_budget": total_allocated,
+        "total_committed_task_cost": total_committed,
+        "budget_variance": total_allocated - total_committed,
+        "budget_consumption_rate": round((total_committed / total_allocated * 100)) if total_allocated > 0 else 0,
+        "total_tasks_count": len(tasks),
+        "completed_tasks_count": completed_tasks,
+        "blocked_tasks_count": blocked_tasks,
+        "task_completion_rate": round((completed_tasks / len(tasks) * 100)) if len(tasks) > 0 else 0,
+        "total_hazards_count": len(hazards),
+        "active_hazards_count": active_hazards,
+        "mitigated_hazards_count": mitigated_hazards,
+    }

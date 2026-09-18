@@ -16,6 +16,7 @@ from sqlalchemy import (
     Text,
     CheckConstraint,
     Index,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.types import UserDefinedType
@@ -49,7 +50,7 @@ class Account(Base):
     parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="SET NULL"), nullable=True)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
     company_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
-    code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     path: Mapped[str] = mapped_column(LtreeType(), nullable=False)  # e.g., '1.1.1.1.1' or 'assets.cash'
     account_type: Mapped[str] = mapped_column(String(50), nullable=False)  # 'ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'
@@ -72,6 +73,7 @@ class Account(Base):
         Index("idx_accounts_path_gist", "path", postgresql_using="gist"),
         Index("idx_accounts_code", "code"),
         Index("idx_accounts_tenant_type", "tenant_id", "account_type"),
+        UniqueConstraint("tenant_id", "code", name="uq_accounts_tenant_code"),
     )
 
 

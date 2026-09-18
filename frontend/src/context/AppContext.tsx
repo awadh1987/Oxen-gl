@@ -108,8 +108,38 @@ function mapBackendRoleToFrontend(role?: string): UserRole {
   return 'Guest'; // Least-privilege fallback
 }
 
+export const DEFAULT_FALLBACK_USER: User = {
+  id: 'usr_default',
+  username: 'admin',
+  fullName: 'Authorized Workspace User',
+  fullNameAr: 'مستخدم معتمد للمنشأة',
+  email: 'admin@oxengl.me',
+  phone: '+966500000000',
+  role: 'Admin',
+  status: 'Active',
+};
+
+function sanitizeUserSession(rawUser: any): User {
+  if (!rawUser || typeof rawUser !== 'object') {
+    return DEFAULT_FALLBACK_USER;
+  }
+  const role = mapBackendRoleToFrontend(rawUser?.role);
+  return {
+    id: rawUser.id || 'usr_fallback',
+    username: rawUser.username || (rawUser.email ? String(rawUser.email).split('@')[0] : 'user'),
+    fullName: rawUser.fullName || rawUser.fullNameAr || 'Authorized User',
+    fullNameAr: rawUser.fullNameAr || rawUser.fullName || 'مستخدم معتمد',
+    email: rawUser.email || 'user@oxengl.com',
+    phone: rawUser.phone || rawUser.mobile || '+966500000000',
+    role: role,
+    status: rawUser.status || 'Active',
+    companyId: rawUser.companyId || rawUser.company_id,
+    assignedCustomerId: rawUser.assignedCustomerId,
+  };
+}
 
 interface AppContextType {
+  isAuthReady: boolean;
   currentUser: User;
   setCurrentUser: (user: User) => void;
   currentCompany: Company | null;
@@ -118,6 +148,7 @@ interface AppContextType {
   refreshCompanies: () => Promise<Company[]>;
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  refreshUsers: () => Promise<void>;
   language: 'ar' | 'en';
   setLanguage: (lang: 'ar' | 'en') => void;
   dir: 'rtl' | 'ltr';
@@ -129,6 +160,7 @@ interface AppContextType {
   operations: OperationRecord[];
   crusherPayments: CrusherPaymentEntry[];
   // Operations Actions
+  refreshOperations: () => Promise<void>;
   addOperation: (op: Omit<OperationRecord, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateOperation: (id: string, op: Partial<OperationRecord>) => { success: boolean; requiresApproval?: boolean };
   deleteOperation: (id: string) => boolean;
@@ -206,12 +238,14 @@ interface AppContextType {
   // Financial Vouchers (سندات القبض والصرف)
   vouchers: FinancialVoucher[];
   addVoucher: (vch: Omit<FinancialVoucher, 'id' | 'created_at' | 'updated_at' | 'amountInWordsAr'>) => FinancialVoucher;
+  createVoucher: (vch: Omit<FinancialVoucher, 'id' | 'created_at' | 'updated_at' | 'amountInWordsAr'>) => Promise<FinancialVoucher>;
   updateVoucher: (id: string, updates: Partial<FinancialVoucher>) => void;
   deleteVoucher: (id: string) => boolean;
-  approveVoucher: (id: string, reviewNotes?: string) => void;
+  approveVoucher: (id: string, reviewNotes?: string) => Promise<void>;
   autoGenerateVoucherFromPayment: (payment: CrusherPaymentEntry) => FinancialVoucher;
   // Offline / Quarry Sync Status
   isOnline: boolean;
+  isLoadingData: boolean;
   // Native Authentication & Cloud Sync
   signOutAuth: () => Promise<void>;
   isNativeAuthSyncing: boolean;
@@ -260,6 +294,14 @@ interface AppContextType {
   isTwoTierAuthenticated: boolean;
   loginMaster: (payload: MasterLoginPayload) => Promise<TwoTierAuthResponse>;
   loginTenant: (payload: TenantLoginPayload) => Promise<TwoTierAuthResponse>;
+  verifyTenantTwoFactor: (payload: {
+    two_factor_token: string;
+    code: string;
+    tenant?: string;
+    tenant_slug?: string;
+    workspace_slug?: string;
+    email?: string;
+  }) => Promise<TwoTierAuthResponse>;
   registerTenantAccount: (payload: TwoTierTenantRegistrationPayload) => Promise<any>;
   recoverUserPassword: (payload: PasswordRecoveryPayload) => Promise<any>;
   resetUserPassword: (payload: PasswordResetPayload) => Promise<any>;
@@ -361,74 +403,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const apiCompanies = await erpApi.getCompanies();
     const mapped = apiCompanies.map((company) => ({ id: company.id, parentId: company.parent_id, name: company.name, slug: company.slug, commercialRegistration: company.commercial_registration || undefined, taxId: company.tax_id || undefined, currency: company.currency, fiscalCalendar: company.fiscal_calendar, fiscalYearStartMonth: company.fiscal_year_start_month, taxRegime: company.tax_regime, subscriptionTier: company.subscription_tier, licenseKey: company.license_key, licenseExpiresAt: company.license_expires_at, maxCostCenters: company.max_cost_centers, themeMode: company.theme_mode, uiPrimaryColor: company.ui_primary_color, uiSecondaryColor: company.ui_secondary_color, uiLogoUrl: company.ui_logo_url }));
     setCompanies(mapped);
-    setCurrentCompany((selected) => selected && mapped.some((company) => company.id === selected.id) ? selected : mapped[0] || null);
+    setCurrentCompany((selected) => {
+      const activeTenantId = localStorage.getItem('oxengl_tenant_id') || localStorage.getItem('tenant_id') || currentUser?.companyId;
+      const activeTenantSlug = localStorage.getItem('oxengl_tenant_slug') || localStorage.getItem('tenant_slug');
+      if (activeTenantId) {
+        const foundById = mapped.find((company) => company.id === activeTenantId);
+        if (foundById) return foundById;
+      }
+      if (activeTenantSlug) {
+        const foundBySlug = mapped.find((company) => company.slug === activeTenantSlug);
+        if (foundBySlug) return foundBySlug;
+      }
+      if (selected && mapped.some((company) => company.id === selected.id)) {
+        return selected;
+      }
+      return null;
+    });
     return mapped;
   };
 
-  // Brand Configuration State
+  // Brand Configuration State (Dynamically derived from active company session)
   const [brandConfig, setBrandConfig] = useState<BrandConfig>(() => {
-    const saved = localStorage.getItem('meayon_brand_config');
+    const saved = localStorage.getItem('oxengl_brand_config');
     return saved ? JSON.parse(saved) : INITIAL_BRAND_CONFIG;
   });
 
-  // Users State
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('meayon_users');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const hasMuath = parsed.some((u: User) => u.fullName?.includes('Muath') || u.username === 'muath');
-        if (hasMuath) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return INITIAL_USERS;
-  });
+  // Users State (Authoritative Tenant Accounts)
+  const [users, setUsers] = useState<User[]>([]);
 
   const [currentUser, setCurrentUser] = useState<User>(() => {
-    const saved = localStorage.getItem('meayon_user');
+    const saved = localStorage.getItem('oxengl_user') || localStorage.getItem('user');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.fullName?.includes('Mansour')) {
-          return INITIAL_USERS[0];
+        if (parsed && typeof parsed === 'object') {
+          return sanitizeUserSession(parsed);
         }
-        return parsed;
       } catch (e) {
         console.error(e);
       }
     }
-    return INITIAL_USERS[0]; // Muath SALAIH (Admin / CEO) by default
+    return DEFAULT_FALLBACK_USER;
   });
 
-  // Entities State
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    const saved = localStorage.getItem('meayon_customers');
-    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
-  });
+  const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
 
-  const [crushers, setCrushers] = useState<Crusher[]>(() => {
-    const saved = localStorage.getItem('meayon_crushers');
-    return saved ? JSON.parse(saved) : INITIAL_CRUSHERS;
-  });
+  useEffect(() => {
+    setIsAuthReady(true);
+    const token = localStorage.getItem('token') || localStorage.getItem('oxengl_auth_jwt');
+    if (token) {
+      refreshUsers();
+    }
+  }, []);
 
-  const [transporters, setTransporters] = useState<Transporter[]>(() => {
-    const saved = localStorage.getItem('meayon_transporters');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSPORTERS;
-  });
-
-  const [materials, setMaterials] = useState<MaterialOption[]>(() => {
-    const saved = localStorage.getItem('meayon_materials');
-    return saved ? JSON.parse(saved) : MATERIAL_OPTIONS;
-  });
-
-  const [operations, setOperations] = useState<OperationRecord[]>(() => {
-    const saved = localStorage.getItem('meayon_operations');
-    return saved ? JSON.parse(saved) : generateInitialOperations();
-  });
+  // Entities State - Decoupled from LocalStorage (Authoritative PostgreSQL sync)
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [crushers, setCrushers] = useState<Crusher[]>([]);
+  const [transporters, setTransporters] = useState<Transporter[]>([]);
+  const [materials, setMaterials] = useState<MaterialOption[]>([]);
+  const [operations, setOperations] = useState<OperationRecord[]>([]);
+  const [crusherPayments, setCrusherPayments] = useState<CrusherPaymentEntry[]>([]);
+  const [vouchers, setVouchers] = useState<FinancialVoucher[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
 
   const mapApiOperation = (operation: ApiOperation): OperationRecord => {
     const loadedWeight = Number(operation.gross_weight);
@@ -467,34 +503,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  const [crusherPayments, setCrusherPayments] = useState<CrusherPaymentEntry[]>(() => {
-    const saved = localStorage.getItem('meayon_crusher_payments');
-    return saved ? JSON.parse(saved) : INITIAL_CRUSHER_PAYMENTS;
-  });
-
-  // Financial Vouchers State (سندات القبض والصرف)
-  const [vouchers, setVouchers] = useState<FinancialVoucher[]>(() => {
-    const saved = localStorage.getItem('meayon_vouchers');
-    return saved ? JSON.parse(saved) : INITIAL_FINANCIAL_VOUCHERS;
-  });
-
   // Offline / Quarry Connection Status Tracker
   const [isOnline, setIsOnline] = useState<boolean>(() => {
     return typeof navigator !== 'undefined' ? navigator.onLine : true;
   });
 
+  // Synchronize Brand Configuration from Active Tenant Context
   useEffect(() => {
-    if (!isOnline || !currentCompany) return;
+    if (currentCompany) {
+      setBrandConfig((prev) => ({
+        ...prev,
+        companyNameAr: currentCompany.name,
+        companyNameEn: currentCompany.name,
+        crNumber: currentCompany.commercialRegistration || '',
+        taxNumber: currentCompany.taxId || '',
+        primaryColor: currentCompany.uiPrimaryColor || '#F05627',
+      }));
+    }
+  }, [currentCompany]);
 
-    erpApi
+  // Synchronize all operational entities directly with PostgreSQL backend
+  useEffect(() => {
+    if (!isOnline || !currentCompany) {
+      setOperations([]);
+      setCustomers([]);
+      setCrushers([]);
+      setTransporters([]);
+      setVouchers([]);
+      return;
+    }
+
+    setIsLoadingData(true);
+
+    const fetchOperations = erpApi
       .getOperations(currentCompany.id)
-      .then((serverOperations) => setOperations(serverOperations.map(mapApiOperation)))
-      .catch((error) => console.warn('Operations API unavailable; retaining offline cache:', error));
+      .then((serverOperations) => {
+        setOperations(Array.isArray(serverOperations) ? serverOperations.map(mapApiOperation) : []);
+      })
+      .catch((error) => console.warn('Operations API unavailable:', error));
 
-    erpApi
+    const fetchPartners = erpApi
       .getPartners(currentCompany.id)
       .then((partners) => {
-        if (!partners || partners.length === 0) return;
+        if (!partners || !Array.isArray(partners)) {
+          setCustomers([]);
+          setCrushers([]);
+          setTransporters([]);
+          return;
+        }
 
         const apiCustomers: Customer[] = partners
           .filter((p) => p.partner_type === 'customer')
@@ -514,7 +570,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }));
 
         const apiCrushers: Crusher[] = partners
-          .filter((p) => ['supplier', 'raw_materials_supplier'].includes(p.partner_type))
+          .filter((p) => ['supplier', 'raw_materials_supplier', 'quarry'].includes(p.partner_type))
           .map((p) => ({
             id: p.id,
             crusherName: p.name,
@@ -528,7 +584,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }));
 
         const apiTransporters: Transporter[] = partners
-          .filter((p) => ['transporter', 'service_supplier'].includes(p.partner_type))
+          .filter((p) => ['transporter', 'service_supplier', 'logistics'].includes(p.partner_type))
           .map((p) => ({
             id: p.id,
             transporterName: p.name,
@@ -539,11 +595,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             is_deleted: false,
           }));
 
-        if (apiCustomers.length > 0) setCustomers(apiCustomers);
-        if (apiCrushers.length > 0) setCrushers(apiCrushers);
-        if (apiTransporters.length > 0) setTransporters(apiTransporters);
+        setCustomers(apiCustomers);
+        setCrushers(apiCrushers);
+        setTransporters(apiTransporters);
       })
-      .catch((error) => console.warn('Partners API unavailable; retaining local cache:', error));
+      .catch((error) => console.warn('Partners API unavailable:', error));
+
+    const fetchVouchers = erpApi
+      .getVouchers(currentCompany.id)
+      .then((serverVouchers) => {
+        if (Array.isArray(serverVouchers)) {
+          const mappedVouchers: FinancialVoucher[] = serverVouchers.map((v: any) => ({
+            id: v.id || v.entry_number || `vch-${Date.now()}`,
+            voucherNumber: v.entry_number || v.voucherNumber || `VCH-${v.id?.slice(0, 8) || '0001'}`,
+            type: (v.type || 'Payment') as VoucherType,
+            category: (v.category || 'General') as VoucherCategory,
+            date: v.entry_date ? v.entry_date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+            amount: Number(v.total_debit || v.amount || 0),
+            amountInWordsAr: tafqeetArabic(Number(v.total_debit || v.amount || 0)),
+            amountInWordsEn: tafqeetEnglish(Number(v.total_debit || v.amount || 0)),
+            partyType: 'Other',
+            partyName: v.description || 'General Ledger Entry',
+            paymentMethod: 'Bank Transfer',
+            purpose: v.description || '',
+            month: v.entry_date ? new Date(v.entry_date).getMonth() + 1 : new Date().getMonth() + 1,
+            year: v.entry_date ? new Date(v.entry_date).getFullYear() : new Date().getFullYear(),
+            preparedBy: 'System',
+            isApproved: v.status === 'POSTED' || v.status === 'Approved',
+            status: v.status === 'POSTED' ? 'Approved' : 'Draft',
+            created_at: v.entry_date || new Date().toISOString(),
+            updated_at: v.entry_date || new Date().toISOString(),
+          }));
+          setVouchers(mappedVouchers);
+        }
+      })
+      .catch((error) => console.warn('Vouchers API unavailable:', error));
+
+    Promise.allSettled([fetchOperations, fetchPartners, fetchVouchers]).finally(() => {
+      setIsLoadingData(false);
+    });
   }, [isOnline, currentCompany]);
 
   useEffect(() => {
@@ -568,38 +658,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Workflows & Approvals State
-  const [editRequests, setEditRequests] = useState<EditApprovalRequest[]>(() => {
-    const saved = localStorage.getItem('meayon_edit_requests');
-    return saved ? JSON.parse(saved) : INITIAL_EDIT_REQUESTS;
-  });
-
-  const [userRequests, setUserRequests] = useState<UserApprovalRequest[]>(() => {
-    const saved = localStorage.getItem('meayon_user_requests');
-    return saved ? JSON.parse(saved) : INITIAL_USER_REQUESTS;
-  });
+  const [editRequests, setEditRequests] = useState<EditApprovalRequest[]>([]);
+  const [userRequests, setUserRequests] = useState<UserApprovalRequest[]>([]);
 
   // Audit Logs State
-  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => {
-    const saved = localStorage.getItem('meayon_audit_logs');
-    return saved ? JSON.parse(saved) : INITIAL_AUDIT_LOGS;
-  });
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
   // Driver View Mode State (simplified UI for drivers and logistics field operations)
   const [isDriverMode, setIsDriverMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('meayon_driver_mode');
+    const saved = localStorage.getItem('oxengl_driver_mode');
     return saved === 'true';
   });
 
   const toggleDriverMode = () => {
     setIsDriverMode((prev) => {
       const next = !prev;
-      localStorage.setItem('meayon_driver_mode', String(next));
+      localStorage.setItem('oxengl_driver_mode', String(next));
       return next;
     });
   };
 
   useEffect(() => {
-    localStorage.setItem('meayon_driver_mode', String(isDriverMode));
+    localStorage.setItem('oxengl_driver_mode', String(isDriverMode));
   }, [isDriverMode]);
 
   // Unified Multi-Tenant Design System State
@@ -669,7 +749,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const snapshot = {
-      snapshotId: `MYON-OPS-SNAP-${Date.now()}`,
+      snapshotId: `OXEN-OPS-SNAP-${Date.now()}`,
       version: '1.0.0-PROD',
       exportTimestamp: new Date().toISOString(),
       snapshotTargetDate: todayStr,
@@ -683,10 +763,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         phone: brandConfig.phone,
       },
       exportedBy: {
-        userId: currentUser.id,
-        name: currentUser.fullNameAr || currentUser.fullName,
-        email: currentUser.email,
-        role: currentUser.role,
+        userId: currentUser?.id ?? 'usr_fallback',
+        name: currentUser?.fullNameAr || currentUser?.fullName || 'User',
+        email: currentUser?.email ?? '',
+        role: currentUser?.role ?? 'Guest',
       },
       metricsSummary: {
         totalTripCount: dayOps.length,
@@ -704,7 +784,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       cryptographicAuditStamp: {
         algorithm: 'SHA-256-DIGEST',
-        stampHash: `MYON-HEX-${Math.random().toString(36).substring(2, 12).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`,
+        stampHash: `OXEN-HEX-${Math.random().toString(36).substring(2, 12).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`,
         status: 'TAMPER_VERIFIED',
       },
       operations: dayOps,
@@ -722,58 +802,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     URL.revokeObjectURL(url);
   };
 
-  // Sync to LocalStorage
+  // Sync active user session to LocalStorage
   useEffect(() => {
-    localStorage.setItem('meayon_user', JSON.stringify(currentUser));
+    if (currentUser && currentUser.id !== 'usr_default') {
+      localStorage.setItem('oxengl_user', JSON.stringify(currentUser));
+    }
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('meayon_users', JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_brand_config', JSON.stringify(brandConfig));
+    localStorage.setItem('oxengl_brand_config', JSON.stringify(brandConfig));
   }, [brandConfig]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_operations', JSON.stringify(operations));
-  }, [operations]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_customers', JSON.stringify(customers));
-  }, [customers]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_crushers', JSON.stringify(crushers));
-  }, [crushers]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_transporters', JSON.stringify(transporters));
-  }, [transporters]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_materials', JSON.stringify(materials));
-  }, [materials]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_crusher_payments', JSON.stringify(crusherPayments));
-  }, [crusherPayments]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_edit_requests', JSON.stringify(editRequests));
-  }, [editRequests]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_user_requests', JSON.stringify(userRequests));
-  }, [userRequests]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_audit_logs', JSON.stringify(auditLogs));
-  }, [auditLogs]);
-
-  useEffect(() => {
-    localStorage.setItem('meayon_vouchers', JSON.stringify(vouchers));
-  }, [vouchers]);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -791,6 +829,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       document.documentElement.style.setProperty('--brand-secondary', secondaryColor);
     }
   }, [brandConfig, currentCompany]);
+
+  // Synchronize brand config with authenticated tenant company
+  useEffect(() => {
+    if (currentCompany) {
+      setBrandConfig((prev) => ({
+        ...prev,
+        companyNameEn: currentCompany.name || prev.companyNameEn,
+        companyNameAr: currentCompany.name || prev.companyNameAr,
+        primaryColor: currentCompany.uiPrimaryColor || prev.primaryColor,
+        secondaryColor: currentCompany.uiSecondaryColor || prev.secondaryColor,
+        crNumber: currentCompany.commercialRegistration || prev.crNumber,
+        taxNumber: currentCompany.taxId || prev.taxNumber,
+        customLogoUrl: currentCompany.uiLogoUrl || prev.customLogoUrl,
+      }));
+    }
+  }, [currentCompany]);
 
   // Native Authentication & Sync State
   const [isNativeAuthSyncing] = useState<boolean>(false);
@@ -817,8 +871,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTenantId(null);
     localStorage.removeItem('oxengl_session_active');
     localStorage.removeItem('oxengl_recovery_session');
-    localStorage.removeItem('meayon_user');
-    setCurrentUser(INITIAL_USERS[0]);
+    localStorage.removeItem('oxengl_user');
+    setCurrentUser(DEFAULT_FALLBACK_USER);
     showToast(language === 'ar' ? 'تم تسجيل الخروج بأمان' : 'Signed out securely', 'info');
   };
 
@@ -829,26 +883,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loginMaster = async (payload: MasterLoginPayload): Promise<TwoTierAuthResponse> => {
     setAuthErrorMessage(null);
     const res = await erpApi.masterLogin(payload);
-    setAuthSession(res.access_token, 'master', null);
-    setAuthToken(res.access_token);
+    if (res?.access_token) {
+      setAuthSession(res.access_token, 'master', null);
+      setAuthToken(res.access_token);
+      localStorage.setItem('token', res.access_token);
+      localStorage.setItem('oxengl_auth_jwt', res.access_token);
+    }
     setAuthTier('master');
     setTenantSlug(null);
     setTenantId(null);
 
-    const mappedRole = mapBackendRoleToFrontend(res.role || res.user.role);
+    const mappedRole = mapBackendRoleToFrontend(res?.role ?? res?.user?.role);
+    const userObj = res?.user;
+    const email = userObj?.email ?? (payload.identity.includes('@') ? payload.identity : 'master@oxengl.com');
     const newUser: User = {
-      id: res.user.id,
-      username: res.user.email.split('@')[0],
-      fullName: res.user.fullName || 'Master Operator',
-      fullNameAr: res.user.fullName || 'مشغل النظام الرئيسي',
-      email: res.user.email,
-      phone: res.user.mobile,
+      id: userObj?.id ?? 'master-operator',
+      username: email ? email.split('@')[0] : 'master',
+      fullName: userObj?.fullName ?? 'Master Operator',
+      fullNameAr: userObj?.fullName ?? 'مشغل النظام الرئيسي',
+      email: email,
+      phone: userObj?.mobile ?? '',
       role: mappedRole,
       status: 'Active',
     };
     setCurrentUser(newUser);
-    localStorage.setItem('meayon_user', JSON.stringify(newUser));
+    localStorage.setItem('oxengl_user', JSON.stringify(newUser));
     localStorage.setItem('oxengl_session_active', 'true');
+    localStorage.setItem('role', mappedRole);
     showToast(
       language === 'ar'
         ? 'تم تسجيل الدخول بنجاح إلى لوحة التحكم الرئيسية (Master Control Plane)'
@@ -860,36 +921,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loginTenant = async (payload: TenantLoginPayload): Promise<TwoTierAuthResponse> => {
     setAuthErrorMessage(null);
-    const res = await erpApi.tenantLogin(payload);
-    const slug = res.tenant_slug || payload.tenant_slug;
-    setAuthSession(res.access_token, 'tenant', slug);
-    setAuthToken(res.access_token);
+    const loginMethod = erpApi.loginTenant || erpApi.tenantLogin;
+    const res = await loginMethod(payload);
+    const slug = res?.tenant_slug || payload.tenant_slug || '';
+
+    // If 2FA checkpoint is returned, preserve handshake state and avoid premature session setting
+    if (res?.status === '2FA_REQUIRED' || (!res?.access_token && res?.two_factor_token)) {
+      if (res?.two_factor_token) {
+        localStorage.setItem('oxengl_2fa_pending_token', res.two_factor_token);
+      }
+      return res;
+    }
+
+    const activeTenantId = res?.tenant_id || (res as any)?.company_id || null;
+    if (res?.access_token) {
+      setAuthSession(res.access_token, 'tenant', slug, activeTenantId);
+      setAuthToken(res.access_token);
+      localStorage.setItem('token', res.access_token);
+      localStorage.setItem('oxengl_auth_jwt', res.access_token);
+    }
     setAuthTier('tenant');
     setTenantSlug(slug);
-    setTenantId(res.tenant_id || null);
+    setTenantId(activeTenantId);
+    if (activeTenantId) {
+      localStorage.setItem('oxengl_tenant_id', activeTenantId);
+      localStorage.setItem('tenant_id', activeTenantId);
+      localStorage.setItem('company_id', activeTenantId);
+    }
 
-    const mappedRole = mapBackendRoleToFrontend(res.role || res.user.role);
+    const mappedRole = mapBackendRoleToFrontend(res?.role ?? res?.user?.role);
+    const userObj = res?.user;
+    const email = userObj?.email ?? (payload.identity.includes('@') ? payload.identity : `${payload.identity}@${slug}.com`);
     const newUser: User = {
-      id: res.user.id,
-      username: res.user.email.split('@')[0],
-      fullName: res.user.fullName,
-      fullNameAr: res.user.fullName,
-      email: res.user.email,
-      phone: res.user.mobile,
+      id: userObj?.id ?? 'tenant-user',
+      username: email ? email.split('@')[0] : 'user',
+      fullName: userObj?.fullName ?? (slug ? `${slug.toUpperCase()} Admin` : 'Tenant User'),
+      fullNameAr: userObj?.fullName ?? (slug ? `مسؤول ${slug}` : 'مستخدم المنشأة'),
+      email: email,
+      phone: userObj?.mobile ?? '',
       role: mappedRole,
-      companyId: res.tenant_id,
+      companyId: activeTenantId || undefined,
       status: 'Active',
     };
     setCurrentUser(newUser);
-    localStorage.setItem('meayon_user', JSON.stringify(newUser));
+    localStorage.setItem('oxengl_user', JSON.stringify(newUser));
     localStorage.setItem('oxengl_session_active', 'true');
+    localStorage.setItem('tenant_slug', slug);
+    localStorage.setItem('role', mappedRole);
 
-    const foundCompany = companies.find((c) => c.slug === slug || c.id === res.tenant_id);
+    const foundCompany = companies.find((c) => (slug && c.slug === slug) || (activeTenantId && c.id === activeTenantId));
     if (foundCompany) {
       setCurrentCompany(foundCompany);
-    } else {
+    } else if (activeTenantId || slug) {
       setCurrentCompany({
-        id: res.tenant_id || slug,
+        id: activeTenantId || slug,
         name: slug,
         slug: slug,
         currency: 'SAR',
@@ -900,6 +985,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       language === 'ar' ? `مرحباً بك في مساحة عمل المنشأة: ${slug}` : `Welcome to workspace: ${slug}`,
       'success'
     );
+    return res;
+  };
+
+  const verifyTenantTwoFactor = async (payload: {
+    two_factor_token: string;
+    code: string;
+    tenant?: string;
+    tenant_slug?: string;
+    workspace_slug?: string;
+    email?: string;
+  }): Promise<TwoTierAuthResponse> => {
+    setAuthErrorMessage(null);
+    const slug = payload.tenant || payload.tenant_slug || payload.workspace_slug || tenantSlug || '';
+    const res = await erpApi.verifyTwoFactor({
+      two_factor_token: payload.two_factor_token,
+      code: payload.code,
+      tenant: slug,
+      tenant_slug: slug,
+      workspace_slug: slug,
+      email: payload.email,
+    });
+
+    const activeTenantId = res?.tenant_id || (res as any)?.company_id || null;
+    if (res?.access_token) {
+      setAuthSession(res.access_token, 'tenant', slug, activeTenantId);
+      setAuthToken(res.access_token);
+      localStorage.setItem('token', res.access_token);
+      localStorage.setItem('oxengl_auth_jwt', res.access_token);
+      localStorage.removeItem('oxengl_2fa_pending_token');
+      setAuthTier('tenant');
+      setTenantSlug(slug);
+      setTenantId(activeTenantId);
+      if (activeTenantId) {
+        localStorage.setItem('oxengl_tenant_id', activeTenantId);
+        localStorage.setItem('tenant_id', activeTenantId);
+        localStorage.setItem('company_id', activeTenantId);
+      }
+
+      const mappedRole = mapBackendRoleToFrontend(res?.role ?? res?.user?.role);
+      const userObj = res?.user;
+      const email = userObj?.email ?? (payload.email || `user@${slug}.com`);
+      const newUser: User = {
+        id: userObj?.id ?? 'tenant-user',
+        username: email ? email.split('@')[0] : 'user',
+        fullName: userObj?.fullName ?? (slug ? `${slug.toUpperCase()} Admin` : 'Tenant User'),
+        fullNameAr: userObj?.fullNameAr ?? (slug ? `مسؤول ${slug}` : 'مستخدم المنشأة'),
+        email: email,
+        phone: userObj?.mobile ?? '',
+        role: mappedRole,
+        companyId: activeTenantId || undefined,
+        status: 'Active',
+      };
+      setCurrentUser(newUser);
+      localStorage.setItem('oxengl_user', JSON.stringify(newUser));
+      localStorage.setItem('oxengl_session_active', 'true');
+      localStorage.setItem('tenant_slug', slug);
+      localStorage.setItem('role', mappedRole);
+
+      const foundCompany = companies.find((c) => (slug && c.slug === slug) || (activeTenantId && c.id === activeTenantId));
+      if (foundCompany) {
+        setCurrentCompany(foundCompany);
+      } else if (activeTenantId || slug) {
+        setCurrentCompany({
+          id: activeTenantId || slug,
+          name: slug,
+          slug: slug,
+          currency: 'SAR',
+          subscriptionTier: 'PROFESSIONAL',
+        });
+      }
+      showToast(
+        language === 'ar' ? `تم تأكيد التحقق الثنائي بنجاح: ${slug}` : `Two-factor verification confirmed for: ${slug}`,
+        'success'
+      );
+    }
     return res;
   };
 
@@ -938,20 +1098,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return res;
   };
 
-  // RBAC Permission Gates
-  const isAdmin = currentUser.role === 'Admin' || currentUser.role === 'Super_Admin';
-  const isCOO = currentUser.role === 'COO';
+  // RBAC Permission Gates with defensive optional chaining & fallbacks
+  const userRole: UserRole = currentUser?.role ?? 'Guest';
+  const isAdmin = userRole === 'Admin' || userRole === 'Super_Admin';
+  const isCOO = userRole === 'COO';
   const isExecutive = isAdmin || isCOO;
-  const canAccessFinancials = isAdmin || isCOO || currentUser.role === 'Accountant';
-  const canEditOperations = isAdmin || isCOO || currentUser.role === 'Accountant' || currentUser.role === 'Data_Entry';
+  const canAccessFinancials = isAdmin || isCOO || userRole === 'Accountant';
+  const canEditOperations = isAdmin || isCOO || userRole === 'Accountant' || userRole === 'Data_Entry';
   const canApproveEdits = isAdmin || isCOO;
   const canApproveInvoices = isAdmin; // strictly CEO/Admin
   const canApproveVouchers = isAdmin; // strictly CEO/Admin for PV & RV
   const canEditBranding = isAdmin; // strictly CEO/Admin
   const canDeleteRecords = isAdmin || isCOO;
   const canManageSettings = isAdmin;
-  const isGuestUser = currentUser.role === 'Guest';
-  const assignedCustomerId = currentUser.assignedCustomerId;
+  const isGuestUser = userRole === 'Guest';
+  const assignedCustomerId = currentUser?.assignedCustomerId;
 
   // Active operations excluding soft-deleted
   const activeOperations = useMemo(() => {
@@ -1003,14 +1164,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const clearAuditLogs = () => {
     if (!isAdmin) return;
     setAuditLogs([]);
-    localStorage.removeItem('meayon_audit_logs');
   };
 
   // Operations Handlers
+  const refreshOperations = async (): Promise<void> => {
+    if (!currentCompany || !navigator.onLine) return;
+    try {
+      const serverOperations = await erpApi.getOperations(currentCompany.id);
+      if (Array.isArray(serverOperations)) {
+        setOperations(serverOperations.map(mapApiOperation));
+      }
+    } catch (err) {
+      console.warn('[OperationsSync] Failed to refresh operations from backend:', err);
+    }
+  };
+
   const addOperation = async (opData: Omit<OperationRecord, 'id' | 'created_at' | 'updated_at'>): Promise<void> => {
-    if (navigator.onLine) {
+    if (navigator.onLine && currentCompany) {
       const operation = await erpApi.createWeighbridgeOperation({
-        companyId: currentCompany?.id || '',
+        companyId: currentCompany.id,
         transporterName: opData.transporter_name,
         materialName: opData.material_type,
         sourceName: opData.loading_source,
@@ -1019,12 +1191,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         grossWeight: opData.qty_loaded,
         tareWeight: Math.max(0, opData.qty_loaded - opData.qty_delivered),
       });
-      const serverRecord = mapApiOperation(operation);
+      const serverRecord: OperationRecord = {
+        ...mapApiOperation(operation),
+        sales_amount: opData.sales_amount || 0,
+        vat_amount: opData.vat_amount || 0,
+        total_sales: opData.total_sales || 0,
+        purchases_cost: opData.purchases_cost || 0,
+        crusher_payment: opData.crusher_payment || 0,
+        net_profit: opData.net_profit || 0,
+        notes: opData.notes,
+        scale_ticket_attachment: opData.scale_ticket_attachment,
+        attachments: opData.attachments,
+      };
       setOperations((previous) => [serverRecord, ...previous.filter((item) => item.id !== serverRecord.id)]);
       logAuditAction({
         userId: currentUser.id,
         userName: currentUser.fullNameAr || currentUser.fullName,
-        userRole: currentUser.role,
+        userRole: currentUser?.role ?? 'Guest',
         action: 'CREATE',
         entityType: 'Operation',
         entityId: serverRecord.id,
@@ -1050,7 +1233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Operation',
       entityId: id,
@@ -1076,8 +1259,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createEditRequest({
         recordId: id,
         entityType: 'Operation',
-        requestedBy: currentUser.fullNameAr || currentUser.fullName,
-        requestedByRole: currentUser.role,
+        requestedBy: currentUser?.fullNameAr || currentUser?.fullName || 'User',
+        requestedByRole: currentUser?.role ?? 'Guest',
         diffSummary: `طلب تعديل تذكرة ميزان: ${diffFields.join(', ')}`,
         oldValues: existing as any,
         newValues: { ...existing, ...patch } as any,
@@ -1103,7 +1286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: 'Operation',
       entityId: id,
@@ -1136,7 +1319,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'OVERRIDE_DB',
       entityType: 'Operation',
       entityId: id,
@@ -1164,7 +1347,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'OVERRIDE_DB',
       entityType: 'Operation',
       entityId: `bulk-${ids.length}`,
@@ -1193,7 +1376,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'SOFT_DELETE',
       entityType: 'Operation',
       entityId: id,
@@ -1221,7 +1404,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'RESTORE',
       entityType: 'Operation',
       entityId: id,
@@ -1231,11 +1414,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteOperation = (id: string): boolean => {
     if (!canDeleteRecords) return false;
+    if (currentCompany && navigator.onLine) {
+      void erpApi.deleteOperation(currentCompany.id, id).catch((err) => {
+        console.warn('[OperationsSync] Failed to delete operation from server:', err);
+      });
+    }
     setOperations((prev) => prev.filter((op) => op.id !== id));
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'DELETE',
       entityType: 'Operation',
       entityId: id,
@@ -1260,7 +1448,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Operation',
       entityId: `batch-${newOps.length}`,
@@ -1282,7 +1470,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Payment',
       entityId: id,
@@ -1329,7 +1517,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Voucher',
       entityId: id,
@@ -1362,7 +1550,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: 'Voucher',
       entityId: id,
@@ -1382,7 +1570,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'DELETE',
       entityType: 'Voucher',
       entityId: id,
@@ -1391,14 +1579,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const approveVoucher = (id: string, reviewNotes?: string) => {
+  const approveVoucher = async (id: string, reviewNotes?: string): Promise<void> => {
     if (!isAdmin && !isCOO) return;
     const existing = vouchers.find((v) => v.id === id);
     if (!existing) return;
 
     const signature = signDocument('Invoice', id, reviewNotes || 'اعتماد المدير التنفيذي العام للسند المالي');
 
-    const approvedVoucher: FinancialVoucher = {
+    let approvedVoucher: FinancialVoucher = {
       ...existing,
       isApproved: true,
       status: 'Approved',
@@ -1408,60 +1596,73 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updated_at: new Date().toISOString(),
     };
 
+    if (currentCompany) {
+      try {
+        const accounts = await erpApi.getAccountingAccounts(currentCompany.id).catch(() => []);
+        const cashAcc = accounts.find((a) => a.code === '101000') || accounts.find((a) => a.internal_type === 'asset');
+        const counterAcc = approvedVoucher.type === 'Receipt'
+          ? (accounts.find((a) => a.code === '120000') || accounts.find((a) => a.code === '401000') || accounts.find((a) => a.internal_type === 'revenue'))
+          : (accounts.find((a) => a.code === '201000') || accounts.find((a) => a.code === '501000') || accounts.find((a) => a.internal_type === 'expense'));
+
+        const isReceipt = approvedVoucher.type === 'Receipt';
+        const debitAccountId = isReceipt ? cashAcc?.id : counterAcc?.id;
+        const creditAccountId = isReceipt ? counterAcc?.id : cashAcc?.id;
+        const debitAccountCode = isReceipt ? (cashAcc?.code || '101000') : (counterAcc?.code || '201000');
+        const creditAccountCode = isReceipt ? (counterAcc?.code || '120000') : (cashAcc?.code || '101000');
+
+        const move = await erpApi.createAccountMove(currentCompany.id, {
+          journal_code: 'MISC',
+          move_type: 'settlement',
+          ref: approvedVoucher.voucherNumber,
+          name: approvedVoucher.purpose || approvedVoucher.voucherNumber,
+          lines: [
+            {
+              account_id: debitAccountId,
+              account_code: debitAccountCode,
+              debit: Number(approvedVoucher.amount),
+              credit: 0,
+              name: `${approvedVoucher.voucherNumber} - ${approvedVoucher.partyName || ''}`,
+            },
+            {
+              account_id: creditAccountId,
+              account_code: creditAccountCode,
+              debit: 0,
+              credit: Number(approvedVoucher.amount),
+              name: `${approvedVoucher.voucherNumber} - ${approvedVoucher.partyName || ''}`,
+            },
+          ],
+        });
+
+        if (move?.id) {
+          approvedVoucher = { ...approvedVoucher, move_id: move.id };
+        }
+      } catch (err) {
+        console.warn('[VoucherSync] Failed to post voucher to general ledger AccountMove:', err);
+      }
+    }
+
     setVouchers((prev) => prev.map((v) => (v.id === id ? approvedVoucher : v)));
 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'APPROVE',
       entityType: 'Voucher',
       entityId: id,
       summary: `اعتماد وتوقيع السند المالي (${existing.voucherNumber}) بالختم الرقمي والتفويض التنفيذي`,
       newData: approvedVoucher,
     });
+  };
 
-    if (currentCompany) {
-      void (async () => {
-        try {
-          const accounts = await erpApi.getAccountingAccounts(currentCompany.id);
-          const cashAcc = accounts.find((a) => a.code === '101000') || accounts.find((a) => a.internal_type === 'asset');
-          const counterAcc = approvedVoucher.type === 'Receipt'
-            ? (accounts.find((a) => a.code === '120000') || accounts.find((a) => a.code === '401000') || accounts.find((a) => a.internal_type === 'revenue'))
-            : (accounts.find((a) => a.code === '201000') || accounts.find((a) => a.code === '501000') || accounts.find((a) => a.internal_type === 'expense'));
-
-          if (cashAcc && counterAcc) {
-            const isReceipt = approvedVoucher.type === 'Receipt';
-            const move = await erpApi.createAccountMove(currentCompany.id, {
-              journal_code: 'MISC',
-              move_type: 'settlement',
-              ref: approvedVoucher.voucherNumber,
-              name: approvedVoucher.purpose || approvedVoucher.voucherNumber,
-              lines: [
-                {
-                  account_id: isReceipt ? cashAcc.id : counterAcc.id,
-                  debit: Number(approvedVoucher.amount),
-                  credit: 0,
-                  name: `${approvedVoucher.voucherNumber} - ${approvedVoucher.partyName || ''}`,
-                },
-                {
-                  account_id: isReceipt ? counterAcc.id : cashAcc.id,
-                  debit: 0,
-                  credit: Number(approvedVoucher.amount),
-                  name: `${approvedVoucher.voucherNumber} - ${approvedVoucher.partyName || ''}`,
-                },
-              ],
-            });
-
-            if (move?.id) {
-              setVouchers((prev) => prev.map((v) => (v.id === id ? { ...v, move_id: move.id } : v)));
-            }
-          }
-        } catch (err) {
-          console.warn('[VoucherSync] Failed to post voucher to general ledger:', err);
-        }
-      })();
+  const createVoucher = async (
+    vchData: Omit<FinancialVoucher, 'id' | 'created_at' | 'updated_at' | 'amountInWordsAr'>
+  ): Promise<FinancialVoucher> => {
+    const newVoucher = addVoucher(vchData);
+    if (newVoucher.status === 'Approved' && currentCompany) {
+      await approveVoucher(newVoucher.id, 'اعتماد فوري وترحيل إلى دفتر الأستاذ العام');
     }
+    return newVoucher;
   };
 
   const autoGenerateVoucherFromPayment = (payment: CrusherPaymentEntry): FinancialVoucher => {
@@ -1528,7 +1729,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Customer',
       entityId: id,
@@ -1544,7 +1745,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: 'Customer',
       entityId: id,
@@ -1564,7 +1765,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'SOFT_DELETE',
       entityType: 'Customer',
       entityId: id,
@@ -1617,7 +1818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Customer',
       entityId: `batch-cust-${newCusts.length}`,
@@ -1654,7 +1855,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Crusher',
       entityId: id,
@@ -1670,7 +1871,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: 'Crusher',
       entityId: id,
@@ -1734,7 +1935,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Crusher',
       entityId: `batch-crush-${newCrushes.length}`,
@@ -1770,7 +1971,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Transporter',
       entityId: id,
@@ -1786,7 +1987,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: 'Transporter',
       entityId: id,
@@ -1851,7 +2052,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Transporter',
       entityId: `batch-trans-${newTrans.length}`,
@@ -1874,7 +2075,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'Material',
       entityId: id,
@@ -1890,7 +2091,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: 'Material',
       entityId: id,
@@ -1935,7 +2136,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'CREATE',
       entityType: 'User',
       entityId: id,
@@ -1951,7 +2152,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: 'User',
       entityId: id,
@@ -1976,9 +2177,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const deleteUser = (id: string) => {
+  const refreshUsers = async (): Promise<void> => {
+    try {
+      const apiUsers = await erpApi.getUsers();
+      if (Array.isArray(apiUsers)) {
+        const mapped: User[] = apiUsers.map((u) => ({
+          id: u.id,
+          username: u.email.split('@')[0],
+          fullName: u.full_name,
+          fullNameAr: u.full_name,
+          email: u.email,
+          phone: '',
+          role: (u.role as UserRole) || 'Guest',
+          status: u.is_active ? 'Active' : 'Suspended',
+          created_at: u.created_at,
+        }));
+        setUsers(mapped);
+      }
+    } catch (err) {
+      console.warn('Notice loading users from live backend API:', err);
+    }
+  };
+
+  const deleteUser = async (id: string) => {
     if (!isAdmin) return;
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+    try {
+      await erpApi.deleteUser(id);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      showToast(language === 'ar' ? 'تم حذف المستخدم بنجاح' : 'User deleted successfully', 'success');
+    } catch (err: any) {
+      console.error('Failed to delete user via API:', err);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    }
   };
 
   // Approvals & Workflows
@@ -1995,7 +2225,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'UPDATE',
       entityType: req.entityType as any,
       entityId: req.recordId,
@@ -2041,7 +2271,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'APPROVE',
       entityType: req.entityType as any,
       entityId: req.recordId,
@@ -2072,7 +2302,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'REJECT',
       entityType: req.entityType as any,
       entityId: req.recordId,
@@ -2116,7 +2346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'APPROVE',
       entityType: 'User',
       entityId: newUsr.id,
@@ -2142,7 +2372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'REJECT',
       entityType: 'User',
       entityId: id,
@@ -2168,7 +2398,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'BRAND_CONFIG',
       entityType: 'BrandConfig',
       entityId: 'brand-main',
@@ -2204,7 +2434,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'SIGN',
       entityType: docType as any,
       entityId: docId,
@@ -2257,7 +2487,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     logAuditAction({
       userId: currentUser.id,
       userName: currentUser.fullNameAr || currentUser.fullName,
-      userRole: currentUser.role,
+      userRole: currentUser?.role ?? 'Guest',
       action: 'ATTACH_FILE',
       entityType: recordType as any,
       entityId: recordId,
@@ -2300,29 +2530,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetToDefaults = () => {
-    setOperations(generateInitialOperations());
-    setCustomers(INITIAL_CUSTOMERS);
-    setCrushers(INITIAL_CRUSHERS);
-    setTransporters(INITIAL_TRANSPORTERS);
+    setOperations([]);
+    setCustomers([]);
+    setCrushers([]);
+    setTransporters([]);
     setMaterials(MATERIAL_OPTIONS);
-    setUsers(INITIAL_USERS);
-    setCrusherPayments(INITIAL_CRUSHER_PAYMENTS);
-    setEditRequests(INITIAL_EDIT_REQUESTS);
-    setUserRequests(INITIAL_USER_REQUESTS);
-    setAuditLogs(INITIAL_AUDIT_LOGS);
+    setUsers([]);
+    setCrusherPayments([]);
+    setEditRequests([]);
+    setUserRequests([]);
+    setAuditLogs([]);
     setBrandConfig(INITIAL_BRAND_CONFIG);
-
-    localStorage.removeItem('meayon_operations');
-    localStorage.removeItem('meayon_customers');
-    localStorage.removeItem('meayon_crushers');
-    localStorage.removeItem('meayon_transporters');
-    localStorage.removeItem('meayon_materials');
-    localStorage.removeItem('meayon_users');
-    localStorage.removeItem('meayon_crusher_payments');
-    localStorage.removeItem('meayon_edit_requests');
-    localStorage.removeItem('meayon_user_requests');
-    localStorage.removeItem('meayon_audit_logs');
-    localStorage.removeItem('meayon_brand_config');
   };
 
   // KPIs aggregation
@@ -2366,6 +2584,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        isAuthReady,
         currentUser,
         setCurrentUser,
         currentCompany,
@@ -2374,6 +2593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshCompanies,
         users,
         setUsers,
+        refreshUsers,
         language,
         setLanguage,
         dir,
@@ -2383,6 +2603,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         materials,
         operations,
         crusherPayments,
+        refreshOperations,
         addOperation,
         updateOperation,
         deleteOperation,
@@ -2440,11 +2661,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeAttachmentFromRecord,
         vouchers,
         addVoucher,
+        createVoucher,
         updateVoucher,
         deleteVoucher,
         approveVoucher,
         autoGenerateVoucherFromPayment,
         isOnline,
+        isLoadingData,
         signOutAuth,
         isNativeAuthSyncing,
         canAccessFinancials,
@@ -2486,6 +2709,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTwoTierAuthenticated,
         loginMaster,
         loginTenant,
+        verifyTenantTwoFactor,
         registerTenantAccount,
         recoverUserPassword,
         resetUserPassword,
