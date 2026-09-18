@@ -317,15 +317,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         badge: 'Dev',
       },
       {
-        id: 'ai-insights',
-        labelAr: 'ذكاء العمليات OxenGL',
-        labelEn: 'AI Operations Auditor',
-        path: '/finance/ai-auditor',
-        icon: Sparkles,
-        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
-        badge: 'AI',
-      },
-      {
         id: 'executive-admin',
         labelAr: 'لوحة الإدارة والاعتمادات',
         labelEn: 'Executive Approvals & Audit',

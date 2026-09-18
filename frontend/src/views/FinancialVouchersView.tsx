@@ -52,6 +52,57 @@ export const FinancialVouchersView: React.FC = () => {
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedVoucherForView, setSelectedVoucherForView] = useState<FinancialVoucher | null>(null);
+  const [createModalPrefill, setCreateModalPrefill] = useState<{
+    type?: VoucherType;
+    category?: VoucherCategory;
+    partyType?: 'Crusher' | 'Transporter' | 'Customer' | 'Other';
+    partyName?: string;
+    amount?: number;
+    purpose?: string;
+  }>({});
+
+  useEffect(() => {
+    const handleCheckPrefill = () => {
+      let prefill: any = null;
+      try {
+        const stored = sessionStorage.getItem('oxengl_voucher_prefill');
+        if (stored) {
+          prefill = JSON.parse(stored);
+          sessionStorage.removeItem('oxengl_voucher_prefill');
+        }
+      } catch (e) {
+        console.warn('Failed to parse oxengl_voucher_prefill', e);
+      }
+
+      if (!prefill && typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('type') === 'debit_note' || params.get('partner') || params.get('amount')) {
+          prefill = {
+            type: params.get('type'),
+            partner: params.get('partner') || '',
+            amount: parseFloat(params.get('amount') || '0'),
+            memo: params.get('memo') || '',
+          };
+        }
+      }
+
+      if (prefill) {
+        setCreateModalPrefill({
+          type: 'Payment',
+          category: 'Transporter_Payment',
+          partyType: 'Transporter',
+          partyName: prefill.partner || '',
+          amount: Number(prefill.amount) || 0,
+          purpose: prefill.memo || 'خصم فاقد رحلة شاحنة',
+        });
+        setIsCreateModalOpen(true);
+      }
+    };
+
+    handleCheckPrefill();
+    window.addEventListener('popstate', handleCheckPrefill);
+    return () => window.removeEventListener('popstate', handleCheckPrefill);
+  }, []);
 
   // Stats Calculations
   const stats = useMemo(() => {
@@ -675,7 +726,16 @@ export const FinancialVouchersView: React.FC = () => {
       {/* Create Voucher Modal */}
       <CreateVoucherModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setCreateModalPrefill({});
+        }}
+        initialType={createModalPrefill.type || 'Payment'}
+        initialCategory={createModalPrefill.category || 'Transporter_Payment'}
+        initialPartyType={createModalPrefill.partyType || 'Transporter'}
+        initialPartyName={createModalPrefill.partyName || ''}
+        initialAmount={createModalPrefill.amount || 0}
+        initialPurpose={createModalPrefill.purpose || ''}
         onSuccess={(created) => {
           setSelectedVoucherForView(created);
         }}

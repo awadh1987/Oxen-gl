@@ -1534,6 +1534,8 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 
 @app.get("/api/operations", response_model=list[WeighbridgeOperationRead], tags=["Operations"])
 @app.get("/api/v1/operations", response_model=list[WeighbridgeOperationRead], tags=["Operations"])
+@app.get("/api/v1/logistics/operations", response_model=list[WeighbridgeOperationRead], tags=["Operations"])
+@app.get("/api/v1/procurement/weighbridge", response_model=list[WeighbridgeOperationRead], tags=["Operations"])
 def get_operations(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	tickets = database.scalars(select(models.WeighbridgeTicket).join(models.WeighbridgeTicket.picking).where(models.WeighbridgeTicket.company_id == company_id).order_by(models.WeighbridgeTicket.weighed_in_at.desc()).limit(100)).all()
 	return [operation_response(ticket) for ticket in tickets]

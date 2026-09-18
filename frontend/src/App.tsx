@@ -133,7 +133,8 @@ export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
 };
 
 export const getTabFromPath = (path: string): ActiveTab => {
-  const cleanPath = path.replace(/\/$/, '');
+  const urlWithoutQuery = path.split('?')[0].split('#')[0];
+  const cleanPath = urlWithoutQuery.replace(/\/$/, '');
   if (ROUTE_TAB_MAP[cleanPath]) return ROUTE_TAB_MAP[cleanPath];
   if (ROUTE_TAB_MAP[path]) return ROUTE_TAB_MAP[path];
 

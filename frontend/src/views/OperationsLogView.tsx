@@ -50,7 +50,26 @@ export const OperationsLogView: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Filters state
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('search') || '';
+    }
+    return '';
+  });
+
+  useEffect(() => {
+    const handleUrlSearch = () => {
+      const params = new URLSearchParams(window.location.search);
+      const querySearch = params.get('search');
+      if (querySearch !== null) {
+        setSearchTerm(querySearch);
+      }
+    };
+    window.addEventListener('popstate', handleUrlSearch);
+    return () => window.removeEventListener('popstate', handleUrlSearch);
+  }, []);
+
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [selectedCrusher, setSelectedCrusher] = useState('');
   const [selectedTransporter, setSelectedTransporter] = useState('');

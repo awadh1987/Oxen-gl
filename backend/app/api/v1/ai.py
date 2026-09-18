@@ -48,6 +48,8 @@ def generate_openai_embedding(text: str) -> List[float]:
 class CopilotQueryRequest(BaseModel):
     prompt: str = Field(..., example="Show current inventory risks or delayed fleet vectors.")
     top_k: int = Field(5, example=5)
+    tenant_id: Optional[str] = None
+    context: Optional[Any] = None
 
 
 class StructuredAIOutput(BaseModel):
@@ -56,8 +58,10 @@ class StructuredAIOutput(BaseModel):
     business_reasoning: str
     data_sources: List[str]
     risk_classification: str
+    analysis: Optional[Any] = None
 
 
+@router.post("/query", response_model=StructuredAIOutput, status_code=status.HTTP_200_OK)
 @router.post("/copilot/query", response_model=StructuredAIOutput, status_code=status.HTTP_200_OK)
 async def process_copilot_conversational_insight(
     payload: CopilotQueryRequest,
@@ -73,6 +77,12 @@ async def process_copilot_conversational_insight(
     if x_tenant_id:
         try:
             active_tenant_id = uuid.UUID(str(x_tenant_id).strip())
+        except (ValueError, TypeError):
+            active_tenant_id = None
+
+    if not active_tenant_id and payload.tenant_id:
+        try:
+            active_tenant_id = uuid.UUID(str(payload.tenant_id).strip())
         except (ValueError, TypeError):
             active_tenant_id = None
 

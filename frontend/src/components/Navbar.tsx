@@ -17,11 +17,34 @@ import {
   CheckCircle2,
   CreditCard,
   Database,
+  Truck,
+  FileText,
+  Sparkles,
+  Thermometer,
+  ExternalLink,
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { TENANT_PALETTES } from '../theme/designTokens';
 import { BrandLogo } from './BrandLogo';
 import { isApexDomain } from '../utils/subdomain';
+
+export interface SystemAlert {
+  id: string;
+  type: 'wastage' | 'billing' | 'cold_chain';
+  titleAr: string;
+  titleEn: string;
+  descAr: string;
+  descEn: string;
+  timeAgoAr: string;
+  timeAgoEn: string;
+  read: boolean;
+  truckNo?: string;
+  anomalyId?: string;
+  partnerId?: string;
+  vehicleId?: string;
+  targetUrl: string;
+  targetTab: string;
+}
 
 interface NavbarProps {
   onOpenAIModal?: () => void;
@@ -107,7 +130,71 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
     },
   };
 
-  const highLossAlertCount = kpis.overallWastagePercent > 2.0 ? 3 : 1;
+  const [alerts, setAlerts] = useState<SystemAlert[]>([
+    {
+      id: 'alert-wastage-3190',
+      type: 'wastage',
+      titleAr: 'تنبيه فاقد وزن زائد (ميزان البسكول)',
+      titleEn: 'Excess Weighbridge Wastage',
+      descAr: 'رحلة شاحنة (3190-ر س ب) سجلت فاقداً 1.4 طن لعميل يوني بيتون.',
+      descEn: 'Truck 3190 recorded 1.4 tons loss to UniBeton.',
+      timeAgoAr: 'منذ 10 د',
+      timeAgoEn: '10m ago',
+      read: false,
+      truckNo: '3190',
+      anomalyId: 'anom-3190',
+      targetUrl: '/operations/daily?search=3190',
+      targetTab: 'operations',
+    },
+    {
+      id: 'alert-billing-kifah',
+      type: 'billing',
+      titleAr: 'جاهزية الفاتورة الشهرية للعميل',
+      titleEn: 'Monthly Invoices Ready',
+      descAr: 'تم تجميع بيانات شهر أغسطس لشركة الكفاح وجاهزة للتصدير الضريبي.',
+      descEn: 'August logs ready for Kifah billing.',
+      timeAgoAr: 'منذ 35 د',
+      timeAgoEn: '35m ago',
+      read: false,
+      partnerId: 'kifah',
+      targetUrl: '/finance/invoices?action=draft-batch&partner=kifah',
+      targetTab: 'invoicing',
+    },
+    {
+      id: 'alert-coldchain-v1002',
+      type: 'cold_chain',
+      titleAr: 'تجاوز حراري لسلسلة التبريد (SLA Breach)',
+      titleEn: 'Cold-Chain SLA Breach',
+      descAr: 'المركبة (V-1002 - سعد القحطاني) سجلت حرارة +5.4°C متجاوزة الحد (+4.2°C).',
+      descEn: 'Vehicle V-1002 breached cold-chain threshold (+5.4°C > +4.2°C).',
+      timeAgoAr: 'منذ 1 ساعة',
+      timeAgoEn: '1h ago',
+      read: false,
+      vehicleId: 'V-1002',
+      targetUrl: '/operations/fleet-map?vehicle=V-1002',
+      targetTab: 'fleet-map',
+    },
+  ]);
+
+  const unreadAlertsCount = alerts.filter((a) => !a.read).length;
+
+  const handleNavigateAlert = (alert: SystemAlert, customUrl?: string, customTab?: string) => {
+    setAlerts((prev) => prev.map((a) => (a.id === alert.id ? { ...a, read: true } : a)));
+    setShowNotifications(false);
+
+    const destUrl = customUrl || alert.targetUrl;
+    const destTab = customTab || alert.targetTab;
+
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', destUrl);
+      window.dispatchEvent(new Event('popstate'));
+    }
+
+    if (onNavigateTab) {
+      onNavigateTab(destTab);
+    }
+  };
+
   const isMasterAdmin = authTier === 'master' || currentUser?.role === 'Super_Admin';
   const currentTenantId = !isMasterAdmin ? (tenantId || currentCompany?.id || localStorage.getItem('oxengl_tenant_id') || '') : tenantId;
   const isTenantScoped = Boolean((authTier === 'tenant' || tenantId || currentTenantId) && !isMasterAdmin);
@@ -435,10 +522,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
                           }`}
                           title={isAr ? palette.nameAr : palette.nameEn}
                         >
-                          <span
-                            className="h-4 w-4 rounded-full border border-white/30 shadow-xs transition-transform group-hover:scale-110"
-                            style={{ backgroundColor: palette.primary }}
-                          />
                           <span className="mt-1 text-[9px] font-medium text-neutral-600 dark:text-slate-400 truncate w-full">
                             {palette.nameEn.split(' ')[0]}
                           </span>
@@ -473,9 +556,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
             title={isAr ? 'التنبيهات والإشعارات' : 'Notifications'}
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
-              {highLossAlertCount}
-            </span>
+            {unreadAlertsCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-xs">
+                {unreadAlertsCount}
+              </span>
+            )}
           </button>
 
           {showNotifications && (
@@ -487,7 +572,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
               <div
                 className={`absolute top-11 ${
                   isAr ? 'left-0' : 'right-0'
-                } z-50 w-80 rounded-2xl border p-4 shadow-xl backdrop-blur-xl ${
+                } z-50 w-88 rounded-2xl border p-4 shadow-xl backdrop-blur-xl ${
                   isDark
                     ? 'border-slate-800 bg-[#0e1324]/95 text-slate-100 shadow-black/80'
                     : 'border-neutral-200 bg-white/95 text-neutral-900 shadow-xl'
@@ -497,33 +582,118 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
                   <span className="text-sm font-bold text-neutral-800 dark:text-slate-200">
                     {isAr ? 'مركز الإشعارات والرقابة' : 'Alerts & Operations'}
                   </span>
-                  <span className="rounded-full bg-orange-50 dark:bg-orange-950/50 px-2 py-0.5 text-[10px] font-semibold text-[#F05627]">
-                    {isAr ? '3 تنبيهات' : '3 Alerts'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {unreadAlertsCount > 0 && (
+                      <button
+                        onClick={() => setAlerts((prev) => prev.map((a) => ({ ...a, read: true })))}
+                        className="text-[10px] font-medium text-slate-500 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                      >
+                        {isAr ? 'تحديد الكل كمقروء' : 'Mark all read'}
+                      </button>
+                    )}
+                    <span className="rounded-full bg-orange-50 dark:bg-orange-950/50 px-2 py-0.5 text-[10px] font-semibold text-[#F05627]">
+                      {unreadAlertsCount} {isAr ? 'تنبيهات' : 'Alerts'}
+                    </span>
+                  </div>
                 </div>
+
                 <div className="space-y-2.5 text-xs">
-                  <div className="flex gap-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 p-2.5 text-amber-900 dark:text-amber-200 border border-amber-200/50 dark:border-amber-800/30">
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                    <div>
-                      <p className="font-semibold">{isAr ? 'تنبيه فاقد وزن زائد' : 'Excess Wastage Alert'}</p>
-                      <p className="text-[11px] text-amber-700 dark:text-amber-300">
-                        {isAr
-                          ? 'رحلة شاحنة (3190-ر س ب) سجلت فاقداً 1.4 طن لعميل يوني بيتون.'
-                          : 'Truck 3190 recorded 1.4 tons loss to UniBeton.'}
+                  {alerts.length === 0 || unreadAlertsCount === 0 && alerts.every((a) => a.read) ? (
+                    <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-800 p-4 text-center text-slate-500 dark:text-slate-400">
+                      <p className="font-semibold">{isAr ? 'لا توجد تنبيهات جديدة معلقة' : 'All clear! No pending alerts'}</p>
+                      <p className="text-[11px] mt-1 text-slate-400 dark:text-slate-500">
+                        {isAr ? 'العمليات اللوجستية والمالية تعمل بانتظام' : 'Operations and telemetry operating nominally'}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex gap-2.5 rounded-lg bg-orange-50 dark:bg-orange-950/30 p-2.5 text-orange-900 dark:text-orange-200 border border-orange-200/50 dark:border-orange-800/30">
-                    <UserCheck className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" />
-                    <div>
-                      <p className="font-semibold">{isAr ? 'جاهزية الفاتورة الشهرية' : 'Monthly Invoices Ready'}</p>
-                      <p className="text-[11px] text-orange-700 dark:text-orange-300">
-                        {isAr
-                          ? 'تم تجميع بيانات شهر أغسطس لشركة الكفاح وجاهزة للتصدير الضريبي.'
-                          : 'August logs ready for Kifah billing.'}
-                      </p>
-                    </div>
-                  </div>
+                  ) : null}
+
+                  {alerts.map((alert) => {
+                    const isWastage = alert.type === 'wastage';
+                    const isBilling = alert.type === 'billing';
+                    const isColdChain = alert.type === 'cold_chain';
+
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`group relative rounded-xl border p-3 transition-all cursor-pointer ${
+                          alert.read
+                            ? 'opacity-60 bg-slate-50/50 dark:bg-slate-900/30 border-slate-200/50 dark:border-slate-800/40'
+                            : isWastage
+                            ? 'bg-amber-50/90 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 border-amber-200 dark:border-amber-800/60 shadow-2xs hover:border-amber-400'
+                            : isBilling
+                            ? 'bg-orange-50/90 dark:bg-orange-950/30 text-orange-950 dark:text-orange-200 border-orange-200 dark:border-orange-800/60 shadow-2xs hover:border-orange-400'
+                            : 'bg-rose-50/90 dark:bg-rose-950/30 text-rose-950 dark:text-rose-200 border-rose-200 dark:border-rose-800/60 shadow-2xs hover:border-rose-400'
+                        }`}
+                        onClick={() => handleNavigateAlert(alert)}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          {isWastage && (
+                            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                          )}
+                          {isBilling && (
+                            <FileText className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400 mt-0.5" />
+                          )}
+                          {isColdChain && (
+                            <Thermometer className="h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              <p className="font-bold text-xs truncate">
+                                {isAr ? alert.titleAr : alert.titleEn}
+                              </p>
+                              <span className="text-[10px] text-slate-500 shrink-0 font-mono">
+                                {isAr ? alert.timeAgoAr : alert.timeAgoEn}
+                              </span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed opacity-90">
+                              {isAr ? alert.descAr : alert.descEn}
+                            </p>
+
+                            {/* Deep link action badges */}
+                            <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 group-hover:underline">
+                                <ExternalLink className="h-2.5 w-2.5" />
+                                {isWastage
+                                  ? isAr
+                                    ? 'فحص رحلة الشاحنة 3190'
+                                    : 'Inspect Truck 3190 Log'
+                                  : isBilling
+                                  ? isAr
+                                    ? 'إصدار دفعة فواتير الكفاح'
+                                    : 'Draft Kifah Batch'
+                                  : isAr
+                                  ? 'تتبع المركبة V-1002 على الخريطة'
+                                  : 'Track V-1002 on Map'}
+                              </span>
+
+                              {isWastage && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleNavigateAlert(
+                                      alert,
+                                      '/finance/ai-auditor?focusAnomaly=anom-3190',
+                                      'ai-insights'
+                                    );
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-md bg-amber-200/70 dark:bg-amber-900/60 px-1.5 py-0.5 text-[9px] font-bold text-amber-950 dark:text-amber-200 hover:bg-amber-300"
+                                >
+                                  <Sparkles className="h-2.5 w-2.5 text-amber-700 dark:text-amber-300" />
+                                  {isAr ? 'المدقق الذكي' : 'AI Auditor'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {!alert.read && (
+                            <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0 mt-1" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </>

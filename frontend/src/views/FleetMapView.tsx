@@ -116,7 +116,27 @@ export const FleetMapView: React.FC = () => {
   const vehiclesRef = useRef<Record<string, TelemetryVehicleState>>(INITIAL_VEHICLES);
   const animationFrameRef = useRef<number | null>(null);
 
-  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('V-1002');
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('vehicle');
+      if (v) return v;
+    }
+    return 'V-1002';
+  });
+
+  useEffect(() => {
+    const handleUrlVehicle = () => {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('vehicle');
+      if (v) {
+        setSelectedVehicleId(v);
+      }
+    };
+    window.addEventListener('popstate', handleUrlVehicle);
+    return () => window.removeEventListener('popstate', handleUrlVehicle);
+  }, []);
+
   const [mapMode, setMapMode] = useState<'hybrid' | 'radar' | 'satellite'>('hybrid');
   const [fps, setFps] = useState<number>(60);
   const [isConnected, setIsConnected] = useState<boolean>(false);

@@ -86,6 +86,36 @@ export const CustomerInvoicingView: React.FC = () => {
   const [isExportPrintModalOpen, setIsExportPrintModalOpen] = useState(false);
   const [invoiceAttachments, setInvoiceAttachments] = useState<DocumentAttachment[]>([]);
 
+  // Deep-link URL parameter synchronization
+  useEffect(() => {
+    const handleUrlInvoiceParams = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const partner = params.get('partner');
+      const action = params.get('action');
+
+      if (partner && customers.length > 0) {
+        const found = customers.find(
+          (c) =>
+            c.id.toLowerCase() === partner.toLowerCase() ||
+            c.customerName.toLowerCase().includes(partner.toLowerCase()) ||
+            (c.customerNameEn && c.customerNameEn.toLowerCase().includes(partner.toLowerCase()))
+        );
+        if (found) {
+          setSelectedCustomerId(found.id);
+        }
+      }
+
+      if (action === 'draft-batch') {
+        setIsExportPrintModalOpen(true);
+      }
+    };
+
+    handleUrlInvoiceParams();
+    window.addEventListener('popstate', handleUrlInvoiceParams);
+    return () => window.removeEventListener('popstate', handleUrlInvoiceParams);
+  }, [customers]);
+
   const selectedCustomer = useMemo(() => {
     return customers.find((c) => c.id === selectedCustomerId) || customers[0];
   }, [customers, selectedCustomerId]);
