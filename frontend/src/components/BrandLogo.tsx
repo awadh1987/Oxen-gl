@@ -12,6 +12,7 @@ interface BrandLogoProps {
   companyNameEn?: string;
   primaryColor?: string;
   secondaryColor?: string;
+  forcePlatformLogo?: boolean;
 }
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
@@ -25,23 +26,49 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   companyNameEn: propCompanyNameEn,
   primaryColor: propPrimaryColor,
   secondaryColor: propSecondaryColor,
+  forcePlatformLogo = false,
 }) => {
   let appBrandConfig: any = null;
   let currentCompany: any = null;
+  let authTier: string | null = null;
+  let tenantId: string | null = null;
+  let isTenantScoped = false;
   try {
     const appContext = useApp();
     appBrandConfig = appContext?.brandConfig;
     currentCompany = appContext?.currentCompany;
+    authTier = appContext?.authTier ?? null;
+    tenantId = appContext?.tenantId ?? null;
+    isTenantScoped = Boolean((authTier === 'tenant' || tenantId) && authTier !== 'master');
   } catch {
     // Graceful fallback if rendered outside AppProvider
   }
 
-  const effectiveLogoUrl = propCustomLogoUrl ?? currentCompany?.logo_url ?? currentCompany?.uiLogoUrl ?? appBrandConfig?.customLogoUrl;
-  const effectiveNameAr = propCompanyNameAr ?? currentCompany?.name_ar ?? currentCompany?.company_name_ar ?? currentCompany?.name ?? appBrandConfig?.companyNameAr ?? 'مساحة عمل المنشأة';
-  const effectiveNameEn = propCompanyNameEn ?? currentCompany?.company_name ?? currentCompany?.name ?? appBrandConfig?.companyNameEn ?? 'Enterprise Workspace';
-  const effectivePrimaryColor = propPrimaryColor ?? currentCompany?.uiPrimaryColor ?? appBrandConfig?.primaryColor ?? '#1E3A8A';
-  const effectiveSecondaryColor = propSecondaryColor ?? currentCompany?.uiSecondaryColor ?? appBrandConfig?.secondaryColor ?? '#7C3AED';
-  const useTenantFallback = Boolean(propCompanyNameEn || propCompanyNameAr || propPrimaryColor || propSecondaryColor);
+  // Check if current route is root portal /
+  const isRootPortal = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+
+  // Only allow custom tenant logos when explicitly authenticated inside a tenant-scoped session or route,
+  // and forcePlatformLogo is NOT set.
+  const allowTenantLogo = !forcePlatformLogo && !isRootPortal && isTenantScoped;
+
+  const rawLogoUrl = allowTenantLogo
+    ? (propCustomLogoUrl ?? currentCompany?.logo_url ?? currentCompany?.uiLogoUrl ?? appBrandConfig?.customLogoUrl)
+    : null;
+
+  const effectiveLogoUrl = (rawLogoUrl && rawLogoUrl !== '/oxengl-logo.svg') ? rawLogoUrl : null;
+  const effectiveNameAr = allowTenantLogo
+    ? (propCompanyNameAr ?? currentCompany?.name_ar ?? currentCompany?.company_name_ar ?? currentCompany?.name ?? appBrandConfig?.companyNameAr ?? 'أوكسين جي إل')
+    : 'أوكسين جي إل';
+  const effectiveNameEn = allowTenantLogo
+    ? (propCompanyNameEn ?? currentCompany?.company_name ?? currentCompany?.name ?? appBrandConfig?.companyNameEn ?? 'OxenGL Enterprise')
+    : 'OxenGL Enterprise';
+  const effectivePrimaryColor = allowTenantLogo
+    ? (propPrimaryColor ?? currentCompany?.uiPrimaryColor ?? appBrandConfig?.primaryColor ?? '#F05627')
+    : '#F05627';
+  const effectiveSecondaryColor = allowTenantLogo
+    ? (propSecondaryColor ?? currentCompany?.uiSecondaryColor ?? appBrandConfig?.secondaryColor ?? '#1A1A1A')
+    : '#1A1A1A';
+  const useTenantFallback = allowTenantLogo && Boolean(propCompanyNameEn || propCompanyNameAr || propPrimaryColor || propSecondaryColor);
 
   const sizeMap = {
     sm: { icon: 32, textAr: 'text-xs', textEn: 'text-[9px]' },

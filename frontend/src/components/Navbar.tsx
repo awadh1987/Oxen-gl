@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { TENANT_PALETTES } from '../theme/designTokens';
+import { BrandLogo } from './BrandLogo';
 
 interface NavbarProps {
   onOpenAIModal?: () => void;
@@ -104,6 +105,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   const highLossAlertCount = kpis.overallWastagePercent > 2.0 ? 3 : 1;
   const isMasterAdmin = authTier === 'master' || currentUser?.role === 'Super_Admin';
   const currentTenantId = !isMasterAdmin ? (tenantId || currentCompany?.id || localStorage.getItem('oxengl_tenant_id') || '') : tenantId;
+  const isTenantScoped = Boolean((authTier === 'tenant' || tenantId || currentTenantId) && !isMasterAdmin);
+  const isRootPortal = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
 
   const CompanyDropdown: React.FC = () => {
     if (!currentCompany) return null;
@@ -148,33 +151,41 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
         {/* Brand Logo & Tagline */}
         <div className="flex items-center gap-3">
           {/* Dynamic Logo Asset Rendering Container */}
-          {currentCompany?.logo_url ? (
-            <img 
-              src={currentCompany.logo_url} 
-              alt={`${currentCompany.name} Logo`} 
-              className="h-8 w-8 object-contain rounded-md bg-slate-900 p-1 border border-slate-800 shrink-0"
-              onError={(e) => {
-                // Fallback element if asset fails to load
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
+          {isTenantScoped && !isRootPortal && (currentCompany?.logo_url || brandConfig?.customLogoUrl) ? (
+            <div className="relative h-8 w-8 shrink-0">
+              <img 
+                src={currentCompany?.logo_url || brandConfig?.customLogoUrl} 
+                alt={`${currentCompany?.name || 'Tenant'} Logo`} 
+                className="h-8 w-8 object-contain rounded-md bg-slate-900 p-1 border border-slate-800 shrink-0"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              <div className="hidden h-8 w-8 items-center justify-center">
+                <BrandLogo size="sm" showText={false} forcePlatformLogo={true} />
+              </div>
+            </div>
           ) : (
-            /* Global Standard Fallback Minimalist Monogram */
-            <div className="h-8 w-8 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md shrink-0">
-              <span className="text-white text-sm font-bold">
-                {currentCompany?.name ? currentCompany.name.trim().charAt(0).toUpperCase() : (tenantSlug ? tenantSlug.charAt(0).toUpperCase() : 'W')}
-              </span>
+            /* Global Platform Master Logo strictly displayed on unauthenticated / master portal routes */
+            <div className="flex h-8 w-8 items-center justify-center shrink-0">
+              <BrandLogo size="sm" showText={false} forcePlatformLogo={true} />
             </div>
           )}
 
           <div className="hidden h-7 w-px bg-neutral-200 dark:bg-slate-800 md:block" />
           <div className="hidden flex-col md:flex">
-            {/* Dynamic Isolated Tenant Title */}
+            {/* Dynamic Isolated Tenant Title or Master OxenGL Enterprise Header */}
             <span className="text-sm font-semibold tracking-wide text-slate-200">
-              {currentCompany?.name || (tenantSlug ? `${tenantSlug.toUpperCase()} Workspace` : 'Enterprise Workspace')}
+              {isTenantScoped && !isRootPortal
+                ? currentCompany?.name || (tenantSlug ? `${tenantSlug.toUpperCase()} Workspace` : 'Enterprise Workspace')
+                : 'OXENGL ENTERPRISE CLOUD'}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-slate-400 font-medium">
-              {isAr ? 'المملكة العربية السعودية • ZATCA Compatible' : 'Kingdom of Saudi Arabia • ZATCA'}
+              {isTenantScoped && !isRootPortal
+                ? (isAr ? 'المملكة العربية السعودية • ZATCA Compatible' : 'Kingdom of Saudi Arabia • ZATCA')
+                : (isAr ? 'منصة العمليات اللوجستية وإدارة الموارد' : 'Unified Logistics & Supply Chain Cloud')}
             </span>
           </div>
         </div>

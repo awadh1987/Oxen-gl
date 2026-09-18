@@ -97,7 +97,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = () => {
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0c1222]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
-            <BrandLogo size="md" showText={false} />
+            <BrandLogo size="md" showText={false} forcePlatformLogo={true} />
             <div>
               <span className="text-sm font-black tracking-wider uppercase text-white">
                 OXENGL ENTERPRISE CLOUD
@@ -230,3 +230,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = () => {
     </div>
   );
 };
+
+export { LandingPageView as UnifiedPortalView };
+export default LandingPageView;

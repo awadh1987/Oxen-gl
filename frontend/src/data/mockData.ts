@@ -16,8 +16,8 @@ import {
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
 
 export const INITIAL_BRAND_CONFIG: BrandConfig = {
-  companyNameAr: 'المنشأة المعتمدة',
-  companyNameEn: 'Authorized Enterprise',
+  companyNameAr: 'أوكسين جي إل',
+  companyNameEn: 'OxenGL Enterprise',
   crNumber: '',
   taxNumber: '',
   phone: '+966 11 000 0000',
@@ -29,7 +29,7 @@ export const INITIAL_BRAND_CONFIG: BrandConfig = {
   iban: 'SA0000000000000000000000',
   primaryColor: '#F05627',
   secondaryColor: '#1A1A1A',
-  customLogoUrl: '/logo.jpg',
+  customLogoUrl: '/oxengl-logo.svg',
   ceoSignatureUrl: 'https://api.iconify.design/lucide:signature.svg?color=%231A1A1A',
   companyStampUrl: '',
   ceoNameAr: 'المدير التنفيذي',

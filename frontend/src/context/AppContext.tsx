@@ -404,6 +404,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [currentCompany, setCurrentCompany] = useState<Company | null>(() => {
+    const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+    const token = getAuthToken();
+    const tier = getAuthTier();
+    if (isRoot && (!token || tier === 'master')) {
+      return null;
+    }
     const saved = localStorage.getItem('oxengl_current_company');
     return saved ? JSON.parse(saved) : null;
   });
@@ -433,6 +439,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Brand Configuration State (Dynamically derived from active company session)
   const [brandConfig, setBrandConfig] = useState<BrandConfig>(() => {
+    const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+    const token = getAuthToken();
+    const tier = getAuthTier();
+    if (isRoot && (!token || tier === 'master')) {
+      return INITIAL_BRAND_CONFIG;
+    }
     const saved = localStorage.getItem('oxengl_brand_config');
     return saved ? JSON.parse(saved) : INITIAL_BRAND_CONFIG;
   });
@@ -841,6 +853,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Synchronize brand config with authenticated tenant company
   useEffect(() => {
+    const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+    const token = getAuthToken();
+    const tier = getAuthTier();
+    if (isRoot && (!token || tier === 'master')) {
+      return;
+    }
     if (currentCompany) {
       setBrandConfig((prev) => ({
         ...prev,
@@ -854,6 +872,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }));
     }
   }, [currentCompany]);
+
+  // Ensure navigating to root unified portal resets tenant branding leaks
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+      const token = getAuthToken();
+      const tier = getAuthTier();
+      if (isRoot && (!token || tier === 'master')) {
+        setBrandConfig(INITIAL_BRAND_CONFIG);
+        setCurrentCompany(null);
+      }
+    };
+    handleLocationChange();
+    window.addEventListener('popstate', handleLocationChange);
+    return () => window.removeEventListener('popstate', handleLocationChange);
+  }, []);
 
   // Native Authentication & Sync State
   const [isNativeAuthSyncing] = useState<boolean>(false);
@@ -881,6 +915,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('oxengl_session_active');
     localStorage.removeItem('oxengl_recovery_session');
     localStorage.removeItem('oxengl_user');
+    localStorage.removeItem('oxengl_current_company');
+    localStorage.removeItem('oxengl_brand_config');
+    localStorage.removeItem('oxengl_tenant_id');
+    localStorage.removeItem('oxengl_tenant_slug');
+    setCurrentCompany(null);
+    setBrandConfig(INITIAL_BRAND_CONFIG);
     setCurrentUser(DEFAULT_FALLBACK_USER);
     showToast(language === 'ar' ? 'تم تسجيل الخروج بأمان' : 'Signed out securely', 'info');
   };
