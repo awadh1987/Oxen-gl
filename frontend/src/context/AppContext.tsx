@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import i18n, { syncHtmlDirectionAndLanguage, LOCALE_STORAGE_KEY } from '../i18n';
 import {
   db,
   doc,
@@ -334,13 +335,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [language, setLanguageState] = useState<'ar' | 'en'>(() => {
-    return (localStorage.getItem('oxengl_language') as 'ar' | 'en') || 'ar';
+    const stored = (localStorage.getItem(LOCALE_STORAGE_KEY) as 'ar' | 'en') || (localStorage.getItem('oxengl_language') as 'ar' | 'en');
+    return stored === 'en' ? 'en' : 'ar';
   });
 
   const setLanguage = (lang: 'ar' | 'en') => {
     setLanguageState(lang);
+    localStorage.setItem(LOCALE_STORAGE_KEY, lang);
     localStorage.setItem('oxengl_language', lang);
+    i18n.changeLanguage(lang);
+    syncHtmlDirectionAndLanguage(lang);
   };
+
+  useEffect(() => {
+    syncHtmlDirectionAndLanguage(language);
+  }, [language]);
 
   const dir = language === 'ar' ? 'rtl' : 'ltr';
 

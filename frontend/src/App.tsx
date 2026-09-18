@@ -119,28 +119,28 @@ function AppContent() {
   }, [activeTab]);
 
 
-  const tenantNavigation: { id: ActiveTab; label: string; icon: React.ComponentType<{ className?: string }>; group: 'Operations & Logistics' | 'Finance, Accounting & Control' }[] = [
-    { id: 'hub', label: 'Home Hub', icon: Building2, group: 'Operations & Logistics' },
-    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard, group: 'Operations & Logistics' },
-    { id: 'planning', label: 'Planning Department', icon: Layers, group: 'Operations & Logistics' },
-    { id: 'operations', label: 'Daily Operations Logs', icon: Truck, group: 'Operations & Logistics' },
-    { id: 'maintenance', label: 'Fleet Maintenance & Fuel', icon: Wrench, group: 'Operations & Logistics' },
-    { id: 'fleet-map', label: 'Live Fleet Radar', icon: Radio, group: 'Operations & Logistics' },
-    { id: 'transporters', label: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
-    { id: 'crushers', label: 'Crusher Statements', icon: Building2, group: 'Operations & Logistics' },
-    { id: 'master-data', label: 'Master Data & Pricing', icon: Users, group: 'Operations & Logistics' },
-    { id: 'workflow-builder', label: 'Workflow Automation', icon: Cpu, group: 'Operations & Logistics' },
-    { id: 'customs', label: 'Customs Clearance Board', icon: Globe, group: 'Operations & Logistics' },
-    { id: 'invoicing', label: 'Tax Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
-    { id: 'vouchers', label: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
-    { id: 'finance-chart', label: 'Chart of Accounts', icon: Landmark, group: 'Finance, Accounting & Control' },
-    { id: 'finance-trial-balance', label: 'Trial Balance', icon: Scale, group: 'Finance, Accounting & Control' },
-    { id: 'finance-audit-closing', label: 'Annual Audit Closing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
-    { id: 'billing', label: 'SaaS Plan & Billing', icon: CreditCard, group: 'Finance, Accounting & Control' },
-    { id: 'executive-admin', label: 'Executive Approvals & Audit', icon: Landmark, group: 'Finance, Accounting & Control' },
-    { id: 'ai-insights', label: 'AI Operations Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
-    { id: 'design-studio', label: 'Design System & AI Studio', icon: Palette, group: 'Finance, Accounting & Control' },
-    { id: 'tenant-settings', label: 'Tenant Admin & Domains', icon: Globe, group: 'Finance, Accounting & Control' },
+  const tenantNavigation: { id: ActiveTab; labelAr: string; labelEn: string; icon: React.ComponentType<{ className?: string }>; group: 'Operations & Logistics' | 'Finance, Accounting & Control' }[] = [
+    { id: 'hub', labelAr: 'بوابة المستأجرين', labelEn: 'Home Hub', icon: Building2, group: 'Operations & Logistics' },
+    { id: 'dashboard', labelAr: 'لوحة التحكم التنفيذية', labelEn: 'Executive Dashboard', icon: LayoutDashboard, group: 'Operations & Logistics' },
+    { id: 'planning', labelAr: 'إدارة التخطيط والتشغيل', labelEn: 'Planning Department', icon: Layers, group: 'Operations & Logistics' },
+    { id: 'operations', labelAr: 'سجل العمليات اليومية', labelEn: 'Daily Operations Logs', icon: Truck, group: 'Operations & Logistics' },
+    { id: 'maintenance', labelAr: 'صيانة الأسطول والوقود', labelEn: 'Fleet Maintenance & Fuel', icon: Wrench, group: 'Operations & Logistics' },
+    { id: 'fleet-map', labelAr: 'رادار وخريطة الأسطول', labelEn: 'Live Fleet Radar', icon: Radio, group: 'Operations & Logistics' },
+    { id: 'transporters', labelAr: 'الناقلون ونسب الهدر', labelEn: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
+    { id: 'crushers', labelAr: 'كشوفات الكسارات', labelEn: 'Crusher Statements', icon: Building2, group: 'Operations & Logistics' },
+    { id: 'master-data', labelAr: 'البيانات الرئيسية والتسعير', labelEn: 'Master Data & Pricing', icon: Users, group: 'Operations & Logistics' },
+    { id: 'workflow-builder', labelAr: 'أتمتة العمليات والمسارات', labelEn: 'Workflow Automation', icon: Cpu, group: 'Operations & Logistics' },
+    { id: 'customs', labelAr: 'لوحة التخليص الجمركي', labelEn: 'Customs Clearance Board', icon: Globe, group: 'Operations & Logistics' },
+    { id: 'invoicing', labelAr: 'الفوترة الضريبية (ZATCA)', labelEn: 'Tax Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
+    { id: 'vouchers', labelAr: 'السندات المالية', labelEn: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
+    { id: 'finance-chart', labelAr: 'شجرة الحسابات', labelEn: 'Chart of Accounts', icon: Landmark, group: 'Finance, Accounting & Control' },
+    { id: 'finance-trial-balance', labelAr: 'ميزان المراجعة', labelEn: 'Trial Balance', icon: Scale, group: 'Finance, Accounting & Control' },
+    { id: 'finance-audit-closing', labelAr: 'الإقفال السنوي والتدقيق', labelEn: 'Annual Audit Closing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
+    { id: 'billing', labelAr: 'خطة الاشتراك والفوترة', labelEn: 'SaaS Plan & Billing', icon: CreditCard, group: 'Finance, Accounting & Control' },
+    { id: 'executive-admin', labelAr: 'الموافقات التنفيذية والتدقيق', labelEn: 'Executive Approvals & Audit', icon: Landmark, group: 'Finance, Accounting & Control' },
+    { id: 'ai-insights', labelAr: 'مدقق العمليات الذكي', labelEn: 'AI Operations Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
+    { id: 'design-studio', labelAr: 'استوديو التصميم والنظام', labelEn: 'Design System & AI Studio', icon: Palette, group: 'Finance, Accounting & Control' },
+    { id: 'tenant-settings', labelAr: 'إدارة المنشأة والنطاقات', labelEn: 'Tenant Admin & Domains', icon: Globe, group: 'Finance, Accounting & Control' },
   ];
 
   const [selectedDomain, setSelectedDomain] = useState<'Operations & Logistics' | 'Finance, Accounting & Control'>('Operations & Logistics');
@@ -682,7 +682,7 @@ function AppContent() {
                       }`}
                     >
                       <Icon className="h-3.5 w-3.5" />
-                      <span>{item.label}</span>
+                      <span>{isAr ? item.labelAr : item.labelEn}</span>
                     </button>
                   );
                 })}

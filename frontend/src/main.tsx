@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import './i18n.ts';
 
 // Register Service Worker for offline field & quarry caching
 if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {

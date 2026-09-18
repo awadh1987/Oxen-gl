@@ -492,7 +492,7 @@ How can I assist you with your operations today?`,
               <button
                 type="button"
                 onClick={toggleLauncherMinimized}
-                className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-2 -left-2 bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white rounded-full p-1 shadow-sm"
+                className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-2 -start-2 bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white rounded-full p-1 shadow-sm"
                 title={isAr ? 'توسيع شارة المساعد الذكي' : 'Expand AI Badge'}
               >
                 <Maximize2 className="h-3 w-3 text-orange-400" />
@@ -539,7 +539,7 @@ How can I assist you with your operations today?`,
                 type="button"
                 id="ai-widget-minimize-toggle"
                 onClick={toggleLauncherMinimized}
-                className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white shadow-md transition-colors"
+                className="absolute -top-2 -end-2 flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white shadow-md transition-colors"
                 title={isAr ? 'تصغير الشارة لتجنب تغطية الجداول' : 'Minimize badge to prevent covering tables'}
               >
                 <Minimize2 className="h-3 w-3 text-orange-400" />

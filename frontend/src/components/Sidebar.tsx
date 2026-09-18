@@ -496,7 +496,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         id="app-sidebar-navigation"
-        className={`fixed top-18 z-40 h-[calc(100vh-4.5rem)] border-r border-slate-800 bg-[#0B132B] text-slate-100 shadow-xl shadow-slate-950/10 transition-all duration-300 ease-in-out lg:static lg:block ${
+        className={`fixed top-18 start-0 z-40 h-[calc(100vh-4.5rem)] border-e border-slate-800 bg-[#0B132B] text-slate-100 shadow-xl shadow-slate-950/10 transition-all duration-300 ease-in-out lg:static lg:block ${
           isCollapsed ? 'w-16' : 'w-64'
         } ${
           isOpenMobile

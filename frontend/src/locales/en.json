@@ -1,0 +1,129 @@
+{
+  "domains": {
+    "operations_logistics": "Operations & Logistics",
+    "finance_accounting_control": "Finance, Accounting & Control",
+    "operations_label": "🚛 Operations & Logistics",
+    "finance_label": "📊 Finance, Accounting & Control",
+    "operations_active": "Operations & Fleet Ribbon Active",
+    "finance_active": "Finance & Ledger Ribbon Active",
+    "domain_switcher": "Domain Switcher:"
+  },
+  "nav": {
+    "dashboard": "Executive Dashboard",
+    "planning": "Planning Department",
+    "operations": "Daily Operations Logs",
+    "maintenance": "Fleet Maintenance & Fuel",
+    "fleet_map": "Live Fleet Radar & Map",
+    "crushers": "Crusher Statements",
+    "transporters": "Transporters & Shrinkage",
+    "invoicing": "Tax Invoicing (ZATCA)",
+    "vouchers": "Payment & Receipt Vouchers",
+    "finance_chart": "Chart of Accounts (5-Deep)",
+    "finance_trial_balance": "Trial Balance",
+    "finance_audit_closing": "Annual Audit Closing",
+    "billing": "SaaS Plan & Billing",
+    "master_data": "Master Data & Users",
+    "workflow_builder": "Workflow Automation",
+    "design_studio": "Design Studio & AI",
+    "customs": "Customs Clearance Board",
+    "tenant_settings": "Tenant Settings & RLS",
+    "approvals": "Executive Approvals & Audit",
+    "ai_insights": "AI Operations Auditor",
+    "hub": "Tenant Landing Hub",
+    "admin_hub": "Admin Hub"
+  },
+  "categories": {
+    "core_operations": "Core Operations",
+    "logistics_fleet": "Logistics & Fleet",
+    "finance_gl": "Finance & GL",
+    "system_governance": "System Governance"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "json_snapshot": "JSON Snapshot",
+    "export_print": "Export & Print",
+    "export_excel": "Export Excel",
+    "add_new_trip": "Add New Trip",
+    "page": "Page",
+    "of": "of",
+    "previous": "Previous",
+    "next": "Next",
+    "filter": "Filter",
+    "filter_all": "All",
+    "search": "Search...",
+    "minimize": "Minimize",
+    "expand": "Expand",
+    "close": "Close"
+  },
+  "global": {
+    "platform_name": "OxenGL Logistics Operations ERP",
+    "status_operational": "Operational",
+    "status_critical": "Critical Alert",
+    "loading": "Loading... Analyzing data"
+  },
+  "security": {
+    "mfa_header": "Two-Factor Authentication",
+    "mfa_subheader": "Enter the 6-digit code to protect your account",
+    "abac_denied": "Error 403: Access blocked by Attribute-Based Access Control policies"
+  },
+  "dashboard": {
+    "header_title": "Executive Control & Operations Cockpit",
+    "kpi_asset_valuation": "Current Stored Asset Valuation",
+    "kpi_projection_30d": "Projected Stock Value Trend (30 Days)",
+    "regression_slope": "Linear Regression Slope per Day",
+    "confidence_high": "High Predictive Intelligence",
+    "current_value": "Current Stock Value",
+    "projected_value_30d": "Projected Value in 30 Days",
+    "calculated_slope": "Calculated Trajectory Slope",
+    "confidence_metric": "Prediction Confidence Metric"
+  },
+  "procurement": {
+    "matching_engine": "3-Way Procurement Contract Matching Engine",
+    "status_matched": "Matched with Documents",
+    "status_discrepancy_hold": "Held due to Quantity or Price Discrepancies",
+    "invoice_number": "Invoice Number"
+  },
+  "logistics": {
+    "telemetry_panel": "Live Fleet Command & Control Center",
+    "canvas_radar_active": "Real-time Radar Active (60 FPS)",
+    "vehicle_id": "Vehicle ID",
+    "speed_kph": "km/h",
+    "route_optimized": "Multi-stop route successfully optimized",
+    "cold_chain_alert": "Alert: Cold chain temperature variance",
+    "manifest_number": "Manifest Number",
+    "stops_sequenced": "Delivery Stops Sequenced",
+    "total_distance_km": "Total Distance (km)",
+    "cargo_temperature_celsius": "Cargo Temperature (°C)",
+    "ambient_humidity_percentage": "Ambient Humidity %",
+    "device_battery_voltage": "Sensor Battery Voltage"
+  },
+  "hr_payroll": {
+    "employee_code": "Employee Code",
+    "attendance_biometric": "Biometric Attendance Record",
+    "gross_earnings": "Gross Earnings",
+    "deductions": "Penalties & Deductions",
+    "net_pay": "Net Payable Salary",
+    "base_salary": "Base Salary",
+    "allowances": "Allowances & Bonuses",
+    "pay_period": "Pay Period",
+    "department": "Department"
+  },
+  "saas_billing": {
+    "plan_name": "Subscription Plan Name",
+    "max_seats": "Maximum Allowed Seats",
+    "max_vehicles": "Maximum Allowed Trucks",
+    "current_seats_used": "Active Users",
+    "current_vehicles_used": "Active Trucks",
+    "subscription_status": "Contractual Subscription Status",
+    "current_period_end": "Billing Cycle End Date"
+  },
+  "ai_copilot": {
+    "header_title": "Executive AI Copilot",
+    "recommendation": "Proposed Management Recommendation",
+    "confidence_score": "Accuracy & Reliability Score",
+    "business_reasoning": "Business Analytical Rationale",
+    "data_sources": "Data Sources & Audit Trails",
+    "risk_classification": "Risk Classification Level"
+  }
+}
