@@ -267,6 +267,31 @@ export const CustomerInvoicingView: React.FC = () => {
     exportInvoiceToExcel(customerInvoiceObject, matchingTrips);
   };
 
+  const handleExportJSONSnapshot = () => {
+    const dataStr = JSON.stringify(
+      {
+        invoiceNumber,
+        customer: selectedCustomer?.name,
+        period: `${getMonthName(selectedMonth, language)} ${selectedYear}`,
+        totals: { subtotal, vatAmount, grandTotal },
+        items: invoiceItems,
+        tripsCount: matchingTrips.length,
+        status: currentBackendInvoice?.status || 'Draft',
+        zatcaQrBase64,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    );
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Invoice_Snapshot_${invoiceNumber}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Step 1: Save Draft to Backend
   const handleSaveDraft = async () => {
     if (!currentCompany?.id) return;
@@ -540,6 +565,17 @@ Myon Economic Contracting Co. Ltd.`;
             <span>
               {isAr ? 'المرفقات وتذاكر الميزان' : 'Attachments'} ({invoiceAttachments.length})
             </span>
+          </button>
+
+          {/* JSON Data Snapshot */}
+          <button
+            id="export-invoice-json-btn"
+            onClick={handleExportJSONSnapshot}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/80 px-3 py-2 text-xs font-bold text-amber-900 shadow-xs hover:bg-amber-100 transition-colors"
+            title={isAr ? 'تصدير لقطة بيانات JSON للفاتورة' : 'Export JSON Snapshot'}
+          >
+            <Download className="h-3.5 w-3.5 text-amber-700" />
+            <span>{isAr ? 'لقطة JSON' : 'JSON Snapshot'}</span>
           </button>
 
           {/* Excel Export */}
@@ -899,7 +935,7 @@ Myon Economic Contracting Co. Ltd.`;
         </div>
 
         {/* Aggregate Items Table */}
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>
               <tr className="border-y-2 border-slate-900 bg-slate-100 font-bold text-slate-900">

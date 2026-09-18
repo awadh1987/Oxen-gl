@@ -358,7 +358,7 @@ export const OperationsLogView: React.FC = () => {
 
       {/* Main Operations Table */}
       <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-900 text-white font-bold">

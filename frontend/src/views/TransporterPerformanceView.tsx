@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, BanknoteArrowUp, CircleCheck, ReceiptText, Sparkles, Truck } from 'lucide-react';
+import {
+  AlertTriangle,
+  BanknoteArrowUp,
+  CircleCheck,
+  ReceiptText,
+  Truck,
+  RefreshCw,
+  Download,
+  FileSpreadsheet,
+  Printer,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ApiSettlement, erpApi } from '../services/api';
 import { formatCurrency, formatTonnage } from '../utils/formatters';
@@ -12,15 +24,29 @@ export const TransporterPerformanceView: React.FC = () => {
   const isDark = themeMode === 'dark';
   const [serverSettlements, setServerSettlements] = useState<ApiSettlement[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
+
+  const fetchData = async () => {
+    if (!currentCompany) return;
+    setIsRefreshing(true);
+    try {
+      const [settlements, records] = await Promise.all([
+        erpApi.getSettlements(currentCompany.id),
+        erpApi.getPartners(currentCompany.id),
+      ]);
+      setServerSettlements(settlements);
+      setPartners(records);
+    } catch (error) {
+      console.warn('Settlement ledger unavailable; displaying operational fallback:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    if (!currentCompany) return;
-    Promise.all([erpApi.getSettlements(currentCompany.id), erpApi.getPartners(currentCompany.id)])
-      .then(([settlements, records]) => {
-        setServerSettlements(settlements);
-        setPartners(records);
-      })
-      .catch((error) => console.warn('Settlement ledger unavailable; displaying operational fallback:', error));
+    fetchData();
   }, [currentCompany]);
 
   const rows = useMemo(() => {
@@ -86,6 +112,62 @@ export const TransporterPerformanceView: React.FC = () => {
     { loss: 0, gross: 0, penalties: 0, payout: 0 }
   );
 
+  const totalPages = Math.ceil(rows.length / pageSize) || 1;
+  const paginatedRows = useMemo(() => {
+    return rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [rows, currentPage, pageSize]);
+
+  const handleExportJSONSnapshot = () => {
+    const dataStr = JSON.stringify(
+      {
+        company: currentCompany?.name,
+        totals,
+        carriers: rows,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    );
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Transporter_Settlement_Snapshot_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    const headers = isAr
+      ? ['#', 'اسم الناقل', 'الرحلات', 'المحمّل (طن)', 'المسلّم (طن)', 'الهدر (طن)', 'نسبة الفقد %', 'النولون (ر.س)', 'الجزاءات (ر.س)', 'الصافي (ر.س)', 'الامتثال']
+      : ['#', 'Carrier Name', 'Trips', 'Loaded (T)', 'Delivered (T)', 'Wastage (T)', 'Loss %', 'Gross Fee (SAR)', 'Penalties (SAR)', 'Net Payout (SAR)', 'Compliance'];
+    const rowsCsv = rows.map((r, idx) => [
+      idx + 1,
+      `"${r.name}"`,
+      r.trips,
+      r.loaded.toFixed(2),
+      r.delivered.toFixed(2),
+      r.wastage.toFixed(2),
+      `${r.loss.toFixed(2)}%`,
+      r.gross.toFixed(2),
+      r.penalties.toFixed(2),
+      r.payout.toFixed(2),
+      r.compliance,
+    ].join(','));
+    const csvContent = '\uFEFF' + [headers.join(','), ...rowsCsv].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Transporter_Settlements_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   const cards = [
     {
       title: isAr ? 'إجمالي الفاقد أثناء النقل' : 'Total Route Loss',
@@ -119,27 +201,78 @@ export const TransporterPerformanceView: React.FC = () => {
 
   return (
     <div className="space-y-5" id="transporter-performance-view">
-      <header className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] p-5 shadow-sm transition-colors">
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-600 dark:text-orange-400">
-          {isAr ? 'دفتر العمليات التشغيلية' : 'Operational ledger'}
-        </p>
-        <h1 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
-          {isAr ? 'فاقد النقل وتسويات نولون الشاحنات' : 'Carrier Loss & Freight Settlements'}
-        </h1>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          {isAr
-            ? 'تدقيق فروقات موازين القبان بين التحميل والتفريغ، احتساب نسب الهدر وتطبيق الجزاءات وإصدار سندات الصرف.'
-            : 'Audit transit material losses, flag abnormal weighbridge variance, apply deductions, and settle freight fees.'}
-        </p>
+      {/* Header Banner & Action Bar */}
+      <header className="flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] p-5 shadow-xs transition-colors sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-600 dark:text-orange-400">
+            {isAr ? 'دفتر العمليات التشغيلية' : 'Operational ledger'}
+          </p>
+          <h1 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
+            {isAr ? 'فاقد النقل وتسويات نولون الشاحنات' : 'Carrier Loss & Freight Settlements'}
+          </h1>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {isAr
+              ? 'تدقيق فروقات موازين القبان بين التحميل والتفريغ، احتساب نسب الهدر وتطبيق الجزاءات وإصدار سندات الصرف.'
+              : 'Audit transit material losses, flag abnormal weighbridge variance, apply deductions, and settle freight fees.'}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Refresh Button */}
+          <button
+            id="refresh-transporters-btn"
+            onClick={fetchData}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+            title={isAr ? 'تحديث البيانات من الخادم' : 'Refresh Data'}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-orange-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isAr ? (isRefreshing ? 'تحديث...' : 'تحديث') : (isRefreshing ? 'Refreshing...' : 'Refresh')}</span>
+          </button>
+
+          {/* JSON Snapshot Button */}
+          <button
+            id="export-transporters-json-btn"
+            onClick={handleExportJSONSnapshot}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/80 px-3 py-2 text-xs font-bold text-amber-900 shadow-xs hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40 transition-colors"
+            title={isAr ? 'تصدير لقطة بيانات JSON' : 'Export JSON Snapshot'}
+          >
+            <Download className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+            <span>{isAr ? 'لقطة JSON' : 'JSON Snapshot'}</span>
+          </button>
+
+          {/* Export Excel Button */}
+          <button
+            id="export-transporters-excel-btn"
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+            title={isAr ? 'تصدير كشف Excel' : 'Export Excel'}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+            <span>{isAr ? 'تصدير Excel' : 'Export Excel'}</span>
+          </button>
+
+          {/* Print Button */}
+          <button
+            id="print-transporters-btn"
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+            title={isAr ? 'معاينة وطباعة التقرير' : 'Print Report'}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span>{isAr ? 'معاينة وطباعة' : 'Export & Print'}</span>
+          </button>
+        </div>
       </header>
 
+      {/* Metric Cards */}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => {
           const Icon = card.icon;
           return (
             <article
               key={card.title}
-              className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] p-4 shadow-sm transition-colors"
+              className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] p-4 shadow-xs transition-colors"
             >
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{card.title}</span>
@@ -151,7 +284,8 @@ export const TransporterPerformanceView: React.FC = () => {
         })}
       </section>
 
-      <section className="overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] shadow-sm transition-colors">
+      {/* Table Section with Enclosed w-full overflow-x-auto container and Pagination */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#141726] shadow-xs transition-colors">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4">
           <div>
             <h2 className="text-sm font-black text-slate-900 dark:text-white">
@@ -166,7 +300,8 @@ export const TransporterPerformanceView: React.FC = () => {
             {rows.length} {isAr ? 'ناقل / مورد' : 'suppliers'}
           </span>
         </div>
-        <div className="overflow-x-auto">
+
+        <div className="w-full overflow-x-auto">
           <table className="min-w-[1160px] w-full text-right text-xs">
             <thead className="bg-slate-900 dark:bg-slate-950 text-white">
               <tr>
@@ -178,9 +313,11 @@ export const TransporterPerformanceView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {rows.map((row, index) => (
+              {paginatedRows.map((row, index) => (
                 <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                  <td className="px-3 py-3 text-center font-mono text-slate-600 dark:text-slate-400">{index + 1}</td>
+                  <td className="px-3 py-3 text-center font-mono text-slate-600 dark:text-slate-400">
+                    {(currentPage - 1) * pageSize + index + 1}
+                  </td>
                   <td className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100">{row.name}</td>
                   <td className="px-3 py-3 text-center text-slate-700 dark:text-slate-300">{row.trips}</td>
                   <td className="px-3 py-3 text-center text-slate-700 dark:text-slate-300">{formatTonnage(row.loaded, language)}</td>
@@ -217,8 +354,14 @@ export const TransporterPerformanceView: React.FC = () => {
                       </button>
                     ) : (
                       <button
-                        onClick={() => window.dispatchEvent(new CustomEvent('oxengl-open-voucher-modal', { detail: { partnerId: row.id, partnerName: row.name, amount: row.payout } }))}
-                        className="bg-orange-600 hover:bg-orange-700 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm transition-colors"
+                        onClick={() =>
+                          window.dispatchEvent(
+                            new CustomEvent('oxengl-open-voucher-modal', {
+                              detail: { partnerId: row.id, partnerName: row.name, amount: row.payout },
+                            })
+                          )
+                        }
+                        className="bg-orange-600 hover:bg-orange-700 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm transition-colors rounded-lg"
                       >
                         {isAr ? 'إصدار سند صرف' : 'Issue Voucher'}
                       </button>
@@ -236,16 +379,37 @@ export const TransporterPerformanceView: React.FC = () => {
             </tbody>
           </table>
         </div>
-      </section>
 
-      <button
-        onClick={() => window.dispatchEvent(new Event('oxengl-open-ai'))}
-        title={isAr ? 'المساعد الذكي لتدقيق العمليات' : 'AI Operations Auditor'}
-        className="fixed bottom-6 right-6 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lg shadow-orange-500/30 hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-      >
-        <Sparkles className="h-5 w-5" />
-      </button>
+        {/* Table Pagination Bar */}
+        <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 p-4 text-xs text-slate-500 dark:text-slate-400">
+          <div>
+            {isAr
+              ? `عرض ${paginatedRows.length} من أصل ${rows.length} ناقل`
+              : `Showing ${paginatedRows.length} of ${rows.length} carriers`}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1 font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+            >
+              {isAr ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+              <span>{isAr ? 'السابق' : 'Previous'}</span>
+            </button>
+            <span className="font-mono font-bold text-slate-900 dark:text-white px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-1 font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+            >
+              <span>{isAr ? 'التالي' : 'Next'}</span>
+              {isAr ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
-

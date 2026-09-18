@@ -17,6 +17,9 @@ import {
   Calendar,
   Layers,
   Radio,
+  Download,
+  FileSpreadsheet,
+  Printer,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { erpApi } from '../services/api';
@@ -192,6 +195,85 @@ export const FleetMaintenanceView: React.FC = () => {
     }
   };
 
+  const handleExportJSONSnapshot = () => {
+    const dataStr = JSON.stringify(
+      {
+        company: currentCompany?.name,
+        activeTab,
+        totalOrders: orders.length,
+        totalFuelLogs: fuelLogs.length,
+        orders,
+        fuelLogs,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    );
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Fleet_Maintenance_Snapshot_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    if (activeTab === 'fuel') {
+      const headers = ['Tx #', 'Vehicle', 'Linked Trip', 'Liters', 'Price/L', 'Total (SAR)', 'Odometer', 'Fuel Station'];
+      const rowsCsv = fuelLogs.map((f) => {
+        const veh = vehicleMap.get(f.vehicle_id);
+        const trp = f.trip_id ? tripMap.get(f.trip_id) : null;
+        return [
+          f.transaction_number,
+          veh ? `"${veh.license_plate} (${veh.name})"` : f.vehicle_id,
+          trp ? trp.trip_number : f.trip_id || '',
+          f.liters,
+          f.price_per_liter,
+          f.total_amount,
+          f.odometer_reading || '',
+          `"${f.fuel_station || ''}"`,
+        ].join(',');
+      });
+      const csvContent = '\uFEFF' + [headers.join(','), ...rowsCsv].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OxenGL_Fuel_Telemetry_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const headers = ['Order #', 'Vehicle', 'Type', 'Priority', 'Description', 'Parts Cost', 'Labor Cost', 'Total Cost', 'Status'];
+      const rowsCsv = orders.map((o) => {
+        const veh = vehicleMap.get(o.vehicle_id);
+        return [
+          o.order_number,
+          veh ? `"${veh.license_plate} (${veh.name})"` : o.vehicle_id,
+          o.order_type,
+          o.priority,
+          `"${o.description || ''}"`,
+          o.parts_cost,
+          o.labor_cost,
+          o.total_cost,
+          o.status,
+        ].join(',');
+      });
+      const csvContent = '\uFEFF' + [headers.join(','), ...rowsCsv].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OxenGL_Maintenance_Orders_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className={`space-y-6 min-h-screen ${isDark ? 'text-slate-100' : 'text-slate-900'}`} dir={isAr ? 'rtl' : 'ltr'}>
       {/* Header Banner */}
@@ -222,25 +304,53 @@ export const FleetMaintenanceView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setShowOrderModal(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-md transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 px-3.5 py-2 text-xs font-bold text-white shadow-md transition-colors"
             >
               <Plus className="h-4 w-4" />
-              {isAr ? 'أمر صيانة جديد' : 'New Work Order'}
+              {isAr ? 'أمر صيانة جديد' : 'New Order'}
             </button>
             <button
               onClick={() => setShowFuelModal(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 px-3.5 py-2.5 text-xs font-bold text-white shadow-md transition-colors"
+              className="flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 px-3.5 py-2 text-xs font-bold text-white shadow-md transition-colors"
             >
               <Fuel className="h-4 w-4" />
               {isAr ? 'تسجيل وقود' : 'Log Fuel'}
             </button>
             <button
+              id="export-fleet-json-btn"
+              onClick={handleExportJSONSnapshot}
+              className="flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-500/20 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/30 transition-colors"
+              title={isAr ? 'تصدير لقطة بيانات JSON' : 'Export JSON Snapshot'}
+            >
+              <Download className="h-3.5 w-3.5 text-amber-300" />
+              <span>{isAr ? 'لقطة JSON' : 'JSON'}</span>
+            </button>
+            <button
+              id="export-fleet-excel-btn"
+              onClick={handleExportExcel}
+              className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/20 px-3 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/30 transition-colors"
+              title={isAr ? 'تصدير Excel' : 'Export Excel'}
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-300" />
+              <span>{isAr ? 'تصدير Excel' : 'Excel'}</span>
+            </button>
+            <button
+              id="print-fleet-btn"
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20 transition-colors"
+              title={isAr ? 'طباعة التقرير' : 'Print'}
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span>{isAr ? 'طباعة' : 'Print'}</span>
+            </button>
+            <button
               onClick={fetchData}
               disabled={loading}
-              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-colors"
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-colors"
+              title={isAr ? 'تحديث' : 'Refresh'}
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
@@ -377,7 +487,7 @@ export const FleetMaintenanceView: React.FC = () => {
         <div className={`rounded-3xl border p-6 shadow-xs ${
           isDark ? 'border-slate-800 bg-[#141726]/90' : 'border-slate-200 bg-white'
         }`}>
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
+          <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
             <table className="w-full text-left text-xs">
               <thead className={`border-b ${isDark ? 'border-slate-800 bg-slate-900/80 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
                 <tr>
@@ -454,7 +564,7 @@ export const FleetMaintenanceView: React.FC = () => {
         <div className={`rounded-3xl border p-6 shadow-xs ${
           isDark ? 'border-slate-800 bg-[#141726]/90' : 'border-slate-200 bg-white'
         }`}>
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
+          <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
             <table className="w-full text-left text-xs">
               <thead className={`border-b ${isDark ? 'border-slate-800 bg-slate-900/80 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
                 <tr>
@@ -519,7 +629,7 @@ export const FleetMaintenanceView: React.FC = () => {
         <div className={`rounded-3xl border p-6 shadow-xs ${
           isDark ? 'border-slate-800 bg-[#141726]/90' : 'border-slate-200 bg-white'
         }`}>
-          <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
+          <div className="w-full overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
             <table className="w-full text-left text-xs">
               <thead className={`border-b ${isDark ? 'border-slate-800 bg-slate-900/80 text-slate-400' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
                 <tr>

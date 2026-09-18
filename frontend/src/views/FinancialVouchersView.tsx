@@ -22,6 +22,10 @@ import {
   Download,
   DollarSign,
   Scale,
+  RefreshCw,
+  FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 export const FinancialVouchersView: React.FC = () => {
@@ -110,6 +114,74 @@ export const FinancialVouchersView: React.FC = () => {
     });
   }, [vouchers, typeFilter, categoryFilter, statusFilter, selectedMonth, searchQuery]);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const totalPages = Math.ceil(filteredVouchers.length / pageSize) || 1;
+  const paginatedVouchers = useMemo(() => {
+    return filteredVouchers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [filteredVouchers, currentPage, pageSize]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 500);
+  };
+
+  const handleExportJSONSnapshot = () => {
+    const dataStr = JSON.stringify(
+      {
+        totalVouchers: filteredVouchers.length,
+        stats,
+        vouchers: filteredVouchers,
+        exportedAt: new Date().toISOString(),
+      },
+      null,
+      2
+    );
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Financial_Vouchers_Snapshot_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    const headers = isAr
+      ? ['رقم السند', 'النوع', 'التصنيف', 'التاريخ', 'المستفيد / الدافع', 'المبلغ بالريال', 'طريقة السداد', 'الغرض', 'المرجع', 'الحالة']
+      : ['Voucher No', 'Type', 'Category', 'Date', 'Party Name', 'Amount (SAR)', 'Method', 'Purpose', 'Ref', 'Status'];
+    const rowsCsv = filteredVouchers.map((v) =>
+      [
+        v.voucherNumber,
+        v.type,
+        v.category,
+        v.date,
+        `"${v.partyName}"`,
+        v.amount.toFixed(2),
+        v.paymentMethod,
+        `"${v.purpose}"`,
+        v.linkedReferenceNo || '',
+        v.status,
+      ].join(',')
+    );
+    const csvContent = '\uFEFF' + [headers.join(','), ...rowsCsv].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Financial_Vouchers_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div id="financial-vouchers-view" className="space-y-6">
       {/* Header Banner */}
@@ -133,11 +205,11 @@ export const FinancialVouchersView: React.FC = () => {
         </div>
 
         {/* Navigation Tabs and Actions */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="flex rounded-2xl border border-slate-200 bg-slate-100 p-1">
             <button
               onClick={() => setActiveTab('vouchers')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition cursor-pointer ${
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-black transition cursor-pointer ${
                 activeTab === 'vouchers'
                   ? 'bg-white text-slate-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -148,27 +220,69 @@ export const FinancialVouchersView: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('balanced_grid')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-black transition cursor-pointer ${
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-black transition cursor-pointer ${
                 activeTab === 'balanced_grid'
                   ? 'bg-white text-indigo-900 shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Scale className="h-4 w-4 text-indigo-600" />
-              <span>{isAr ? 'مصفوفة قيود اليومية المتوازنة' : 'Balanced Journal Matrix'}</span>
+              <span>{isAr ? 'مصفوفة قيود اليومية' : 'Balanced Journal'}</span>
               <span className="rounded-md bg-indigo-100 px-1.5 py-0.5 text-[10px] font-black text-indigo-700">
                 Σ Dr = Σ Cr
               </span>
             </button>
           </div>
 
+          {/* Action Bar Controls: Refresh, Snapshot, Excel, Print */}
+          <button
+            id="refresh-vouchers-btn"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors disabled:opacity-50"
+            title={isAr ? 'تحديث السندات' : 'Refresh Vouchers'}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-orange-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isAr ? (isRefreshing ? 'تحديث...' : 'تحديث') : (isRefreshing ? 'Refreshing...' : 'Refresh')}</span>
+          </button>
+
+          <button
+            id="export-vouchers-json-btn"
+            onClick={handleExportJSONSnapshot}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/80 px-3 py-2 text-xs font-bold text-amber-900 shadow-xs hover:bg-amber-100 transition-colors"
+            title={isAr ? 'تصدير لقطة بيانات JSON' : 'Export JSON Snapshot'}
+          >
+            <Download className="h-3.5 w-3.5 text-amber-700" />
+            <span>{isAr ? 'لقطة JSON' : 'JSON Snapshot'}</span>
+          </button>
+
+          <button
+            id="export-vouchers-excel-btn"
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors"
+            title={isAr ? 'تصدير كشف Excel' : 'Export to Excel'}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+            <span>{isAr ? 'تصدير Excel' : 'Export Excel'}</span>
+          </button>
+
+          <button
+            id="print-vouchers-btn"
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition-colors"
+            title={isAr ? 'طباعة كشف السندات' : 'Print Vouchers'}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span>{isAr ? 'معاينة وطباعة' : 'Export & Print'}</span>
+          </button>
+
           {canAccessFinancials && activeTab === 'vouchers' && (
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-2 rounded-2xl bg-orange-600 px-5 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/30 transition-all hover:bg-orange-700 cursor-pointer"
+              className="flex items-center gap-2 rounded-2xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/30 transition-all hover:bg-orange-700 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>{isAr ? 'إنشاء سند مالي جديد' : 'New Financial Voucher'}</span>
+              <span>{isAr ? 'إنشاء سند مالي جديد' : 'New Voucher'}</span>
             </button>
           )}
         </div>
@@ -331,7 +445,7 @@ export const FinancialVouchersView: React.FC = () => {
 
       {/* Vouchers Data Table */}
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xs">
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-x-auto">
           <table className="w-full text-right text-xs">
             <thead className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-black uppercase text-slate-600">
               <tr>
@@ -358,7 +472,7 @@ export const FinancialVouchersView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredVouchers.map((vch) => {
+                paginatedVouchers.map((vch) => {
                   const isPayment = vch.type === 'Payment';
                   return (
                     <tr key={vch.id} className="transition-colors hover:bg-slate-50/80">
@@ -523,7 +637,38 @@ export const FinancialVouchersView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Table Pagination Bar */}
+        <div className="flex items-center justify-between border-t border-slate-100 p-4 text-xs text-slate-500">
+          <div>
+            {isAr
+              ? `عرض ${paginatedVouchers.length} من أصل ${filteredVouchers.length} سند مالي`
+              : `Showing ${paginatedVouchers.length} of ${filteredVouchers.length} vouchers`}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+            >
+              {isAr ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+              <span>{isAr ? 'السابق' : 'Previous'}</span>
+            </button>
+            <span className="font-mono font-bold text-slate-900 px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1 font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
+            >
+              <span>{isAr ? 'التالي' : 'Next'}</span>
+              {isAr ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </div>
       </div>
+
       </>
       )}
 

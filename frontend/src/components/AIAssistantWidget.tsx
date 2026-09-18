@@ -94,6 +94,25 @@ export const AIAssistantWidget: React.FC<AIAssistantWidgetProps> = ({
   const [useSearch, setUseSearch] = useState<boolean>(false);
   const [useMaps, setUseMaps] = useState<boolean>(false);
 
+  // Floating Launcher Minimized State (to prevent obstructing scrollbars/pagination)
+  const [isLauncherMinimized, setIsLauncherMinimized] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('oxengl_ai_widget_minimized') === 'true';
+    }
+    return false;
+  });
+
+  const toggleLauncherMinimized = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLauncherMinimized((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('oxengl_ai_widget_minimized', String(next));
+      }
+      return next;
+    });
+  };
+
   // Sync with external opener if provided (e.g. from top Navbar)
   useEffect(() => {
     if (typeof isOpenExternal === 'boolean') {
@@ -445,46 +464,88 @@ How can I assist you with your operations today?`,
 
   return (
     <>
-      {/* Floating Smart Launcher Button (When widget is minimized) */}
+      {/* Floating Smart Launcher Button (When widget is minimized / closed) */}
       {!isOpen && (
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-          className={`fixed bottom-4 ${isAr ? 'left-4' : 'right-4'} z-50`}
+          className={`fixed bottom-4 ${isAr ? 'left-4' : 'right-4'} z-30`}
         >
-          <button
-            id="floating-ai-assistant-button"
-            onClick={() => setIsOpen(true)}
-            className="group relative flex items-center gap-2 rounded-full border border-orange-300/80 bg-gradient-to-r from-orange-950 via-orange-800 to-purple-900 px-2.5 py-2 text-white shadow-xl shadow-orange-950/30 transition-all hover:scale-105 hover:shadow-orange-500/30 active:scale-95"
-            title={isAr ? 'فتح المساعد الذكي (Ctrl + J)' : 'Open AI Assistant (Ctrl + J)'}
-          >
-            <span className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 opacity-60 blur-xs group-hover:opacity-100 transition-opacity" />
-
-            <div className="relative flex items-center gap-2.5">
-              <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-white shadow-inner backdrop-blur-md">
-                <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+          {isLauncherMinimized ? (
+            /* Compact Icon-Only Launcher Rail Mode to never block pagination or table scrollbars */
+            <div className="relative group flex items-center">
+              <button
+                id="floating-ai-assistant-compact-button"
+                onClick={() => setIsOpen(true)}
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-orange-300/80 bg-gradient-to-r from-orange-950 via-orange-800 to-purple-900 text-white shadow-lg shadow-orange-950/30 transition-all hover:scale-110 active:scale-95"
+                title={isAr ? 'المساعد الذكي OxenGL (اضغط للفتح)' : 'OxenGL AI Intelligence (Click to open)'}
+              >
+                <Sparkles className="h-5 w-5 text-amber-300 animate-pulse" />
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
                 </span>
-              </div>
+              </button>
 
-              <div className="hidden flex-col text-right sm:flex">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-black tracking-wide">
-                    {isAr ? 'ذكاء العمليات OxenGL' : 'OxenGL Operational Intelligence'}
-                  </span>
-                  <span className="rounded-md bg-amber-400/25 px-1.5 py-0.2 text-[9px] font-extrabold text-amber-300">
-                    Operational Intelligence
-                  </span>
-                </div>
-                <span className="text-[10px] text-orange-200">
-                  {isAr ? 'تدقيق العمليات • خرائط • بحث حي' : 'Fleet & Audit • Maps • Search'}
-                </span>
-              </div>
+              {/* Restore Full Badge Trigger */}
+              <button
+                type="button"
+                onClick={toggleLauncherMinimized}
+                className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-2 -left-2 bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white rounded-full p-1 shadow-sm"
+                title={isAr ? 'توسيع شارة المساعد الذكي' : 'Expand AI Badge'}
+              >
+                <Maximize2 className="h-3 w-3 text-orange-400" />
+              </button>
             </div>
-          </button>
+          ) : (
+            /* Full Badge Launcher with Minimize Toggle */
+            <div className="relative flex items-center">
+              <button
+                id="floating-ai-assistant-button"
+                onClick={() => setIsOpen(true)}
+                className="group relative flex items-center gap-2 rounded-full border border-orange-300/80 bg-gradient-to-r from-orange-950 via-orange-800 to-purple-900 px-3 py-2 text-white shadow-xl shadow-orange-950/30 transition-all hover:scale-[1.02] hover:shadow-orange-500/30 active:scale-95"
+                title={isAr ? 'فتح المساعد الذكي (Ctrl + J)' : 'Open AI Assistant (Ctrl + J)'}
+              >
+                <span className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 opacity-60 blur-xs group-hover:opacity-100 transition-opacity" />
+
+                <div className="relative flex items-center gap-2.5">
+                  <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-white/15 text-white shadow-inner backdrop-blur-md">
+                    <Sparkles className="h-4 w-4 text-amber-300 animate-pulse" />
+                    <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    </span>
+                  </div>
+
+                  <div className="hidden flex-col text-right sm:flex">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black tracking-wide">
+                        {isAr ? 'ذكاء العمليات OxenGL' : 'OxenGL Operational Intelligence'}
+                      </span>
+                      <span className="rounded-md bg-amber-400/25 px-1.5 py-0.2 text-[9px] font-extrabold text-amber-300">
+                        Live
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-orange-200">
+                      {isAr ? 'تدقيق العمليات • خرائط • بحث حي' : 'Fleet & Audit • Maps • Search'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Minimize to compact orb button */}
+              <button
+                type="button"
+                id="ai-widget-minimize-toggle"
+                onClick={toggleLauncherMinimized}
+                className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white shadow-md transition-colors"
+                title={isAr ? 'تصغير الشارة لتجنب تغطية الجداول' : 'Minimize badge to prevent covering tables'}
+              >
+                <Minimize2 className="h-3 w-3 text-orange-400" />
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
 

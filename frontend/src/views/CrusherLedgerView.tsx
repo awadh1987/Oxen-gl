@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, CreditCard, MapPin, Sparkles } from 'lucide-react';
+import { Building2, CreditCard, MapPin, RefreshCw, Download, FileSpreadsheet, Printer } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ApiAccountMove, ApiSettlement, erpApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
@@ -14,20 +14,29 @@ export const CrusherLedgerView: React.FC = () => {
   const [moves, setMoves] = useState<ApiAccountMove[]>([]);
   const [settlements, setSettlements] = useState<ApiSettlement[]>([]);
   const [selectedId, setSelectedId] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchLedgerData = async () => {
+    if (!currentCompany) return;
+    setIsRefreshing(true);
+    try {
+      const [records, ledgerMoves, ledgerSettlements] = await Promise.all([
+        erpApi.getPartners(currentCompany.id),
+        erpApi.getAccountingMoves(currentCompany.id),
+        erpApi.getSettlements(currentCompany.id),
+      ]);
+      setPartners(records);
+      setMoves(ledgerMoves);
+      setSettlements(ledgerSettlements);
+    } catch (error) {
+      console.warn('Sourcing ledger API unavailable; using operational fallback:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    if (!currentCompany) return;
-    Promise.all([
-      erpApi.getPartners(currentCompany.id),
-      erpApi.getAccountingMoves(currentCompany.id),
-      erpApi.getSettlements(currentCompany.id),
-    ])
-      .then(([records, ledgerMoves, ledgerSettlements]) => {
-        setPartners(records);
-        setMoves(ledgerMoves);
-        setSettlements(ledgerSettlements);
-      })
-      .catch((error) => console.warn('Sourcing ledger API unavailable; using operational fallback:', error));
+    fetchLedgerData();
   }, [currentCompany]);
 
   const suppliers = useMemo(() => {
@@ -69,25 +78,126 @@ export const CrusherLedgerView: React.FC = () => {
   const outstanding = purchases - payments;
   const supplierMoves = selected ? moves.filter((move) => move.partner_id === selected.id) : [];
 
+  const handleExportJSONSnapshot = () => {
+    const dataStr = JSON.stringify(
+      {
+        tenant: currentCompany?.name,
+        supplier: selected,
+        purchases,
+        payments,
+        outstanding,
+        moves: supplierMoves,
+        exportDate: new Date().toISOString(),
+      },
+      null,
+      2
+    );
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Crusher_Ledger_${selected?.name || 'Supplier'}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = () => {
+    const headers = isAr
+      ? ['التاريخ', 'رقم القيد', 'المرجع', 'الحالة', 'اسم المورد', 'المبلغ المستحق']
+      : ['Date', 'Move', 'Reference', 'State', 'Supplier', 'Amount'];
+    const rowsCsv = supplierMoves.map((m) => {
+      const settlement = settlements.find((item) => item.move_id === m.id);
+      return [
+        m.date.slice(0, 10),
+        m.name,
+        m.ref || '',
+        m.state,
+        `"${selected?.name || ''}"`,
+        settlement ? Number(settlement.net_payable) : 0,
+      ].join(',');
+    });
+    const csvContent = '\uFEFF' + [headers.join(','), ...rowsCsv].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `OxenGL_Crusher_Ledger_${selected?.name || 'Supplier'}_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="space-y-5" id="crusher-ledger-view">
-      {/* Header Banner */}
+      {/* Header Banner & Action Bar */}
       <header
-        className={`rounded-2xl border p-5 shadow-xs transition-colors ${
+        className={`flex flex-col gap-4 rounded-2xl border p-5 shadow-xs transition-colors sm:flex-row sm:items-center sm:justify-between ${
           isDark ? 'border-slate-800 bg-[#141726]' : 'border-slate-200 bg-white'
         }`}
       >
-        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">
-          {isAr ? 'دفتر توريد المواد الخام' : 'Sourcing Ledger'}
-        </p>
-        <h1 className="mt-1 text-xl font-black text-slate-900 dark:text-white">
-          {isAr ? 'حسابات كسارات ومقالع المواد الحصوية' : 'Raw Material Payables & Accounts Ledger'}
-        </h1>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          {isAr
-            ? 'متابعة مشتريات المواد الخام، سندات الصرف الدائنة، ومطابقة الأرصدة المستحقة للمقالع.'
-            : 'Track raw material purchases, supplier debit vouchers, and outstanding balances.'}
-        </p>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-orange-500">
+            {isAr ? 'دفتر توريد المواد الخام' : 'Sourcing Ledger'}
+          </p>
+          <h1 className="mt-1 text-xl font-black text-slate-900 dark:text-white">
+            {isAr ? 'حسابات كسارات ومقالع المواد الحصوية' : 'Raw Material Payables & Accounts Ledger'}
+          </h1>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {isAr
+              ? 'متابعة مشتريات المواد الخام، سندات الصرف الدائنة، ومطابقة الأرصدة المستحقة للمقالع.'
+              : 'Track raw material purchases, supplier debit vouchers, and outstanding balances.'}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Refresh Button */}
+          <button
+            id="refresh-crushers-btn"
+            onClick={fetchLedgerData}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+            title={isAr ? 'تحديث البيانات من الخادم' : 'Refresh from Server'}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-orange-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isAr ? (isRefreshing ? 'تحديث...' : 'تحديث') : (isRefreshing ? 'Refreshing...' : 'Refresh')}</span>
+          </button>
+
+          {/* JSON Snapshot Button */}
+          <button
+            id="export-crushers-json-btn"
+            onClick={handleExportJSONSnapshot}
+            className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/80 px-3 py-2 text-xs font-bold text-amber-900 shadow-xs hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/40 transition-colors"
+            title={isAr ? 'تصدير لقطة بيانات JSON للكشف' : 'Export JSON Snapshot'}
+          >
+            <Download className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+            <span>{isAr ? 'لقطة JSON' : 'JSON Snapshot'}</span>
+          </button>
+
+          {/* Export Excel / CSV Button */}
+          <button
+            id="export-crushers-excel-btn"
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+            title={isAr ? 'تصدير إلى Excel' : 'Export to Excel'}
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+            <span>{isAr ? 'تصدير Excel' : 'Export Excel'}</span>
+          </button>
+
+          {/* Print Button */}
+          <button
+            id="print-crushers-btn"
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+            title={isAr ? 'طباعة كشف الحساب' : 'Print Statement'}
+          >
+            <Printer className="h-3.5 w-3.5" />
+            <span>{isAr ? 'معاينة وطباعة' : 'Export & Print'}</span>
+          </button>
+        </div>
       </header>
 
       {/* Sourcing Supplier Grid */}
@@ -196,7 +306,7 @@ export const CrusherLedgerView: React.FC = () => {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="w-full overflow-x-auto">
             <table className="min-w-[720px] w-full text-start text-xs">
               <thead className="bg-slate-900 dark:bg-slate-950 text-white">
                 <tr>
@@ -255,16 +365,8 @@ export const CrusherLedgerView: React.FC = () => {
           </div>
         </section>
       )}
-
-      {/* Floating AI Insights Action Button */}
-      <button
-        onClick={() => window.dispatchEvent(new Event('oxengl-open-ai'))}
-        title={isAr ? 'ذكاء العمليات المحاسبية' : 'AI Operations Auditor'}
-        className="fixed bottom-6 end-6 z-20 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-600 text-white shadow-lg shadow-orange-500/30 hover:brightness-110 transition-all"
-      >
-        <Sparkles className="h-5 w-5" />
-      </button>
     </div>
   );
 };
+
 
