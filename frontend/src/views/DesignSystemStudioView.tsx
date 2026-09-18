@@ -19,10 +19,8 @@ import {
   Receipt,
   Scale,
   Landmark,
-  ExternalLink,
-  ChevronRight,
-  Terminal,
-} from 'lucide-react';
+import { ExternalLink, ChevronRight, Terminal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../context/AppContext';
 import {
   TENANT_PALETTES,
@@ -47,6 +45,7 @@ export const DesignSystemStudioView: React.FC = () => {
     currentCompany,
     operations,
   } = useApp();
+  const { t } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<
     'overview' | 'themes' | 'cards' | 'grid' | 'workflow' | 'ai-prompt-gen'
@@ -62,23 +61,23 @@ export const DesignSystemStudioView: React.FC = () => {
   const sampleOperations = operations.slice(0, 10);
 
   const sampleColumns = [
-    { key: 'scale_ticket_no', header: 'Scale Ticket #', width: '130px' },
-    { key: 'destination_customer', header: 'Customer Entity', width: '180px' },
-    { key: 'loading_source', header: 'Crusher Quarry', width: '160px' },
-    { key: 'material_type', header: 'Aggregate Material', width: '140px' },
+    { key: 'scale_ticket_no', header: t('design_studio.gridScaleTicket', 'Scale Ticket #'), width: '130px' },
+    { key: 'destination_customer', header: t('design_studio.gridCustomer', 'Customer Entity'), width: '180px' },
+    { key: 'loading_source', header: t('design_studio.gridQuarry', 'Crusher Quarry'), width: '160px' },
+    { key: 'material_type', header: t('design_studio.gridMaterial', 'Aggregate Material'), width: '140px' },
     {
       key: 'qty_delivered',
-      header: 'Net Weight (MT)',
+      header: t('design_studio.gridNetWeight', 'Net Weight (MT)'),
       align: 'right' as const,
       render: (op: any) => (
         <span className="font-mono font-bold text-amber-400">
-          {Number(op.qty_delivered || 0).toFixed(2)} MT
+          <bdi>{Number(op.qty_delivered || 0).toFixed(2)} MT</bdi>
         </span>
       ),
     },
     {
       key: 'wastage_percentage',
-      header: 'Shrinkage %',
+      header: t('design_studio.gridShrinkage', 'Shrinkage %'),
       align: 'right' as const,
       render: (op: any) => (
         <span
@@ -86,18 +85,18 @@ export const DesignSystemStudioView: React.FC = () => {
             op.wastage_percentage > 2 ? 'text-rose-400' : 'text-emerald-400'
           }`}
         >
-          {Number(op.wastage_percentage || 0).toFixed(2)}%
+          <bdi>{Number(op.wastage_percentage || 0).toFixed(2)}%</bdi>
         </span>
       ),
     },
     {
       key: 'status',
-      header: 'Status',
+      header: t('design_studio.gridStatus', 'Status'),
       align: 'center' as const,
       render: () => (
         <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
           <ShieldCheck className="h-2.5 w-2.5" />
-          Verified
+          {t('design_studio.gridVerified', 'Verified')}
         </span>
       ),
     },
@@ -188,18 +187,17 @@ export function FleetLogisticsView() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/15 px-3 py-0.5 text-xs font-bold text-orange-300">
                 <Sparkles className="h-3.5 w-3.5" />
-                OxenGL Enterprise Design System
+                {t('design_studio.badgeLabel', 'OxenGL Enterprise Design System')}
               </span>
               <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] font-black text-emerald-300">
-                SCHEMA RLS L3 CERTIFIED
+                {t('design_studio.schemaCertified', 'SCHEMA RLS L3 CERTIFIED')}
               </span>
             </div>
             <h1 className="mt-3 text-2xl font-black text-white sm:text-3xl lg:text-4xl">
-              Multi-Tenant Design System & AI UI Studio
+              {t('design_studio.title', 'Multi-Tenant Design System & AI UI Studio')}
             </h1>
             <p className="mt-2 max-w-2xl text-xs text-slate-300 sm:text-sm">
-              Deep-dark enterprise aesthetics, tenant-aware white-labeling across 11 color palettes,
-              density switching (Comfortable vs Compact), modular card architectures, and strict isolation telemetry.
+              {t('design_studio.subtitle', 'Deep-dark enterprise aesthetics, tenant-aware white-labeling across 11 color palettes, density switching (Comfortable vs Compact), modular card architectures, and strict isolation telemetry.')}
             </p>
           </div>
 
@@ -211,7 +209,7 @@ export function FleetLogisticsView() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-bold text-slate-200 hover:text-white"
             >
               {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-slate-700" />}
-              <span>{isDark ? 'Dark Enterprise' : 'Light Mode'}</span>
+              <span>{isDark ? t('design_studio.darkEnterprise', 'Dark Enterprise') : t('design_studio.lightMode', 'Light Mode')}</span>
             </button>
 
             <button
@@ -222,12 +220,12 @@ export function FleetLogisticsView() {
               {densityMode === 'comfortable' ? (
                 <>
                   <Rows3 className="h-4 w-4 text-indigo-400" />
-                  <span>Comfortable</span>
+                  <span>{t('design_studio.comfortable', 'Comfortable')}</span>
                 </>
               ) : (
                 <>
                   <Rows4 className="h-4 w-4 text-amber-400" />
-                  <span>Compact Grid</span>
+                  <span>{t('design_studio.compactGrid', 'Compact Grid')}</span>
                 </>
               )}
             </button>
@@ -243,12 +241,12 @@ export function FleetLogisticsView() {
       {/* Navigation Tabs */}
       <div className="flex overflow-x-auto border-b border-slate-800 bg-slate-900/50 px-2 py-1.5 text-xs font-bold">
         {[
-          { id: 'overview', label: '1. Architecture Overview', icon: LayoutGrid },
-          { id: 'themes', label: '2. 11 Tenant Palettes', icon: Palette },
-          { id: 'cards', label: '3. Modular Bento Cards', icon: Layers },
-          { id: 'grid', label: '4. Master-Detail Grid', icon: FileSpreadsheet },
-          { id: 'workflow', label: '5. Workflow Automation Canvas', icon: Cpu },
-          { id: 'ai-prompt-gen', label: '6. AI UI Prompt Generator', icon: Code2 },
+          { id: 'overview', label: t('design_studio.tabOverview', '1. Architecture Overview'), icon: LayoutGrid },
+          { id: 'themes', label: t('design_studio.tabPalettes', '2. 11 Tenant Palettes'), icon: Palette },
+          { id: 'cards', label: t('design_studio.tabCards', '3. Modular Bento Cards'), icon: Layers },
+          { id: 'grid', label: t('design_studio.tabGrid', '4. Master-Detail Grid'), icon: FileSpreadsheet },
+          { id: 'workflow', label: t('design_studio.tabWorkflow', '5. Workflow Automation Canvas'), icon: Cpu },
+          { id: 'ai-prompt-gen', label: t('design_studio.tabAI', '6. AI UI Prompt Generator'), icon: Code2 },
         ].map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;

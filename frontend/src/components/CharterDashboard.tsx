@@ -10,6 +10,7 @@ import {
   BarChart3,
   Layers
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ProjectCharterItem } from './planningTypes';
 
 interface CharterDashboardProps {
@@ -25,6 +26,7 @@ export const CharterDashboard: React.FC<CharterDashboardProps> = ({
   onSelectCharter,
   onCharterCreated,
 }) => {
+  const { t } = useTranslation();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -96,15 +98,15 @@ export const CharterDashboard: React.FC<CharterDashboardProps> = ({
     return (
       <div className="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800">
         <Layers className="w-12 h-12 mx-auto text-blue-500 mb-3 opacity-80" />
-        <h3 className="text-xl font-bold text-white mb-2">No Project Charters Provisioned</h3>
+        <h3 className="text-xl font-bold text-white mb-2">{t('planning.emptyTitle')}</h3>
         <p className="text-slate-400 max-w-md mx-auto mb-6 text-sm">
-          Initialize your organization's first Tier 1 strategic project charter with budgets, milestones, and KPI metrics.
+          {t('planning.emptyDesc')}
         </p>
         <button
           onClick={() => setShowCreateModal(true)}
           className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-blue-600/20 inline-flex items-center gap-2"
         >
-          <Plus className="w-4 h-4" /> Provision New Charter
+          <Plus className="w-4 h-4" /> {t('planning.provisionBtn')}
         </button>
       </div>
     );

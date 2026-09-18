@@ -10,6 +10,7 @@ import {
 import { CharterDashboard } from './CharterDashboard';
 import { ExecutionMatrixTable } from './ExecutionMatrixTable';
 import { HazardWarningModule } from './HazardWarningModule';
+import { useTranslation } from 'react-i18next';
 import {
   ProjectCharterItem,
   ExecutionTaskItem,
@@ -17,6 +18,7 @@ import {
 } from './planningTypes';
 
 export const PlanningDepartmentView: React.FC = () => {
+  const { t } = useTranslation();
   const [charters, setCharters] = useState<ProjectCharterItem[]>([]);
   const [selectedCharterId, setSelectedCharterId] = useState<string>('');
   const [currentTasks, setCurrentTasks] = useState<ExecutionTaskItem[]>([]);
@@ -103,17 +105,17 @@ export const PlanningDepartmentView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold rounded-md uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Core Operations Architecture
+              <Sparkles className="w-3 h-3" /> {t('planning.coreOpsArch', 'Core Operations Architecture')}
             </span>
             <span className="text-xs text-slate-500">•</span>
-            <span className="text-xs text-slate-400 font-mono">Row-Level Security Scoped</span>
+            <span className="text-xs text-slate-400 font-mono">{t('planning.rlsScoped', 'Row-Level Security Scoped')}</span>
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
             <Layers className="w-8 h-8 text-blue-500" />
-            Planning Department Module
+            {t('planning.title')}
           </h1>
           <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-            Multi-tiered operational planning matrix unifying high-level strategic project charters, granular departmental execution workflows, and proactive risk mitigation trackers.
+            {t('planning.subtitle')}
           </p>
         </div>
 
@@ -121,7 +123,7 @@ export const PlanningDepartmentView: React.FC = () => {
           <button
             onClick={handleDataRefresh}
             className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-800 transition-colors"
-            title="Refresh planning telemetry"
+            title={t('planning.refreshTooltip', 'Refresh planning telemetry')}
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
           </button>
@@ -131,7 +133,7 @@ export const PlanningDepartmentView: React.FC = () => {
             className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/10 flex items-center gap-2"
           >
             <ShieldAlert className="w-4 h-4 text-amber-400" />
-            Risk Cockpit ({allHazards.filter((h) => h.mitigation_status !== 'MITIGATED').length})
+            {t('planning.riskCockpit')} ({allHazards.filter((h) => h.mitigation_status !== 'MITIGATED').length})
           </button>
         </div>
       </div>
@@ -147,7 +149,7 @@ export const PlanningDepartmentView: React.FC = () => {
           }`}
         >
           <BarChart3 className="w-4 h-4" />
-          Tier 1: Strategic Charter & KPIs
+          {t('planning.tier1')}
         </button>
 
         <button
@@ -159,7 +161,7 @@ export const PlanningDepartmentView: React.FC = () => {
           }`}
         >
           <Layers className="w-4 h-4" />
-          Tier 2: Execution Matrix ({currentTasks.length})
+          {t('planning.tier2')} ({currentTasks.length})
         </button>
 
         <button
@@ -171,7 +173,7 @@ export const PlanningDepartmentView: React.FC = () => {
           }`}
         >
           <ShieldAlert className="w-4 h-4" />
-          Tier 3: Strategic Risk Tracker ({allHazards.length})
+          {t('planning.tier3')} ({allHazards.length})
         </button>
       </div>
 
@@ -205,13 +207,13 @@ export const PlanningDepartmentView: React.FC = () => {
         <div className="space-y-4">
           <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800 flex items-center justify-between">
             <span className="text-xs text-slate-400">
-              Viewing all proactive strategic hazards across active execution tasks.
+              {t('planning.viewingHazards', 'Viewing all proactive strategic hazards across active execution tasks.')}
             </span>
             <button
               onClick={() => handleOpenHazardModal()}
               className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-semibold"
             >
-              Open Full Hazard Slide-Over
+              {t('planning.openFullHazard', 'Open Full Hazard Slide-Over')}
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -224,7 +226,7 @@ export const PlanningDepartmentView: React.FC = () => {
                 <p className="text-sm font-semibold text-white">{h.desired_outcome}</p>
                 <p className="text-xs text-slate-400">{h.potential_hazard_description}</p>
                 <div className="pt-2 border-t border-slate-800 text-xs text-slate-500">
-                  Plan: {h.mitigation_plan || 'Pending mitigation plan formulation'}
+                  {t('planning.planLabel', 'Plan:')} {h.mitigation_plan || t('planning.planPending', 'Pending mitigation plan formulation')}
                 </div>
               </div>
             ))}

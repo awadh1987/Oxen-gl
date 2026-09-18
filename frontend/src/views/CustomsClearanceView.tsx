@@ -22,11 +22,13 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { erpApi, ApiCustomsManifest } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 export type CustomsManifestItem = ApiCustomsManifest;
 
 export const CustomsClearanceView: React.FC = () => {
   const { currentCompany, language } = useApp();
+  const { t } = useTranslation();
   const isAr = language === 'ar';
 
   const [activeTab, setActiveTab] = useState<'manifests' | 'ledger'>('manifests');
@@ -203,16 +205,16 @@ export const CustomsClearanceView: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                  Cross-Border Customs & Electronic Ledger Reporting
+                  {t('customs.title')}
                 </h1>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-                  POSTGRES LIVE
+                  {t('customs.postgresLive', 'POSTGRES LIVE')}
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 font-mono">
-                <span>ZATCA Phase-2 (Stage-2) Cryptographic Engine</span>
+                <span>{t('customs.zatcaPhase2Engine', 'ZATCA Phase-2 (Stage-2) Cryptographic Engine')}</span>
                 <span className="text-slate-600">•</span>
-                <span>Immutable SHA-256 General Ledger Chaining</span>
+                <span>{t('customs.sha256Ledger', 'Immutable SHA-256 General Ledger Chaining')}</span>
               </p>
             </div>
           </div>
@@ -228,7 +230,7 @@ export const CustomsClearanceView: React.FC = () => {
             title="Refresh from PostgreSQL"
           >
             <RefreshCw className={`h-3.5 w-3.5 text-cyan-400 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>{isLoading ? 'Syncing...' : 'Sync'}</span>
+            <span>{isLoading ? t('customs.syncing', 'Syncing...') : t('customs.syncBtn')}</span>
           </button>
 
           {/* New Declaration Button */}
@@ -237,7 +239,7 @@ export const CustomsClearanceView: React.FC = () => {
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-950/40 transition-all"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>New Declaration</span>
+            <span>{t('customs.newDeclaration')}</span>
           </button>
 
           <div className="flex bg-slate-900/90 border border-slate-800 rounded-xl p-1 text-xs font-mono shadow-inner">
@@ -250,7 +252,7 @@ export const CustomsClearanceView: React.FC = () => {
               }`}
             >
               <FileCheck className="h-3.5 w-3.5" />
-              Customs Manifests
+              {t('customs.manifestsTab')}
             </button>
             <button
               onClick={() => setActiveTab('ledger')}
@@ -261,7 +263,7 @@ export const CustomsClearanceView: React.FC = () => {
               }`}
             >
               <Hash className="h-3.5 w-3.5" />
-              Immutable Hash Ledger
+              {t('customs.ledgerTab', 'Immutable Hash Ledger')}
             </button>
           </div>
 
@@ -269,7 +271,7 @@ export const CustomsClearanceView: React.FC = () => {
             href="/dashboard"
             className="hidden sm:inline-flex items-center gap-1 text-xs font-mono text-slate-400 hover:text-cyan-400 transition-colors border border-slate-800 bg-slate-900/60 px-3 py-2 rounded-xl"
           >
-            Exit to Hub
+            {t('customs.exitHub', 'Exit to Hub')}
             <ChevronRight className="h-3.5 w-3.5" />
           </a>
         </div>
@@ -286,17 +288,17 @@ export const CustomsClearanceView: React.FC = () => {
       {/* METRIC CARDS HEADER */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-md">
-          <span className="text-xs font-mono text-slate-400 block mb-1">Total Manifests Tracked</span>
+          <span className="text-xs font-mono text-slate-400 block mb-1">{t('customs.totalManifests')}</span>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-black text-white">{stats.total}</span>
             <span className="text-xs font-mono text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
-              Active Sync
+              {t('customs.activeSync', 'Active Sync')}
             </span>
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-md">
-          <span className="text-xs font-mono text-slate-400 block mb-1">Declared Cargo Valuation</span>
+          <span className="text-xs font-mono text-slate-400 block mb-1">{t('customs.declaredValue')}</span>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-black text-white">
               {stats.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}
@@ -306,24 +308,24 @@ export const CustomsClearanceView: React.FC = () => {
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-md">
-          <span className="text-xs font-mono text-slate-400 block mb-1">Clearance Ratio</span>
+          <span className="text-xs font-mono text-slate-400 block mb-1">{t('customs.clearanceRatio')}</span>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-black text-emerald-400">
               {stats.total > 0 ? Math.round((stats.cleared / stats.total) * 100) : 0}%
             </span>
             <span className="text-xs font-mono text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
-              {stats.cleared}/{stats.total} Cleared
+              {stats.cleared}/{stats.total} {t('customs.statusCleared')}
             </span>
           </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800/80 backdrop-blur-md">
-          <span className="text-xs font-mono text-slate-400 block mb-1">ZATCA Cryptographic Certs</span>
+          <span className="text-xs font-mono text-slate-400 block mb-1">{t('customs.certsMetric')}</span>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-black text-teal-300">{stats.zatcaCertified}</span>
             <span className="text-xs font-mono text-[#10b981] bg-emerald-950/60 px-2 py-0.5 rounded border border-[#10b981]/40 flex items-center gap-1">
               <CheckCircle2 className="h-3 w-3" />
-              Stage-2 Compliant
+              {t('customs.compliant')}
             </span>
           </div>
         </div>
@@ -340,26 +342,38 @@ export const CustomsClearanceView: React.FC = () => {
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                 <input
                   type="text"
-                  placeholder="Filter by Manifest #, Port name, Carrier, or HS Code..."
+                  placeholder={t('customs.filterPlaceholder', 'Filter by Manifest #, Port name, Carrier, or HS Code...')}
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 bg-slate-900/80 border border-slate-800 rounded-xl text-xs font-mono placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
                 />
               </div>
               <div className="flex items-center gap-1 bg-slate-900/80 border border-slate-800 p-1 rounded-xl text-xs font-mono overflow-x-auto">
-                {['ALL', 'CLEARED', 'UNDER_INSPECTION', 'PENDING_DOCUMENTATION', 'HELD'].map(st => (
-                  <button
-                    key={st}
-                    onClick={() => setStatusFilter(st)}
-                    className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition-all ${
-                      statusFilter === st
-                        ? 'bg-slate-800 font-bold text-cyan-400'
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {st === 'ALL' ? 'All' : st.replace('_', ' ')}
-                  </button>
-                ))}
+                {['ALL', 'CLEARED', 'UNDER_INSPECTION', 'PENDING_DOCUMENTATION', 'HELD'].map(st => {
+                  const getStatusLabel = (s: string) => {
+                    switch (s) {
+                      case 'ALL': return t('customs.statusAll', 'All');
+                      case 'HELD': return t('customs.statusHeld', 'HELD');
+                      case 'PENDING_DOCUMENTATION': return t('customs.statusPending', 'PENDING DOCUMENTATION');
+                      case 'UNDER_INSPECTION': return t('customs.statusInspection', 'UNDER INSPECTION');
+                      case 'CLEARED': return t('customs.statusCleared', 'CLEARED');
+                      default: return s.replace('_', ' ');
+                    }
+                  };
+                  return (
+                    <button
+                      key={st}
+                      onClick={() => setStatusFilter(st)}
+                      className={`px-2.5 py-1 rounded-lg whitespace-nowrap transition-all ${
+                        statusFilter === st
+                          ? 'bg-slate-800 font-bold text-cyan-400'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {getStatusLabel(st)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -367,13 +381,13 @@ export const CustomsClearanceView: React.FC = () => {
             {isLoading && manifests.length === 0 ? (
               <div className="p-12 text-center border border-slate-800 rounded-2xl bg-[#0b1021]">
                 <RefreshCw className="h-6 w-6 animate-spin text-cyan-400 mx-auto mb-3" />
-                <p className="text-xs font-mono text-slate-400">Loading customs manifests from PostgreSQL...</p>
+                <p className="text-xs font-mono text-slate-400">{t('customs.syncing', 'Loading customs manifests from PostgreSQL...')}</p>
               </div>
             ) : filteredManifests.length === 0 ? (
               <div className="p-12 text-center border border-slate-800 rounded-2xl bg-[#0b1021]">
                 <FileCheck className="h-8 w-8 text-slate-600 mx-auto mb-3" />
-                <p className="text-sm font-semibold text-slate-300">No customs manifests found</p>
-                <p className="text-xs font-mono text-slate-500 mt-1">Create a new declaration to begin blockchain ledger chaining.</p>
+                <p className="text-sm font-semibold text-slate-300">{t('customs.emptyTitle', 'No customs manifests found')}</p>
+                <p className="text-xs font-mono text-slate-500 mt-1">{t('customs.emptyDesc', 'Create a new declaration to begin blockchain ledger chaining.')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -397,10 +411,10 @@ export const CustomsClearanceView: React.FC = () => {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-mono font-bold text-cyan-400">
-                              {manifest.manifest_number}
+                              <bdi>{manifest.manifest_number}</bdi>
                             </span>
                             <span className="text-[11px] font-mono text-slate-500">
-                              #BLOCK-{manifest.block_index}
+                              <bdi>#BLOCK-{manifest.block_index}</bdi>
                             </span>
                           </div>
                           <span className="text-sm font-semibold tracking-tight text-white block mt-1">
@@ -409,7 +423,7 @@ export const CustomsClearanceView: React.FC = () => {
                           {manifest.carrier_name && (
                             <span className="text-xs text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                               <Truck className="h-3 w-3 text-slate-500" />
-                              {manifest.carrier_name}
+                              <bdi>{manifest.carrier_name}</bdi>
                             </span>
                           )}
                         </div>
@@ -423,7 +437,7 @@ export const CustomsClearanceView: React.FC = () => {
                               : 'bg-purple-950/80 text-purple-300 border border-purple-800/60'
                           }`}
                         >
-                          {manifest.declaration_type}
+                          {manifest.declaration_type === 'IMPORT' ? t('customs.import', 'IMPORT') : manifest.declaration_type === 'EXPORT' ? t('customs.export', 'EXPORT') : manifest.declaration_type}
                         </span>
                       </div>
 
@@ -433,7 +447,7 @@ export const CustomsClearanceView: React.FC = () => {
                             key={code}
                             className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-400"
                           >
-                            HS: {code}
+                            <bdi>HS: {code}</bdi>
                           </span>
                         ))}
                       </div>
@@ -460,11 +474,19 @@ export const CustomsClearanceView: React.FC = () => {
                             {(manifest.clearance_status === 'PENDING_DOCUMENTATION' || manifest.status === 'DRAFT') && (
                               <AlertTriangle className="h-3.5 w-3.5" />
                             )}
-                            {manifest.clearance_status ? manifest.clearance_status.replace('_', ' ') : manifest.status}
+                            {(() => {
+                              const st = manifest.clearance_status || manifest.status;
+                              if (st === 'CLEARED') return t('customs.statusCleared', 'CLEARED');
+                              if (st === 'UNDER_INSPECTION' || st === 'INSPECTION') return t('customs.statusInspection', 'UNDER INSPECTION');
+                              if (st === 'PENDING_DOCUMENTATION') return t('customs.statusPending', 'PENDING DOCUMENTATION');
+                              if (st === 'HELD' || st === 'REJECTED') return t('customs.statusHeld', 'HELD');
+                              if (st === 'DRAFT') return t('customs.statusDraft', 'DRAFT');
+                              return st ? st.replace('_', ' ') : st;
+                            })()}
                           </span>
                         </div>
                         <span className="font-mono text-slate-200 font-bold">
-                          {(manifest.total_value_sar || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} SAR
+                          <bdi>{(manifest.total_value_sar || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} {t('common.currency', 'SAR')}</bdi>
                         </span>
                       </div>
                     </div>
@@ -484,14 +506,14 @@ export const CustomsClearanceView: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="text-base font-bold tracking-tight text-white">
-                        {selectedManifest.manifest_number}
+                        <bdi>{selectedManifest.manifest_number}</bdi>
                       </h3>
                       <p className="text-[11px] font-mono text-slate-400 mt-0.5">
-                        UUID: {selectedManifest.id}
+                        <bdi>UUID: {selectedManifest.id}</bdi>
                       </p>
                     </div>
                     <span className="text-xs font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-cyan-400">
-                      Port: {(selectedManifest.border_port_name || selectedManifest.port_of_entry || '').split(' ')[0]}
+                      {t('customs.port', 'Port')}: {selectedManifest.border_port_name || selectedManifest.port_of_entry || ''}
                     </span>
                   </div>
                 </div>
@@ -499,7 +521,7 @@ export const CustomsClearanceView: React.FC = () => {
                 {/* TARIFF DETAILS */}
                 <div className="space-y-2 text-xs">
                   <span className="text-slate-400 font-mono uppercase tracking-wider text-[10px] font-bold">
-                    Harmonized System (HS) Codes:
+                    {t('customs.hsCodes', 'Harmonized System (HS) Codes:')}
                   </span>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {(selectedManifest.hs_codes || []).map(code => (
@@ -508,7 +530,7 @@ export const CustomsClearanceView: React.FC = () => {
                         className="px-2.5 py-1.5 bg-slate-900/90 border border-slate-800 font-mono rounded-lg text-xs text-slate-200 flex items-center gap-1.5"
                       >
                         <Layers className="h-3 w-3 text-cyan-400" />
-                        {code}
+                        <bdi>{code}</bdi>
                       </span>
                     ))}
                   </div>
@@ -517,21 +539,21 @@ export const CustomsClearanceView: React.FC = () => {
                 {/* VALUATION BREAKDOWN */}
                 <div className="grid grid-cols-3 gap-2 p-3 bg-black/40 rounded-xl border border-slate-800 text-xs font-mono">
                   <div>
-                    <span className="text-[10px] text-slate-500 block">Duty (SAR)</span>
+                    <span className="text-[10px] text-slate-500 block">{t('customs.duty', 'Duty (SAR)')}</span>
                     <span className="font-bold text-slate-200">
-                      {Number(selectedManifest.duty_amount || 0).toLocaleString()}
+                      <bdi>{Number(selectedManifest.duty_amount || 0).toLocaleString()} {t('common.currency', 'SAR')}</bdi>
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">VAT (SAR)</span>
+                    <span className="text-[10px] text-slate-500 block">{t('customs.vat', 'VAT (SAR)')}</span>
                     <span className="font-bold text-slate-200">
-                      {Number(selectedManifest.vat_amount || 0).toLocaleString()}
+                      <bdi>{Number(selectedManifest.vat_amount || 0).toLocaleString()} {t('common.currency', 'SAR')}</bdi>
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-500 block">Total Value</span>
+                    <span className="text-[10px] text-slate-500 block">{t('customs.totalValue', 'Total Value')}</span>
                     <span className="font-bold text-cyan-400">
-                      {Number(selectedManifest.total_value_sar || 0).toLocaleString()}
+                      <bdi>{Number(selectedManifest.total_value_sar || 0).toLocaleString()} {t('common.currency', 'SAR')}</bdi>
                     </span>
                   </div>
                 </div>
@@ -541,40 +563,40 @@ export const CustomsClearanceView: React.FC = () => {
                   <div className="flex justify-between items-center text-slate-400 pb-2 border-b border-slate-800/60">
                     <span className="flex items-center gap-1.5">
                       <Database className="h-3.5 w-3.5 text-cyan-400" />
-                      LEDGER BLOCK SEQUENCE
+                      {t('customs.ledgerBlockSequence', 'LEDGER BLOCK SEQUENCE')}
                     </span>
                     <span className="text-cyan-400 font-bold bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/50">
-                      #BLOCK-{selectedManifest.block_index}
+                      <bdi>#BLOCK-{selectedManifest.block_index}</bdi>
                     </span>
                   </div>
 
                   <div>
                     <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1">
-                      <span>SHA-256 CURRENT HASH:</span>
+                      <span>{t('customs.currentHash', 'SHA-256 CURRENT HASH:')}</span>
                       <button
                         onClick={() => handleCopy(selectedManifest.block_hash || selectedManifest.payload_hash || '')}
                         className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
                       >
                         {copiedHash === (selectedManifest.block_hash || selectedManifest.payload_hash) ? (
                           <>
-                            <Check className="h-3 w-3" /> Copied
+                            <Check className="h-3 w-3" /> {t('customs.copied', 'Copied')}
                           </>
                         ) : (
                           <>
-                            <Copy className="h-3 w-3" /> Copy
+                            <Copy className="h-3 w-3" /> {t('customs.copy', 'Copy')}
                           </>
                         )}
                       </button>
                     </div>
                     <p className="text-slate-300 text-[10px] break-all leading-relaxed bg-black/60 p-2.5 rounded-lg border border-slate-800 font-mono">
-                      {selectedManifest.block_hash || selectedManifest.payload_hash}
+                      <bdi>{selectedManifest.block_hash || selectedManifest.payload_hash}</bdi>
                     </p>
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-slate-500 block mb-1">PREVIOUS BLOCK HASH:</span>
+                    <span className="text-[10px] text-slate-500 block mb-1">{t('customs.prevHash', 'PREVIOUS BLOCK HASH:')}</span>
                     <p className="text-slate-500 text-[10px] break-all leading-relaxed bg-black/40 p-2 rounded-lg border border-slate-900 font-mono">
-                      {selectedManifest.previous_hash}
+                      <bdi>{selectedManifest.previous_hash}</bdi>
                     </p>
                   </div>
                 </div>
@@ -582,7 +604,7 @@ export const CustomsClearanceView: React.FC = () => {
                 {/* STATUS TRANSITIONS & REGULATORY SUBMISSION BOX */}
                 <div className="pt-2 border-t border-slate-800/80 space-y-4">
                   <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-slate-400">Regulatory Status:</span>
+                    <span className="text-slate-400">{t('customs.regulatoryStatus', 'Regulatory Status:')}</span>
                     <span
                       className={`px-2.5 py-1 rounded-md font-bold text-[11px] flex items-center gap-1.5 ${
                         selectedManifest.clearance_status === 'CLEARED' || selectedManifest.status === 'CLEARED'
@@ -593,10 +615,10 @@ export const CustomsClearanceView: React.FC = () => {
                       {selectedManifest.clearance_status === 'CLEARED' || selectedManifest.status === 'CLEARED' ? (
                         <>
                           <CheckCircle2 className="h-3.5 w-3.5 text-[#10b981]" />
-                          CLEARED & VALIDATED
+                          {t('customs.clearedValidated', 'CLEARED & VALIDATED')}
                         </>
                       ) : (
-                        selectedManifest.clearance_status || selectedManifest.status
+                        <bdi>{selectedManifest.clearance_status || selectedManifest.status}</bdi>
                       )}
                     </span>
                   </div>
@@ -610,7 +632,7 @@ export const CustomsClearanceView: React.FC = () => {
                           disabled={isTransitioning}
                           className="py-2 px-3 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/60 rounded-xl text-xs font-mono text-blue-300 font-bold transition-all disabled:opacity-50"
                         >
-                          Submit to Port
+                          {t('customs.submitToPort', 'Submit to Port')}
                         </button>
                       )}
                       {(selectedManifest.status === 'SUBMITTED' || selectedManifest.status === 'DRAFT') && (
@@ -619,7 +641,7 @@ export const CustomsClearanceView: React.FC = () => {
                           disabled={isTransitioning}
                           className="py-2 px-3 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/60 rounded-xl text-xs font-mono text-amber-300 font-bold transition-all disabled:opacity-50"
                         >
-                          Request Inspection
+                          {t('customs.requestInspection', 'Request Inspection')}
                         </button>
                       )}
                     </div>
@@ -634,26 +656,26 @@ export const CustomsClearanceView: React.FC = () => {
                       {isSubmittingZatca ? (
                         <>
                           <RefreshCw className="h-4 w-4 animate-spin" />
-                          COMPILING REGULATORY XML SIGNATURE...
+                          {t('customs.compilingXML', 'COMPILING REGULATORY XML SIGNATURE...')}
                         </>
                       ) : (
                         <>
                           <Lock className="h-4 w-4" />
-                          DISPATCH CRYPTOGRAPHIC COMPLIANCE INVOICE
+                          {t('customs.dispatchCompliance', 'DISPATCH CRYPTOGRAPHIC COMPLIANCE INVOICE')}
                         </>
                       )}
                     </button>
                   ) : (
                     <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-[#10b981]/40 text-[#10b981] text-xs font-mono flex items-center gap-2.5">
                       <CheckCircle2 className="h-4 w-4 shrink-0 text-[#10b981]" />
-                      <span>✔ ZATCA CERTIFIED: Cryptographic verification payload approved. Ledger audit sealed.</span>
+                      <span>{t('customs.zatcaCertified', '✔ ZATCA CERTIFIED: Cryptographic verification payload approved. Ledger audit sealed.')}</span>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
               <div className="p-8 border border-slate-800 rounded-2xl text-center text-slate-500 font-mono text-xs">
-                Select an active customs manifest pipeline to view cryptographic audit trails.
+                {t('customs.selectManifest', 'Select an active customs manifest pipeline to view cryptographic audit trails.')}
               </div>
             )}
           </div>
@@ -666,16 +688,16 @@ export const CustomsClearanceView: React.FC = () => {
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <Database className="h-5 w-5 text-cyan-400" />
-                  Sequential Anti-Tamper Blockchain Ledger
+                  {t('customs.ledgerTitle', 'Sequential Anti-Tamper Blockchain Ledger')}
                 </h3>
                 <p className="text-xs text-slate-400 mt-1 font-mono">
-                  Demonstrating SHA-256 cryptographic linkage across all financial journal vouchers & border declarations.
+                  {t('customs.ledgerDesc', 'Demonstrating SHA-256 cryptographic linkage across all financial journal vouchers & border declarations.')}
                 </p>
               </div>
 
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
                 <ShieldCheck className="h-4 w-4" />
-                <span>Chain Invariance Verified: 0 Breaches</span>
+                <span>{t('customs.chainVerified', 'Chain Invariance Verified: 0 Breaches')}</span>
               </div>
             </div>
 
@@ -683,7 +705,7 @@ export const CustomsClearanceView: React.FC = () => {
             <div className="pt-8 space-y-6">
               {manifests.length === 0 ? (
                 <div className="p-8 text-center text-slate-500 font-mono text-xs">
-                  No blocks registered in ledger yet. Create declarations to initialize the block chain.
+                  {t('customs.noBlocks', 'No blocks registered in ledger yet. Create declarations to initialize the block chain.')}
                 </div>
               ) : (
                 manifests.map((block, idx) => {
@@ -712,14 +734,14 @@ export const CustomsClearanceView: React.FC = () => {
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-bold text-white font-mono">
-                                  BLOCK INDEX #{block.block_index}
+                                  {t('customs.blockIndexLabel', 'BLOCK INDEX')} #{block.block_index}
                                 </span>
                                 <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 font-semibold">
-                                  DIGITALLY SEALED
+                                  {t('customs.digitallySealed', 'DIGITALLY SEALED')}
                                 </span>
                               </div>
                               <span className="text-xs text-slate-400 font-mono">
-                                Payload Source: {block.manifest_number} • {block.border_port_name || block.port_of_entry}
+                                {t('customs.payloadSource', 'Payload Source:')} <bdi>{block.manifest_number} • {block.border_port_name || block.port_of_entry}</bdi>
                               </span>
                             </div>
                           </div>
@@ -732,7 +754,7 @@ export const CustomsClearanceView: React.FC = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-800/60 text-xs font-mono">
                           <div className="p-3 rounded-xl bg-black/40 border border-slate-800/80">
                             <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1">
-                              <span>SHA-256 CURRENT HASH:</span>
+                              <span>{t('customs.currentHash', 'SHA-256 CURRENT HASH:')}</span>
                               <button
                                 onClick={() => handleCopy(block.block_hash || block.payload_hash || '')}
                                 className="text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
@@ -745,16 +767,16 @@ export const CustomsClearanceView: React.FC = () => {
                               </button>
                             </div>
                             <p className="text-cyan-300 text-[11px] break-all leading-relaxed font-mono">
-                              {block.block_hash || block.payload_hash}
+                              <bdi>{block.block_hash || block.payload_hash}</bdi>
                             </p>
                           </div>
 
                           <div className="p-3 rounded-xl bg-black/20 border border-slate-900">
                             <div className="flex justify-between items-center text-[10px] text-slate-500 mb-1">
-                              <span>PREVIOUS LINKED HASH:</span>
+                              <span>{t('customs.prevLinkedHash', 'PREVIOUS LINKED HASH:')}</span>
                             </div>
                             <p className="text-slate-500 text-[11px] break-all leading-relaxed font-mono">
-                              {block.previous_hash}
+                              <bdi>{block.previous_hash}</bdi>
                             </p>
                           </div>
                         </div>
@@ -778,8 +800,8 @@ export const CustomsClearanceView: React.FC = () => {
                   <Globe className="h-4 w-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Create Customs Declaration</h3>
-                  <p className="text-xs font-mono text-slate-400">Registers declaration with SHA-256 block hash</p>
+                  <h3 className="text-base font-bold text-white">{t('customs.createDeclarationTitle', 'Create Customs Declaration')}</h3>
+                  <p className="text-xs font-mono text-slate-400">{t('customs.createDeclarationDesc', 'Registers declaration with SHA-256 block hash')}</p>
                 </div>
               </div>
               <button
@@ -793,31 +815,31 @@ export const CustomsClearanceView: React.FC = () => {
             <form onSubmit={handleCreateManifest} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Manifest Number (Optional)</label>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.manifestNumOpt', 'Manifest Number (Optional)')}</label>
                   <input
                     type="text"
-                    placeholder="Auto-generated if empty"
+                    placeholder={t('customs.autoGen', 'Auto-generated if empty')}
                     value={newForm.manifest_number}
                     onChange={e => setNewForm(prev => ({ ...prev, manifest_number: e.target.value }))}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Declaration Type</label>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.declarationType', 'Declaration Type')}</label>
                   <select
                     value={newForm.declaration_type}
                     onChange={e => setNewForm(prev => ({ ...prev, declaration_type: e.target.value as any }))}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
                   >
-                    <option value="IMPORT">IMPORT</option>
-                    <option value="EXPORT">EXPORT</option>
-                    <option value="TRANSIT">TRANSIT</option>
+                    <option value="IMPORT">{t('customs.import', 'IMPORT')}</option>
+                    <option value="EXPORT">{t('customs.export', 'EXPORT')}</option>
+                    <option value="TRANSIT">{t('customs.transit', 'TRANSIT')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Border Port / Entry Point</label>
+                <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.borderPort', 'Border Port / Entry Point')}</label>
                 <input
                   type="text"
                   required
@@ -828,7 +850,7 @@ export const CustomsClearanceView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">Carrier Name</label>
+                <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.carrierName', 'Carrier Name')}</label>
                 <input
                   type="text"
                   required
@@ -840,7 +862,7 @@ export const CustomsClearanceView: React.FC = () => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Cargo Value (SAR)</label>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.cargoValue', 'Cargo Value (SAR)')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -851,7 +873,7 @@ export const CustomsClearanceView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">Duty (SAR)</label>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.duty', 'Duty (SAR)')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -861,7 +883,7 @@ export const CustomsClearanceView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">VAT (SAR)</label>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.vat', 'VAT (SAR)')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -873,7 +895,7 @@ export const CustomsClearanceView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-slate-400 mb-1">HS Codes (Comma Separated)</label>
+                <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.hsCodesInput', 'HS Codes (Comma Separated)')}</label>
                 <input
                   type="text"
                   placeholder="e.g. 8708.29.90, 8504.40.90"
@@ -889,7 +911,7 @@ export const CustomsClearanceView: React.FC = () => {
                   onClick={() => setIsCreateModalOpen(false)}
                   className="px-4 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-white transition-colors"
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
@@ -897,7 +919,7 @@ export const CustomsClearanceView: React.FC = () => {
                   className="px-5 py-2 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-950/40 disabled:opacity-50 transition-all flex items-center gap-2"
                 >
                   {isCreating ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                  <span>{isCreating ? 'Creating Block...' : 'Post Declaration'}</span>
+                  <span>{isCreating ? t('customs.creatingBlock', 'Creating Block...') : t('customs.postDeclaration', 'Post Declaration')}</span>
                 </button>
               </div>
             </form>
