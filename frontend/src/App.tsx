@@ -487,10 +487,12 @@ function AppContent() {
     inventory: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
     mfa: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     customs: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+    'admin-hub': ['Super_Admin', 'Admin'],
   };
 
   const renderActiveViewContent = () => {
     switch (activeTab) {
+      case 'admin-hub':
       case 'hub':
         return <TenantLandingHubView onNavigateToTab={setActiveTab} />;
       case 'dashboard':

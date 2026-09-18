@@ -271,9 +271,9 @@ export const CustomerInvoicingView: React.FC = () => {
     const dataStr = JSON.stringify(
       {
         invoiceNumber,
-        customer: selectedCustomer?.name,
+        customer: selectedCustomer?.customerName,
         period: `${getMonthName(selectedMonth, language)} ${selectedYear}`,
-        totals: { subtotal, vatAmount, grandTotal },
+        totals: { subtotal, vatAmount: totalVat, grandTotal },
         items: invoiceItems,
         tripsCount: matchingTrips.length,
         status: currentBackendInvoice?.status || 'Draft',
