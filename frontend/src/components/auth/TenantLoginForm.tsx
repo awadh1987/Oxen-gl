@@ -3,6 +3,7 @@ import { Building2, KeyRound, Loader2, Lock, Mail, Phone, AlertCircle, ArrowRigh
 import { useApp } from '../../context/AppContext';
 import { Company } from '../../types';
 import { erpApi } from '../../services/api';
+import { redirectToTenantSubdomain } from '../../utils/subdomain';
 
 interface TenantLoginFormProps {
   initialTenantSlug?: string;
@@ -98,6 +99,20 @@ export const TenantLoginForm: React.FC<TenantLoginFormProps> = ({
         localStorage.setItem('tenant_slug', res.tenant_slug || cleanSlug);
         localStorage.setItem('role', res.role || res.user?.role || 'admin');
         onSuccess?.();
+
+        const effectiveSlug = res.tenant_slug || cleanSlug;
+        const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+        if (!isLocal && effectiveSlug) {
+          const parts = window.location.hostname.split('.');
+          const rootDomain = parts.slice(-2).join('.'); // 'oxengl.me'
+          const targetHost = `${effectiveSlug}.${rootDomain}`;
+
+          if (window.location.hostname !== targetHost) {
+            window.location.href = `https://${targetHost}/`;
+            return;
+          }
+        }
+
         if (typeof window !== 'undefined') {
           window.location.href = '/';
         }
@@ -196,6 +211,20 @@ export const TenantLoginForm: React.FC<TenantLoginFormProps> = ({
         }
 
         onSuccess?.();
+
+        const effectiveSlug = data.tenant_slug || cleanSlug;
+        const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+        if (!isLocal && effectiveSlug) {
+          const parts = window.location.hostname.split('.');
+          const rootDomain = parts.slice(-2).join('.'); // 'oxengl.me'
+          const targetHost = `${effectiveSlug}.${rootDomain}`;
+
+          if (window.location.hostname !== targetHost) {
+            window.location.href = `https://${targetHost}/`;
+            return;
+          }
+        }
+
         if (typeof window !== 'undefined') {
           window.location.href = '/';
         }

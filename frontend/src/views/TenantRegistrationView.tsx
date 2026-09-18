@@ -1,5 +1,5 @@
-// File: frontend/src/views/TenantRegistrationView.tsx
 import React, { useState } from 'react';
+import { redirectToTenantSubdomain, getRootDomain, isLocalhost } from '../utils/subdomain';
 export interface TenantRegistrationViewProps {
   onSuccess?: () => void;
 }
@@ -43,6 +43,21 @@ export const TenantRegistrationView: React.FC<TenantRegistrationViewProps> = ({ 
 
       const result = await response.json();
       setSuccessData(result);
+      onSuccess?.();
+
+      const createdSlug = (result.workspace_slug || formData.slug).toLowerCase().trim();
+      const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+      if (!isLocal && createdSlug) {
+        const parts = window.location.hostname.split('.');
+        const rootDomain = parts.slice(-2).join('.'); // 'oxengl.me'
+        const targetHost = `${createdSlug}.${rootDomain}`;
+
+        if (window.location.hostname !== targetHost) {
+          setTimeout(() => {
+            window.location.href = `https://${targetHost}/login`;
+          }, 2500);
+        }
+      }
     } catch (err: any) {
       setError(err.message || "Failed to initialize company provisioning engine.");
     } finally {
@@ -51,6 +66,11 @@ export const TenantRegistrationView: React.FC<TenantRegistrationViewProps> = ({ 
   };
 
   if (successData) {
+    const slug = (successData.workspace_slug || formData.slug).toLowerCase().trim();
+    const targetWorkspaceUrl = !isLocalhost() && slug
+      ? `https://${slug}.${getRootDomain()}/login`
+      : (successData.workspace_url || `https://${slug}.oxengl.me`);
+
     return (
       <div className="min-h-screen bg-[#030712] flex items-center justify-center p-6 font-sans">
         <div className="w-full max-w-md bg-[#090f1c] border border-emerald-500/20 rounded-2xl p-8 shadow-2xl text-center">
@@ -61,18 +81,30 @@ export const TenantRegistrationView: React.FC<TenantRegistrationViewProps> = ({ 
           <div className="my-6 p-4 bg-[#030712] border border-slate-800 rounded-xl font-mono text-left text-xs space-y-2">
             <div className="text-slate-500">Corporate System Link:</div>
             <a
-              href={successData.workspace_url || `https://${successData.workspace_slug}.oxengl.me`}
+              href={targetWorkspaceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-cyan-400 font-bold underline select-all block truncate hover:text-cyan-300"
             >
-              {successData.workspace_url || `https://${successData.workspace_slug}.oxengl.me`}
+              {targetWorkspaceUrl}
             </a>
             <div className="text-[10px] text-emerald-500/70 pt-1">✓ Seeded Default 5-Deep General Ledger Hierarchy</div>
           </div>
 
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => {
+              const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+              if (!isLocal && slug) {
+                const parts = window.location.hostname.split('.');
+                const rootDomain = parts.slice(-2).join('.');
+                const targetHost = `${slug}.${rootDomain}`;
+                if (window.location.hostname !== targetHost) {
+                  window.location.href = `https://${targetHost}/login`;
+                  return;
+                }
+              }
+              navigate('/login');
+            }}
             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-3 text-xs font-bold transition-colors cursor-pointer"
           >
             Proceed to Corporate Portal Access

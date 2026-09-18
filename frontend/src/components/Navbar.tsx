@@ -18,6 +18,7 @@ import {
 import { UserRole } from '../types';
 import { TENANT_PALETTES } from '../theme/designTokens';
 import { BrandLogo } from './BrandLogo';
+import { isApexDomain } from '../utils/subdomain';
 
 interface NavbarProps {
   onOpenAIModal?: () => void;
@@ -107,6 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
   const currentTenantId = !isMasterAdmin ? (tenantId || currentCompany?.id || localStorage.getItem('oxengl_tenant_id') || '') : tenantId;
   const isTenantScoped = Boolean((authTier === 'tenant' || tenantId || currentTenantId) && !isMasterAdmin);
   const isRootPortal = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+  const isApex = typeof window !== 'undefined' ? isApexDomain() : true;
 
   const CompanyDropdown: React.FC = () => {
     if (!currentCompany) return null;
@@ -151,7 +153,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
         {/* Brand Logo & Tagline */}
         <div className="flex items-center gap-3">
           {/* Dynamic Logo Asset Rendering Container */}
-          {isTenantScoped && !isRootPortal && (currentCompany?.logo_url || brandConfig?.customLogoUrl) ? (
+          {isTenantScoped && !isApex && !isRootPortal && (currentCompany?.logo_url || brandConfig?.customLogoUrl) ? (
             <div className="relative h-8 w-8 shrink-0">
               <img 
                 src={currentCompany?.logo_url || brandConfig?.customLogoUrl} 
@@ -168,7 +170,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
               </div>
             </div>
           ) : (
-            /* Global Platform Master Logo strictly displayed on unauthenticated / master portal routes */
+            /* Global Platform Master Logo strictly displayed on apex domain / unauthenticated / master portal routes */
             <div className="flex h-8 w-8 items-center justify-center shrink-0">
               <BrandLogo size="sm" showText={false} forcePlatformLogo={true} />
             </div>
@@ -178,12 +180,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout }) => {
           <div className="hidden flex-col md:flex">
             {/* Dynamic Isolated Tenant Title or Master OxenGL Enterprise Header */}
             <span className="text-sm font-semibold tracking-wide text-slate-200">
-              {isTenantScoped && !isRootPortal
+              {isTenantScoped && !isApex && !isRootPortal
                 ? currentCompany?.name || (tenantSlug ? `${tenantSlug.toUpperCase()} Workspace` : 'Enterprise Workspace')
                 : 'OXENGL ENTERPRISE CLOUD'}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-slate-400 font-medium">
-              {isTenantScoped && !isRootPortal
+              {isTenantScoped && !isApex && !isRootPortal
                 ? (isAr ? 'المملكة العربية السعودية • ZATCA Compatible' : 'Kingdom of Saudi Arabia • ZATCA')
                 : (isAr ? 'منصة العمليات اللوجستية وإدارة الموارد' : 'Unified Logistics & Supply Chain Cloud')}
             </span>

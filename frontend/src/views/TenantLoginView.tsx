@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { redirectToTenantSubdomain } from '../utils/subdomain';
 
 interface TenantLoginViewProps {
   onLoginSuccess?: () => void;
@@ -165,6 +166,20 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({
         if (onLoginSuccess) {
           onLoginSuccess();
         }
+
+        const effectiveSlug = res.tenant_slug || tenantSlug;
+        const isLocal = window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1');
+        if (!isLocal && effectiveSlug) {
+          const parts = window.location.hostname.split('.');
+          const rootDomain = parts.slice(-2).join('.'); // 'oxengl.me'
+          const targetHost = `${effectiveSlug}.${rootDomain}`;
+
+          if (window.location.hostname !== targetHost) {
+            window.location.href = `https://${targetHost}/`;
+            return;
+          }
+        }
+
         if (typeof window !== 'undefined') {
           window.location.href = '/';
         }

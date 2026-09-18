@@ -61,6 +61,7 @@ import {
   PasswordRecoveryPayload,
   PasswordResetPayload,
 } from '../services/api';
+import { getSubdomain, isApexDomain } from '../utils/subdomain';
 import {
   TenantColorTheme,
   DensityMode,
@@ -368,19 +369,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Validate token expiration on mount and listen to global auth error events
   useEffect(() => {
+    const activeSubdomain = getSubdomain();
+    if (activeSubdomain) {
+      setTenantSlug(activeSubdomain);
+      setAuthTier('tenant');
+      localStorage.setItem('oxengl_tenant_slug', activeSubdomain);
+      localStorage.setItem('tenant_slug', activeSubdomain);
+    }
     const token = getAuthToken();
     if (token) {
       const claims = decodeJwt(token);
       if (!claims || (claims.exp && claims.exp * 1000 < Date.now())) {
         clearAuthSession();
         setAuthToken(null);
-        setAuthTier(null);
-        setTenantSlug(null);
-        setTenantId(null);
+        setAuthTier(activeSubdomain ? 'tenant' : null);
+        if (!activeSubdomain) {
+          setTenantSlug(null);
+          setTenantId(null);
+        }
         localStorage.setItem('oxengl_session_active', 'false');
       } else {
-        setAuthTier(claims.tier);
-        if (claims.tenant_slug) setTenantSlug(claims.tenant_slug);
+        setAuthTier(activeSubdomain ? 'tenant' : claims.tier);
+        if (activeSubdomain) {
+          setTenantSlug(activeSubdomain);
+        } else if (claims.tenant_slug) {
+          setTenantSlug(claims.tenant_slug);
+        }
         if (claims.tenant_id) setTenantId(claims.tenant_id);
       }
     }
@@ -404,6 +418,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [currentCompany, setCurrentCompany] = useState<Company | null>(() => {
+    const activeSubdomain = getSubdomain();
+    if (activeSubdomain) {
+      const saved = localStorage.getItem('oxengl_current_company');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.slug === activeSubdomain) return parsed;
+        } catch {}
+      }
+      return {
+        id: activeSubdomain,
+        name: activeSubdomain.toUpperCase(),
+        slug: activeSubdomain,
+        currency: 'SAR',
+        subscriptionTier: 'ENTERPRISE',
+      };
+    }
     const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
     const token = getAuthToken();
     const tier = getAuthTier();
@@ -419,6 +450,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mapped = apiCompanies.map((company) => ({ id: company.id, parentId: company.parent_id, name: company.name, slug: company.slug, commercialRegistration: company.commercial_registration || undefined, taxId: company.tax_id || undefined, currency: company.currency, fiscalCalendar: company.fiscal_calendar, fiscalYearStartMonth: company.fiscal_year_start_month, taxRegime: company.tax_regime, subscriptionTier: company.subscription_tier, licenseKey: company.license_key, licenseExpiresAt: company.license_expires_at, maxCostCenters: company.max_cost_centers, themeMode: company.theme_mode, uiPrimaryColor: company.ui_primary_color, uiSecondaryColor: company.ui_secondary_color, uiLogoUrl: company.ui_logo_url }));
     setCompanies(mapped);
     setCurrentCompany((selected) => {
+      const activeSubdomain = getSubdomain();
+      if (activeSubdomain) {
+        const foundBySub = mapped.find((company) => company.slug?.toLowerCase() === activeSubdomain.toLowerCase());
+        if (foundBySub) return foundBySub;
+        return {
+          id: activeSubdomain,
+          name: activeSubdomain.toUpperCase(),
+          slug: activeSubdomain,
+          currency: 'SAR',
+          subscriptionTier: 'ENTERPRISE',
+        };
+      }
       const activeTenantId = localStorage.getItem('oxengl_tenant_id') || localStorage.getItem('tenant_id') || currentUser?.companyId;
       const activeTenantSlug = localStorage.getItem('oxengl_tenant_slug') || localStorage.getItem('tenant_slug');
       if (activeTenantId) {
@@ -439,6 +482,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Brand Configuration State (Dynamically derived from active company session)
   const [brandConfig, setBrandConfig] = useState<BrandConfig>(() => {
+    const activeSubdomain = getSubdomain();
+    if (activeSubdomain) {
+      const saved = localStorage.getItem('oxengl_brand_config');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+      return {
+        ...INITIAL_BRAND_CONFIG,
+        companyNameAr: activeSubdomain.toUpperCase(),
+        companyNameEn: activeSubdomain.toUpperCase(),
+      };
+    }
     const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
     const token = getAuthToken();
     const tier = getAuthTier();
@@ -539,6 +596,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         crNumber: currentCompany.commercialRegistration || '',
         taxNumber: currentCompany.taxId || '',
         primaryColor: currentCompany.uiPrimaryColor || '#F05627',
+        customLogoUrl: currentCompany.uiLogoUrl || (currentCompany as any).logo_url || prev.customLogoUrl,
       }));
     }
   }, [currentCompany]);

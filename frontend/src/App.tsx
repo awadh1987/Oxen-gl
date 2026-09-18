@@ -8,6 +8,7 @@ import { AIAssistantWidget } from './components/AIAssistantWidget';
 import type { ExportDocType } from './components/ExportPrintModal';
 import { Building2, Cpu, CreditCard, Layers, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X, Globe, Radio } from 'lucide-react';
 import { UserRole } from './types';
+import { getSubdomain, isApexDomain } from './utils/subdomain';
 
 // Code-split dynamic view imports
 const DashboardView = React.lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -393,7 +394,9 @@ function AppContent() {
     );
   }
 
-  if (currentPath === '/login') {
+  const activeSubdomain = getSubdomain();
+
+  if (currentPath === '/login' || (!isLoggedIn && activeSubdomain)) {
     if (isLoggedIn) {
       if (typeof window !== 'undefined') {
         window.history.replaceState({}, '', '/');
@@ -401,7 +404,7 @@ function AppContent() {
     } else {
       return (
         <Suspense fallback={<ViewLoadingFallback />}>
-          <Route path="/login" element={<TenantLoginView onLoginSuccess={() => {
+          <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onLoginSuccess={() => {
             setIsLoggedIn(true);
             if (typeof window !== 'undefined') {
               window.location.href = '/';
@@ -413,22 +416,24 @@ function AppContent() {
   }
 
   if (currentPath === '/' && !isLoggedIn) {
-    return (
-      <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/" element={<LandingPageView onLoginSuccess={() => {
-          setIsLoggedIn(true);
-          if (typeof window !== 'undefined') {
-            window.location.href = '/';
-          }
-        }} />} />
-      </Suspense>
-    );
+    if (!activeSubdomain) {
+      return (
+        <Suspense fallback={<ViewLoadingFallback />}>
+          <Route path="/" element={<LandingPageView onLoginSuccess={() => {
+            setIsLoggedIn(true);
+            if (typeof window !== 'undefined') {
+              window.location.href = '/';
+            }
+          }} />} />
+        </Suspense>
+      );
+    }
   }
 
   if (!isLoggedIn) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/login" element={<TenantLoginView onLoginSuccess={() => {
+        <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onLoginSuccess={() => {
           setIsLoggedIn(true);
           if (typeof window !== 'undefined') {
             window.location.href = '/';
@@ -438,7 +443,7 @@ function AppContent() {
     );
   }
 
-  if ((authTier === 'master' || currentUser.role === 'Super_Admin') && !inspectingWorkspace) {
+  if ((authTier === 'master' || currentUser.role === 'Super_Admin') && !inspectingWorkspace && !activeSubdomain) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
         <ProtectedRoute

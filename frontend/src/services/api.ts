@@ -310,6 +310,8 @@ export type PartnerPayload = Omit<Partner, 'id'>;
 interface Location { id: string; name: string; location_type: string; }
 interface Product { id: string; sku: string; name: string; }
 
+import { setAuthCookie, getAuthCookie, clearAuthCookie, getSubdomain } from '../utils/subdomain';
+
 export const OXENGL_AUTH_TOKEN_KEY = 'oxengl_auth_jwt';
 export const OXENGL_AUTH_TIER_KEY = 'oxengl_auth_tier';
 export const OXENGL_TENANT_SLUG_KEY = 'oxengl_tenant_slug';
@@ -317,20 +319,30 @@ export const OXENGL_TENANT_ID_KEY = 'oxengl_tenant_id';
 
 export function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(OXENGL_AUTH_TOKEN_KEY) || localStorage.getItem('token') || localStorage.getItem('access_token');
+  const cookieToken = getAuthCookie();
+  const localToken = localStorage.getItem(OXENGL_AUTH_TOKEN_KEY) || localStorage.getItem('token') || localStorage.getItem('access_token');
+  if (cookieToken && !localToken) {
+    localStorage.setItem(OXENGL_AUTH_TOKEN_KEY, cookieToken);
+    localStorage.setItem('token', cookieToken);
+    localStorage.setItem('access_token', cookieToken);
+    return cookieToken;
+  }
+  return localToken || cookieToken;
 }
 
 export function getAuthTier(): 'master' | 'tenant' | null {
   if (typeof window === 'undefined') return null;
   const tier = (localStorage.getItem(OXENGL_AUTH_TIER_KEY) as 'master' | 'tenant');
   if (tier) return tier;
-  if (localStorage.getItem('tenant_slug') || localStorage.getItem(OXENGL_TENANT_SLUG_KEY)) return 'tenant';
+  if (getSubdomain() || localStorage.getItem('tenant_slug') || localStorage.getItem(OXENGL_TENANT_SLUG_KEY)) return 'tenant';
   if (localStorage.getItem('role') === 'Super_Admin') return 'master';
   return null;
 }
 
 export function getTenantSlug(): string | null {
   if (typeof window === 'undefined') return null;
+  const subdomain = getSubdomain();
+  if (subdomain) return subdomain;
   return localStorage.getItem(OXENGL_TENANT_SLUG_KEY) || localStorage.getItem('tenant_slug');
 }
 
@@ -341,13 +353,15 @@ export function getTenantId(): string | null {
 
 export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantSlug?: string | null, tenantId?: string | null): void {
   if (typeof window === 'undefined') return;
+  setAuthCookie(token);
   localStorage.setItem(OXENGL_AUTH_TOKEN_KEY, token);
   localStorage.setItem('token', token);
   localStorage.setItem('access_token', token);
   localStorage.setItem(OXENGL_AUTH_TIER_KEY, tier);
-  if (tenantSlug) {
-    localStorage.setItem(OXENGL_TENANT_SLUG_KEY, tenantSlug);
-    localStorage.setItem('tenant_slug', tenantSlug);
+  const effectiveSlug = tenantSlug || getSubdomain();
+  if (effectiveSlug) {
+    localStorage.setItem(OXENGL_TENANT_SLUG_KEY, effectiveSlug);
+    localStorage.setItem('tenant_slug', effectiveSlug);
   } else {
     localStorage.removeItem(OXENGL_TENANT_SLUG_KEY);
     localStorage.removeItem('tenant_slug');
@@ -366,6 +380,7 @@ export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantS
 
 export function clearAuthSession(): void {
   if (typeof window === 'undefined') return;
+  clearAuthCookie();
   localStorage.removeItem(OXENGL_AUTH_TOKEN_KEY);
   localStorage.removeItem('token');
   localStorage.removeItem('access_token');
