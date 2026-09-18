@@ -16,10 +16,12 @@ import {
   Truck,
   Building2,
   FileSpreadsheet,
-  Receipt,
   Scale,
   Landmark,
-import { ExternalLink, ChevronRight, Terminal } from 'lucide-react';
+  ExternalLink,
+  ChevronRight,
+  Terminal,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../context/AppContext';
 import {
@@ -272,35 +274,33 @@ export function FleetLogisticsView() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             <BentoCard
-              title="Deep-Dark Enterprise Aesthetics"
-              subtitle="OxenGL Midnight Identity"
+              title={t('design_studio.overviewCard1Title', 'Deep-Dark Enterprise Aesthetics')}
+              subtitle={t('design_studio.overviewCard1Subtitle', 'OxenGL Midnight Identity')}
               icon={Moon}
               glow
             >
               <p className="text-xs leading-relaxed text-slate-300">
-                Utilizes deep navy/midnight gradients (<code className="text-amber-300">#0b0d19</code> to{' '}
-                <code className="text-amber-300">#111322</code>), frosted slate containers (<code className="text-amber-300">#141726</code>),
-                1px subtle luminous borders, and glowing neon accents (amber, orange, emerald).
+                {t('design_studio.overviewCard1Desc', 'Utilizes deep navy/midnight gradients (#0b0d19 to #111322), frosted slate containers (#141726), 1px subtle luminous borders, and glowing neon accents (amber, orange, emerald).')}
               </p>
             </BentoCard>
 
             <BentoCard
-              title="Tenant-Aware White-Labeling"
-              subtitle="11 Distinct Color Palettes"
+              title={t('design_studio.overviewCard2Title', 'Tenant-Aware White-Labeling')}
+              subtitle={t('design_studio.overviewCard2Subtitle', '11 Distinct Color Palettes')}
               icon={Palette}
             >
               <p className="text-xs leading-relaxed text-slate-300">
-                Supports individual tenant configurations: Gray, Yellow, Orange, Red, Pink, Purple, Violet, Blue, Green, Cyan, and System auto-matching. Injects dynamic CSS variables for bespoke branding.
+                {t('design_studio.overviewCard2Desc', 'Supports individual tenant configurations: Gray, Yellow, Orange, Red, Pink, Purple, Violet, Blue, Green, Cyan, and System auto-matching. Injects dynamic CSS variables for bespoke branding.')}
               </p>
             </BentoCard>
 
             <BentoCard
-              title="Strict Isolation Telemetry"
-              subtitle="Schema RLS L3 Assurance"
+              title={t('design_studio.overviewCard3Title', 'Strict Isolation Telemetry')}
+              subtitle={t('design_studio.overviewCard3Subtitle', 'Schema RLS L3 Assurance')}
               icon={ShieldCheck}
             >
               <p className="text-xs leading-relaxed text-slate-300">
-                Visual telemetry indicators communicating connected tenants, 12ms network latency, ZATCA Phase-2 readiness, and strict multi-tenant boundary locks for zero cross-tenant data leaks.
+                {t('design_studio.overviewCard3Desc', 'Visual telemetry indicators communicating connected tenants, 12ms network latency, ZATCA Phase-2 readiness, and strict multi-tenant boundary locks for zero cross-tenant data leaks.')}
               </p>
             </BentoCard>
           </div>
@@ -316,14 +316,14 @@ export function FleetLogisticsView() {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                  Interactive Tenant White-Labeling Palettes (11 Supported Themes)
+                  {t('design_studio.themesTitle', 'Interactive Tenant White-Labeling Palettes (11 Supported Themes)')}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Click any palette to instantly re-theme the entire application and inspect its live visual tokens.
+                  {t('design_studio.themesDesc', 'Click any palette to instantly re-theme the entire application and inspect its live visual tokens.')}
                 </p>
               </div>
               <span className="rounded-md border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-bold text-orange-400">
-                Active Theme: {activePalette.nameEn}
+                {t('design_studio.activeTheme', 'Active Theme: ')}{activePalette.nameEn}
               </span>
             </div>
 
@@ -352,21 +352,21 @@ export function FleetLogisticsView() {
                             className="rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-950"
                             style={{ backgroundColor: pal.primary }}
                           >
-                            Active
+                            {t('design_studio.activeLabel', 'Active')}
                           </span>
                         )}
                       </div>
-                      <h4 className="mt-3 text-sm font-black text-white">{pal.nameEn}</h4>
-                      <p className="text-[11px] text-slate-400">{pal.nameAr}</p>
+                      <h4 className="mt-3 text-sm font-black text-white"><bdi>{pal.nameEn}</bdi></h4>
+                      <p className="text-[11px] text-slate-400"><bdi>{pal.nameAr}</bdi></p>
                       <p className="mt-2 text-[10px] leading-snug text-slate-400">
                         {pal.description}
                       </p>
                     </div>
 
                     <div className="mt-4 flex items-center justify-between border-t border-slate-800/80 pt-2 font-mono text-[10px] text-slate-400">
-                      <span>Primary: {pal.primary}</span>
+                      <span>{t('design_studio.primaryLabel', 'Primary:')} <bdi>{pal.primary}</bdi></span>
                       <span className="rounded px-1.5 py-0.5" style={{ color: pal.badgeText, backgroundColor: pal.badgeBg }}>
-                        Accent
+                        {t('design_studio.accentLabel', 'Accent')}
                       </span>
                     </div>
                   </button>
@@ -382,56 +382,56 @@ export function FleetLogisticsView() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             <BentoCard
-              title="Quarry Material Revenue"
-              subtitle="Aggregated Sales Invoices"
+              title={t('design_studio.cardsTitle1', 'Quarry Material Revenue')}
+              subtitle={t('design_studio.cardsSubtitle1', 'Aggregated Sales Invoices')}
               icon={Landmark}
               glow
               badge={
                 <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
-                  +14.2% MoM
+                  <bdi>+14.2% MoM</bdi>
                 </span>
               }
             >
               <div className="space-y-2">
-                <span className="font-mono text-3xl font-black text-white">SAR 482,910.00</span>
+                <span className="font-mono text-3xl font-black text-white"><bdi>482,910.00 {t('common.currency', 'SAR')}</bdi></span>
                 <p className="text-xs text-slate-400">
-                  Live revenue counters with cryptographic isolation barrier verified.
+                  {t('design_studio.cardsDesc1', 'Live revenue counters with cryptographic isolation barrier verified.')}
                 </p>
               </div>
             </BentoCard>
 
             <BentoCard
-              title="Weighbridge Loss & Shrinkage"
-              subtitle="Scale Ticket Audit"
+              title={t('design_studio.cardsTitle2', 'Weighbridge Loss & Shrinkage')}
+              subtitle={t('design_studio.cardsSubtitle2', 'Scale Ticket Audit')}
               icon={Scale}
               badge={
                 <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-                  0.48% Loss
+                  <bdi>0.48% Loss</bdi>
                 </span>
               }
             >
               <div className="space-y-2">
-                <span className="font-mono text-3xl font-black text-amber-400">12.4 MT</span>
+                <span className="font-mono text-3xl font-black text-amber-400"><bdi>12.4 MT</bdi></span>
                 <p className="text-xs text-slate-400">
-                  Tolerance controlled across 18 partner transporters and quarries.
+                  {t('design_studio.cardsDesc2', 'Tolerance controlled across 18 partner transporters and quarries.')}
                 </p>
               </div>
             </BentoCard>
 
             <BentoCard
-              title="Fleet Logistics Trips"
-              subtitle="Daily Active Dispatch"
+              title={t('design_studio.cardsTitle3', 'Fleet Logistics Trips')}
+              subtitle={t('design_studio.cardsSubtitle3', 'Daily Active Dispatch')}
               icon={Truck}
               badge={
                 <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
-                  148 Trips
+                  <bdi>148 Trips</bdi>
                 </span>
               }
             >
               <div className="space-y-2">
-                <span className="font-mono text-3xl font-black text-white">3,892.4 MT</span>
+                <span className="font-mono text-3xl font-black text-white"><bdi>3,892.4 MT</bdi></span>
                 <p className="text-xs text-slate-400">
-                  Aggregate base, subbase, and crushed rock delivered today.
+                  {t('design_studio.cardsDesc3', 'Aggregate base, subbase, and crushed rock delivered today.')}
                 </p>
               </div>
             </BentoCard>
@@ -445,42 +445,42 @@ export function FleetLogisticsView() {
           <MasterDetailDataGrid
             data={sampleOperations}
             columns={sampleColumns}
-            title="Weighbridge & Daily Dispatch Logs"
-            subtitle="Click any row to open the slide-out side-sheet inspector"
+            title={t('design_studio.gridTitle', 'Weighbridge & Daily Dispatch Logs')}
+            subtitle={t('design_studio.gridSubtitle', 'Click any row to open the slide-out side-sheet inspector')}
             detailRenderer={(op, onClose) => (
               <div className="space-y-4 text-xs">
                 <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-4">
-                  <p className="text-[10px] font-mono text-slate-400">Scale Ticket #</p>
+                  <p className="text-[10px] font-mono text-slate-400">{t('design_studio.gridScaleTicket', 'Scale Ticket #')}</p>
                   <p className="font-mono text-base font-black text-amber-400">
-                    {op.scale_ticket_no}
+                    <bdi>{op.scale_ticket_no}</bdi>
                   </p>
                 </div>
 
                 <div className="space-y-2 rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
                   <div className="flex justify-between border-b border-slate-800/50 py-1.5">
-                    <span className="text-slate-400">Customer:</span>
-                    <span className="font-bold text-white">{op.destination_customer}</span>
+                    <span className="text-slate-400">{t('design_studio.gridCustomer', 'Customer:')}</span>
+                    <span className="font-bold text-white"><bdi>{op.destination_customer}</bdi></span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800/50 py-1.5">
-                    <span className="text-slate-400">Crusher Quarry:</span>
-                    <span className="font-bold text-white">{op.loading_source}</span>
+                    <span className="text-slate-400">{t('design_studio.gridQuarry', 'Crusher Quarry:')}</span>
+                    <span className="font-bold text-white"><bdi>{op.loading_source}</bdi></span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800/50 py-1.5">
-                    <span className="text-slate-400">Loaded Weight:</span>
+                    <span className="text-slate-400">{t('design_studio.gridLoadedWeight', 'Loaded Weight:')}</span>
                     <span className="font-mono font-bold text-slate-200">
-                      {op.qty_loaded} MT
+                      <bdi>{op.qty_loaded} MT</bdi>
                     </span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800/50 py-1.5">
-                    <span className="text-slate-400">Delivered Weight:</span>
+                    <span className="text-slate-400">{t('design_studio.gridDeliveredWeight', 'Delivered Weight:')}</span>
                     <span className="font-mono font-bold text-amber-400">
-                      {op.qty_delivered} MT
+                      <bdi>{op.qty_delivered} MT</bdi>
                     </span>
                   </div>
                   <div className="flex justify-between py-1.5">
-                    <span className="text-slate-400">Wastage / Shrinkage:</span>
+                    <span className="text-slate-400">{t('design_studio.gridWastage', 'Wastage / Shrinkage:')}</span>
                     <span className="font-mono font-bold text-rose-400">
-                      {op.wastage_percentage?.toFixed(2)}%
+                      <bdi>{op.wastage_percentage?.toFixed(2)}%</bdi>
                     </span>
                   </div>
                 </div>
@@ -488,11 +488,11 @@ export function FleetLogisticsView() {
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] text-emerald-300">
                   <div className="flex items-center gap-2 font-bold">
                     <ShieldCheck className="h-4 w-4" />
-                    <span>Schema RLS L3 Security Seal</span>
+                    <span>{t('design_studio.gridSecuritySeal', 'Schema RLS L3 Security Seal')}</span>
                   </div>
                   <p className="mt-1 text-[10px] text-emerald-300/80">
-                    This ticket record is strictly isolated to tenant ID:{' '}
-                    <code className="font-mono">{currentCompany?.id || 'TENANT-001'}</code>
+                    {t('design_studio.gridIsolatedTenant', 'This ticket record is strictly isolated to tenant ID: ')}
+                    <code className="font-mono"><bdi>{currentCompany?.id || 'TENANT-001'}</bdi></code>
                   </p>
                 </div>
               </div>
@@ -516,11 +516,11 @@ export function FleetLogisticsView() {
             <div className="flex items-center gap-2">
               <Terminal className="h-5 w-5 text-orange-400" />
               <h3 className="text-base font-black text-white">
-                AI Layout & Telemetry Prompt Generator
+                {t('design_studio.aiPromptTitle', 'AI Layout & Telemetry Prompt Generator')}
               </h3>
             </div>
             <p className="text-xs text-slate-400">
-              Select an enterprise ERP UI module below to generate copyable prompts and production-ready React components that enforce strict tenant isolation and deep-dark aesthetics.
+              {t('design_studio.aiPromptDesc', 'Select an enterprise ERP UI module below to generate copyable prompts and production-ready React components that enforce strict tenant isolation and deep-dark aesthetics.')}
             </p>
 
             <div className="space-y-2">
@@ -543,18 +543,18 @@ export function FleetLogisticsView() {
             <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <span className="text-[10px] font-mono uppercase text-slate-400">
-                  Target AI Assistant Prompt
+                  {t('design_studio.targetAiPrompt', 'Target AI Assistant Prompt')}
                 </span>
                 <button
                   onClick={() => handleCopyCode(aiPrompts[selectedPromptModule].prompt)}
                   className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-400 hover:text-orange-300"
                 >
                   {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                  <span>{copiedCode ? 'Copied!' : 'Copy Prompt'}</span>
+                  <span>{copiedCode ? t('common.copied', 'Copied!') : t('design_studio.copyPrompt', 'Copy Prompt')}</span>
                 </button>
               </div>
               <pre className="mt-3 overflow-x-auto whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-slate-300">
-                {aiPrompts[selectedPromptModule].prompt}
+                <bdi>{aiPrompts[selectedPromptModule].prompt}</bdi>
               </pre>
             </div>
           </div>
@@ -564,14 +564,14 @@ export function FleetLogisticsView() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Code2 className="h-5 w-5 text-indigo-400" />
-                <h3 className="text-base font-black text-white">Generated React Component Code</h3>
+                <h3 className="text-base font-black text-white">{t('design_studio.generatedCode', 'Generated React Component Code')}</h3>
               </div>
               <button
                 onClick={() => handleCopyCode(aiPrompts[selectedPromptModule].sampleCode)}
                 className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-300"
               >
                 {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
-                <span>{copiedCode ? 'Copied!' : 'Copy Code'}</span>
+                <span>{copiedCode ? t('common.copied', 'Copied!') : t('design_studio.copyCode', 'Copy Code')}</span>
               </button>
             </div>
 
