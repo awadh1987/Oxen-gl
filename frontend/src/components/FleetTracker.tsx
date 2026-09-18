@@ -27,6 +27,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { getAuthToken, getTenantId } from '../services/api';
 import { GPSVehicleTelemetry, FleetStreamMessage } from '../types';
 
 export interface FleetTrackerProps {
@@ -215,7 +216,24 @@ export const FleetTracker: React.FC<FleetTrackerProps> = ({
 
   const connect = useCallback(() => {
     disconnect();
-    const url = resolveWsUrl(wsEndpoint);
+    const token = getAuthToken();
+    const tenantId = getTenantId();
+    if (!token) {
+      setConnectionStatus('DISCONNECTED');
+      return;
+    }
+
+    const rawUrl = resolveWsUrl(wsEndpoint);
+    let url = rawUrl;
+    try {
+      const parsedUrl = new URL(rawUrl, window.location.href);
+      if (token) parsedUrl.searchParams.set('token', token);
+      if (tenantId) parsedUrl.searchParams.set('tenant_id', tenantId);
+      url = parsedUrl.toString();
+    } catch {
+      // url parse fallback
+    }
+
     setConnectionStatus('CONNECTING');
     appendLog(isAr ? `جاري الاتصال بقناة تتبع الأسطول: ${url}` : `Opening WebSocket telemetry bridge to: ${url}`, 'info');
 

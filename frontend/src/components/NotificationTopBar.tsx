@@ -1,5 +1,6 @@
 // File: frontend/src/components/NotificationTopBar.tsx
 import React, { useState, useEffect } from 'react';
+import { getAuthToken, getTenantId } from '../services/api';
 
 interface AlertNotification {
   id: string;
@@ -12,29 +13,51 @@ export const NotificationTopBar: React.FC = () => {
   const [activeAlerts, setActiveAlerts] = useState<AlertNotification[]>([]);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // Bind directly into the live logistics telemetry socket wire mesh loop
+  // Bind directly into the live logistics telemetry socket wire mesh loop only if authenticated
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/logistics/ws/fleet-stream`);
-    
-    socket.onmessage = (event) => {
-      const packet = JSON.parse(event.data);
-      
-      if (packet.routing_status === 'VECTOR_DEVIATION_ALERT') {
-        const newAlert: AlertNotification = {
-          id: `${packet.vehicle_id}-${Date.now()}`,
-          vehicle_id: packet.vehicle_id,
-          magnitude: packet.deviation_magnitude_km || 0,
-          timestamp: new Date().toLocaleTimeString()
-        };
-        
-        // Push the newest high-priority warning right to the top of the context buffer
-        setActiveAlerts((prev) => [newAlert, ...prev.slice(0, 4)]);
-        setIsDismissed(false);
-      };
-    };
+    const token = getAuthToken();
+    const tenantId = getTenantId();
+    if (!token) return;
 
-    return () => socket.close();
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const params = new URLSearchParams();
+    if (token) params.set('token', token);
+    if (tenantId) params.set('tenant_id', tenantId);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    
+    let socket: WebSocket | null = null;
+    try {
+      socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/logistics/ws/fleet-stream${qs}`);
+      
+      socket.onmessage = (event) => {
+        try {
+          const packet = JSON.parse(event.data);
+          
+          if (packet.routing_status === 'VECTOR_DEVIATION_ALERT') {
+            const newAlert: AlertNotification = {
+              id: `${packet.vehicle_id}-${Date.now()}`,
+              vehicle_id: packet.vehicle_id,
+              magnitude: packet.deviation_magnitude_km || 0,
+              timestamp: new Date().toLocaleTimeString()
+            };
+            
+            // Push the newest high-priority warning right to the top of the context buffer
+            setActiveAlerts((prev) => [newAlert, ...prev.slice(0, 4)]);
+            setIsDismissed(false);
+          }
+        } catch {
+          // ignore non-json
+        }
+      };
+
+      socket.onerror = () => {};
+    } catch {
+      // socket init error
+    }
+
+    return () => {
+      if (socket) socket.close();
+    };
   }, []);
 
   if (activeAlerts.length === 0 || isDismissed) return null;

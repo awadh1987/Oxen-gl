@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useApp } from '../context/AppContext';
+import { getAuthToken, getTenantId } from '../services/api';
 import { 
   Radio, 
   Activity, 
@@ -57,10 +58,16 @@ export const FleetMapView: React.FC = () => {
   const [metrics, setMetrics] = useState({ total: 4, safe: 3, breached: 1, avgTemp: 3.3 });
 
   useEffect(() => {
-    const tenantId = user?.tenantId || user?.tenant_id || 'tenant_001';
+    const token = getAuthToken();
+    const tenantId = user?.tenantId || user?.tenant_id || getTenantId();
+    if (!token || !tenantId) {
+      setIsConnected(false);
+      return;
+    }
+
     const host = typeof window !== 'undefined' ? window.location.host : 'localhost:8000';
     const wsProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${host}/api/v1/logistics/ws/fleet-stream?tenant_id=${tenantId}`;
+    const wsUrl = `${wsProtocol}//${host}/api/v1/logistics/ws/fleet-stream?token=${encodeURIComponent(token)}&tenant_id=${encodeURIComponent(tenantId)}`;
     
     let ws: WebSocket | null = null;
     try {

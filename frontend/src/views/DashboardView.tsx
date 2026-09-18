@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { useApp } from '../context/AppContext';
+import { getAuthToken, getTenantId } from '../services/api';
 import {
   Activity,
   Compass,
@@ -150,9 +151,19 @@ export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> =
 
     const connectWebSocket = () => {
       try {
+        const token = getAuthToken();
+        const tenantId = getTenantId();
+        if (!token) {
+          setWsConnected(false);
+          return;
+        }
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/api/v1/logistics/ws/fleet-stream`;
+        const params = new URLSearchParams();
+        if (token) params.set('token', token);
+        if (tenantId) params.set('tenant_id', tenantId);
+        const wsUrl = `${protocol}//${host}/api/v1/logistics/ws/fleet-stream?${params.toString()}`;
 
         ws = new WebSocket(wsUrl);
 
