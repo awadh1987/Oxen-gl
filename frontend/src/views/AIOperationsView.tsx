@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   Sparkles,
@@ -24,16 +24,8 @@ import {
   Download,
   MapPin,
   Globe,
-  Video,
-  Image as ImageIcon,
-  Upload,
-  Play,
   ArrowUpRight,
-  Sliders,
   ExternalLink,
-  ShieldCheck,
-  Eye,
-  Camera,
 } from 'lucide-react';
 import { formatCurrency, formatTonnage } from '../utils/formatters';
 import { OfficialLetterheadHeader } from '../components/OfficialLetterheadHeader';
@@ -44,8 +36,6 @@ type AITab =
   | 'letter-drafter'
   | 'maps-grounding'
   | 'search-grounding'
-  | 'video-studio'
-  | 'image-studio'
   | 'margin-optimizer';
 
 export const AIOperationsView: React.FC = () => {
@@ -96,33 +86,6 @@ export const AIOperationsView: React.FC = () => {
     answer?: string;
     sources?: { title: string; uri: string }[];
   } | null>(null);
-
-  // 5. Veo Video Studio State
-  const [videoPrompt, setVideoPrompt] = useState(
-    isAr
-      ? 'لقطة سينمائية بطائرة درون لشاحنات نقل ثقيل تفرغ حمولتها في موقع مشروع إنشائي بالرياض مع شروق الشمس'
-      : 'Cinematic drone aerial shot of heavy haulage dump trucks operating in a Saudi limestone quarry at sunrise'
-  );
-  const [videoAspectRatio, setVideoAspectRatio] = useState<'16:9' | '9:16'>('16:9');
-  const [videoImageBase64, setVideoImageBase64] = useState<string | null>(null);
-  const [videoLoading, setVideoLoading] = useState(false);
-  const [videoOperationName, setVideoOperationName] = useState<string | null>(null);
-  const [videoProgressText, setVideoProgressText] = useState<string>('');
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
-  const videoPollingRef = useRef<NodeJS.Timeout | null>(null);
-
-  // 6. Image Studio State (Create & Edit)
-  const [imagePrompt, setImagePrompt] = useState(
-    isAr
-      ? 'ختم أمني رقمي معتمد لميزان البسكول لشركة OxenGL باللون الأخضر والذهبي مع باركود'
-      : 'Professional circular security approved stamp badge for OxenGL weighbridge scale ticket'
-  );
-  const [imageMode, setImageMode] = useState<'create' | 'edit'>('create');
-  const [imageAspectRatio, setImageAspectRatio] = useState<'1:1' | '16:9' | '4:3' | '9:16'>('1:1');
-  const [sourceImageBase64, setSourceImageBase64] = useState<string | null>(null);
-  const [imageLoading, setImageLoading] = useState(false);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [imageDescription, setImageDescription] = useState<string | null>(null);
 
   const quickScenarios = [
     {
@@ -415,148 +378,6 @@ ${brandConfig.companyNameEn}`
     }
   };
 
-  // 5. Veo Video Generation with Polling
-  const handleGenerateVideo = async () => {
-    if (!videoPrompt) return;
-
-    setVideoLoading(true);
-    setGeneratedVideoUrl(null);
-    setVideoProgressText(isAr ? 'جاري إرسال طلب التوليد لنموذج Veo...' : 'Submitting Veo request...');
-
-    try {
-      const res = await fetch('/api/ai/generate-video', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: videoPrompt,
-          imageBase64: videoImageBase64,
-          aspectRatio: videoAspectRatio,
-          resolution: '720p',
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to start video generation');
-      const data = await res.json();
-      const opName = data.operationName;
-      setVideoOperationName(opName);
-
-      if (data.isSimulated) {
-        setVideoProgressText(isAr ? 'اكتمل التوليد بنجاح!' : 'Video rendered successfully!');
-        setGeneratedVideoUrl(
-          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
-        );
-        setVideoLoading(false);
-        return;
-      }
-
-      // Start Polling every 5 seconds
-      setVideoProgressText(isAr ? 'جاري معالجة وتوليد إطارات الفيديو (قد يستغرق 30-60 ثانية)...' : 'Rendering video frames (may take 30-60s)...');
-      let pollCount = 0;
-
-      videoPollingRef.current = setInterval(async () => {
-        pollCount++;
-        try {
-          const pollRes = await fetch('/api/ai/video-status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ operationName: opName }),
-          });
-
-          if (!pollRes.ok) throw new Error('Polling error');
-          const pollData = await pollRes.json();
-
-          if (pollData.done) {
-            if (videoPollingRef.current) clearInterval(videoPollingRef.current);
-            setVideoProgressText(isAr ? 'اكتمل التوليد! جاري تحميل الفيديو...' : 'Video ready! Loading stream...');
-            
-            // Proxy download url
-            setGeneratedVideoUrl(pollData.videoUrl || `/api/ai/video-download?op=${encodeURIComponent(opName)}`);
-            setVideoLoading(false);
-          } else {
-            setVideoProgressText(
-              isAr
-                ? `جاري معالجة الفيديو بالذكاء الاصطناعي... (${pollCount * 5} ثانية)`
-                : `AI Video Rendering in progress... (${pollCount * 5}s)`
-            );
-          }
-        } catch (pollErr) {
-          console.error('Video poll error:', pollErr);
-        }
-      }, 5000);
-    } catch (err: any) {
-      console.error('Video gen error:', err);
-      setVideoLoading(false);
-      setVideoProgressText(isAr ? 'حدث خطأ أثناء التوليد.' : 'Video generation failed.');
-    }
-  };
-
-  // Handle Video Image Attachment
-  const handleVideoImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setVideoImageBase64(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // 6. Operational intelligence image generation and editing.
-  const handleGenerateImage = async () => {
-    if (!imagePrompt) return;
-
-    setImageLoading(true);
-    setGeneratedImageUrl(null);
-    setImageDescription(null);
-
-    try {
-      let res;
-      if (imageMode === 'edit' && sourceImageBase64) {
-        res = await fetch('/api/ai/edit-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: imagePrompt,
-            imageBase64: sourceImageBase64,
-            aspectRatio: imageAspectRatio,
-          }),
-        });
-      } else {
-        res = await fetch('/api/ai/generate-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt: imagePrompt,
-            aspectRatio: imageAspectRatio,
-          }),
-        });
-      }
-
-      if (!res.ok) throw new Error('Image generation failed');
-      const data = await res.json();
-      setGeneratedImageUrl(data.imageUrl);
-      setImageDescription(data.description);
-    } catch (err) {
-      console.warn('Image generation fallback:', err);
-      setGeneratedImageUrl('https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=800&auto=format&fit=crop&q=80');
-      setImageDescription(isAr ? 'صورة توضيحية لأسطول النقل والكسارات' : 'Visual simulation of Meayon fleet');
-    } finally {
-      setImageLoading(false);
-    }
-  };
-
-  const handleSourceImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      setSourceImageBase64(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
   const handleCopyLetter = () => {
     if (!generatedLetter) return;
     navigator.clipboard.writeText(generatedLetter);
@@ -583,12 +404,12 @@ ${brandConfig.companyNameEn}`
               </span>
             </div>
             <h1 className="mt-2 text-xl sm:text-2xl font-black">
-              {isAr ? 'منظومة الذكاء الاصطناعي والتدقيق والوسائط' : 'AI Intelligence & Media Operations Studio'}
+              {isAr ? 'منظومة الذكاء الاصطناعي والتدقيق والعمليات' : 'AI Operational Intelligence & Audit Studio'}
             </h1>
             <p className="mt-1 text-xs text-orange-200 max-w-2xl">
               {isAr
-                ? 'مركز ذكاء اصطناعي شامل لتدقيق تذاكر الميزان، صياغة خطابات النزاع، البحث في خرائط الكسارات، التحقق من اللوائح، وتوليد الصور وفيديوهات Veo.'
-                : 'Enterprise AI suite for weighbridge audit, formal dispute drafting, Maps grounding, Search regulatory queries, and Veo video generation.'}
+                ? 'مركز ذكاء اصطناعي شامل لتدقيق تذاكر الميزان، صياغة خطابات النزاع، البحث في خرائط الكسارات، والتحقق من اللوائح وهوامش الربح.'
+                : 'Enterprise AI suite for weighbridge audit, formal dispute drafting, Maps grounding, Search regulatory queries, and margin optimization.'}
             </p>
           </div>
 
@@ -659,30 +480,6 @@ ${brandConfig.companyNameEn}`
           </button>
 
           <button
-            onClick={() => setActiveTab('video-studio')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 transition-all ${
-              activeTab === 'video-studio'
-                ? 'bg-white text-neutral-950 shadow-md font-black'
-                : 'bg-white/10 text-orange-200 hover:bg-white/20 hover:text-white'
-            }`}
-          >
-            <Video className="h-4 w-4 text-purple-400" />
-            <span>{isAr ? 'فيديو Veo السينمائي' : 'Veo Video Studio'}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('image-studio')}
-            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 transition-all ${
-              activeTab === 'image-studio'
-                ? 'bg-white text-neutral-950 shadow-md font-black'
-                : 'bg-white/10 text-orange-200 hover:bg-white/20 hover:text-white'
-            }`}
-          >
-            <ImageIcon className="h-4 w-4 text-amber-400" />
-            <span>{isAr ? 'استوديو الصور والأختام' : 'Image Studio'}</span>
-          </button>
-
-          <button
             onClick={() => setActiveTab('margin-optimizer')}
             className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 transition-all ${
               activeTab === 'margin-optimizer'
@@ -691,7 +488,7 @@ ${brandConfig.companyNameEn}`
             }`}
           >
             <DollarSign className="h-4 w-4" />
-            <span>{isAr ? 'هوامش الكسارات' : 'Crusher Margins'}</span>
+            <span>{isAr ? 'تحليل كفاءة الموردين وهوامش الربح' : 'Crusher Margins'}</span>
           </button>
         </div>
       </div>
@@ -1183,292 +980,7 @@ ${brandConfig.companyNameEn}`
         </div>
       )}
 
-      {/* TAB 5: Veo Video Studio */}
-      {activeTab === 'video-studio' && (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Video className="h-4 w-4 text-amber-600" />
-                <span>{isAr ? 'استوديو الفيديو لذكاء العمليات' : 'Operational Intelligence Video Studio'}</span>
-              </h3>
-              <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-purple-700">
-                veo-3.1-fast-generate-preview
-              </span>
-            </div>
 
-            <div className="space-y-4 mb-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  {isAr ? 'وصف المشهد أو الرسوم المتحركة المطلوبة:' : 'Video Prompt & Scenario Description:'}
-                </label>
-                <textarea
-                  rows={2}
-                  value={videoPrompt}
-                  onChange={(e) => setVideoPrompt(e.target.value)}
-                  placeholder={
-                    isAr
-                      ? 'صف المشهد مثل: لقطة درون لشاحنة تفرغ حمولتها في كسارة الحاير...'
-                      : 'Describe cinematic scene e.g. Drone view of heavy dump truck entering weigh station...'
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Image to Video Upload */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    {isAr ? 'صورة البداية (اختياري لتحريك صورة شاحنة أو تذكرة):' : 'Starting Image (Optional for Image-to-Video):'}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <label className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-2.5 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer">
-                      <Camera className="h-4 w-4 text-amber-600" />
-                      <span>{videoImageBase64 ? (isAr ? 'تم إرفاق الصورة' : 'Image Attached') : (isAr ? 'اختر صورة للتحريك' : 'Upload photo')}</span>
-                      <input type="file" accept="image/*" onChange={handleVideoImageUpload} className="hidden" />
-                    </label>
-                    {videoImageBase64 && (
-                      <button
-                        onClick={() => setVideoImageBase64(null)}
-                        className="rounded-lg bg-rose-50 px-2 py-2 text-xs text-rose-600 hover:bg-rose-100"
-                      >
-                        {isAr ? 'إلغاء' : 'Clear'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Aspect Ratio */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    {isAr ? 'أبعاد الفيديو:' : 'Aspect Ratio:'}
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setVideoAspectRatio('16:9')}
-                      className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all ${
-                        videoAspectRatio === '16:9'
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      16:9 {isAr ? '(أفقي / شاشة كاملة)' : '(Landscape)'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setVideoAspectRatio('9:16')}
-                      className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all ${
-                        videoAspectRatio === '9:16'
-                          ? 'bg-amber-600 text-white shadow-xs'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      9:16 {isAr ? '(عمودي / جوال)' : '(Portrait)'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={handleGenerateVideo}
-                disabled={videoLoading || !videoPrompt}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 py-3 text-xs font-bold text-white shadow-md shadow-amber-200 hover:opacity-95 disabled:opacity-50"
-              >
-                {videoLoading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>{videoProgressText || (isAr ? 'جاري التوليد...' : 'Rendering...')}</span>
-                  </>
-                ) : (
-                  <>
-                    <Video className="h-4 w-4" />
-                    <span>{isAr ? 'توليد الفيديو بنموذج Veo' : 'Generate Veo Cinematic Video'}</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Video Player Output */}
-            {generatedVideoUrl && (
-              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/40 p-4 sm:p-6">
-                <div className="flex items-center justify-between border-b border-amber-100 pb-3 mb-4">
-                  <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    <span>{isAr ? 'الفيديو المولد بنجاح:' : 'Veo Rendered Output:'}</span>
-                  </span>
-                  <a
-                    href={generatedVideoUrl}
-                    download="meayon_veo_video.mp4"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white hover:bg-purple-700 shadow-xs"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    <span>{isAr ? 'تحميل الفيديو' : 'Download Video'}</span>
-                  </a>
-                </div>
-
-                <div className="max-w-2xl mx-auto overflow-hidden rounded-xl bg-black shadow-lg">
-                  <video
-                    src={generatedVideoUrl}
-                    controls
-                    autoPlay
-                    loop
-                    className="w-full h-auto max-h-[420px] mx-auto object-contain"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 6: Operational intelligence image studio */}
-      {activeTab === 'image-studio' && (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <ImageIcon className="h-4 w-4 text-amber-600" />
-                <span>{isAr ? 'استوديو الصور والأختام الرقمية' : 'Operational Intelligence Image Studio'}</span>
-              </h3>
-              <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
-                gemini-3.1-flash-image
-              </span>
-            </div>
-
-            {/* Mode Switcher */}
-            <div className="flex gap-2 mb-4">
-              <button
-                type="button"
-                onClick={() => setImageMode('create')}
-                className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
-                  imageMode === 'create'
-                    ? 'bg-amber-500 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {isAr ? '✨ إنشاء وتوليد صورة جديدة' : '✨ Text-to-Image Creation'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setImageMode('edit')}
-                className={`flex-1 rounded-xl py-2 text-xs font-bold transition-all ${
-                  imageMode === 'edit'
-                    ? 'bg-amber-500 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {isAr ? '🎨 تعديل وإضافة عناصر على صورة' : '🎨 Image-to-Image Editing'}
-              </button>
-            </div>
-
-            <div className="space-y-4 mb-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  {imageMode === 'edit'
-                    ? (isAr ? 'تعليمات التعديل المطلوبة:' : 'Edit Instructions:')
-                    : (isAr ? 'وصف الصورة أو الختم المطلوب توليده:' : 'Image Prompt:')}
-                </label>
-                <textarea
-                  rows={2}
-                  value={imagePrompt}
-                  onChange={(e) => setImagePrompt(e.target.value)}
-                  placeholder={
-                    isAr
-                      ? 'مثال: ختم رسمي دائري باللون الأخضر مع عبارة تم وزن الحمولة مطابقة للمواصفات...'
-                      : 'e.g. Official green approved weighbridge stamp badge...'
-                  }
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 focus:border-amber-500 focus:outline-none"
-                />
-              </div>
-
-              {imageMode === 'edit' && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    {isAr ? 'ارفع الصورة المراد تعديلها:' : 'Upload Image to Edit:'}
-                  </label>
-                  <label className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 p-3 text-xs text-slate-600 hover:bg-slate-50 cursor-pointer">
-                    <Upload className="h-4 w-4 text-amber-600" />
-                    <span>{sourceImageBase64 ? (isAr ? 'تم إرفاق الصورة' : 'Image Loaded') : (isAr ? 'اختر صورة من جهازك' : 'Choose file')}</span>
-                    <input type="file" accept="image/*" onChange={handleSourceImageUpload} className="hidden" />
-                  </label>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {(['1:1', '16:9', '4:3', '9:16'] as const).map((ratio) => (
-                  <button
-                    key={ratio}
-                    type="button"
-                    onClick={() => setImageAspectRatio(ratio)}
-                    className={`rounded-xl py-2 text-xs font-bold transition-all ${
-                      imageAspectRatio === ratio
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    {ratio}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={handleGenerateImage}
-                disabled={imageLoading || !imagePrompt || (imageMode === 'edit' && !sourceImageBase64)}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 py-3 text-xs font-bold text-white shadow-md shadow-amber-200 hover:opacity-95 disabled:opacity-50"
-              >
-                {imageLoading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    <span>{isAr ? 'جاري المعالجة والتوليد...' : 'Processing operational intelligence request...'}</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    <span>{imageMode === 'edit' ? (isAr ? 'تطبيق التعديلات على الصورة' : 'Apply AI Edits') : (isAr ? 'توليد الصورة الذكية' : 'Generate Image')}</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-            {/* Generated Image Output */}
-            {generatedImageUrl && (
-              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/40 p-4 sm:p-6">
-                <div className="flex items-center justify-between border-b border-amber-100 pb-3 mb-4">
-                  <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                    <span>{isAr ? 'الصورة المولدة بنجاح:' : 'AI Image Output:'}</span>
-                  </span>
-                  <a
-                    href={generatedImageUrl}
-                    download="meayon_ai_image.png"
-                    className="flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-xs font-bold text-white hover:bg-amber-700 shadow-xs"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    <span>{isAr ? 'تحميل الصورة' : 'Download Image'}</span>
-                  </a>
-                </div>
-
-                <div className="max-w-lg mx-auto overflow-hidden rounded-xl border border-amber-200 shadow-md bg-white">
-                  <img
-                    src={generatedImageUrl}
-                    alt="AI Generated Output"
-                    className="w-full h-auto object-contain"
-                    referrerPolicy="no-referrer"
-                  />
-                  {imageDescription && (
-                    <div className="p-3 bg-white text-xs text-slate-600 border-t border-slate-100">
-                      {imageDescription}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* TAB 7: Crusher Margins & Material Pricing */}
       {activeTab === 'margin-optimizer' && (

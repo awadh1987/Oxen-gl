@@ -62,6 +62,133 @@ export interface RouteProps {
 
 export const Route: React.FC<RouteProps> = ({ element }) => <>{element}</>;
 
+// Exact Bi-directional Route to Tab Mappings
+export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
+  // Operations Ribbon
+  '/operations/daily': 'operations',
+  '/operations/fleet-map': 'fleet-map',
+  '/operations/fleet-maintenance': 'maintenance',
+  '/operations/transporters': 'transporters',
+  '/operations/crushers': 'crushers',
+  '/operations/customs': 'customs',
+  '/operations/planning': 'planning',
+
+  // Finance Ribbon
+  '/finance/invoices': 'invoicing',
+  '/finance/vouchers': 'vouchers',
+  '/finance/chart': 'finance-chart',
+  '/finance/trial-balance': 'finance-trial-balance',
+  '/finance/audit-closing': 'finance-audit-closing',
+  '/finance/ai-auditor': 'ai-insights',
+
+  // Governance & Admin (Navbar Settings / Sidebar Governance)
+  '/settings/approvals': 'executive-admin',
+  '/settings/billing': 'billing',
+  '/settings/master-data': 'master-data',
+  '/settings/tenant': 'tenant-settings',
+  '/settings/workflows': 'workflow-builder',
+
+  // Dev Studio (Hidden developer route)
+  '/dev-studio': 'design-studio',
+
+  // Shortcuts & Legacy Fallbacks
+  '/operations': 'operations',
+  '/planning': 'planning',
+  '/customs': 'customs',
+  '/invoicing': 'invoicing',
+  '/vouchers': 'vouchers',
+  '/dashboard': 'operations',
+};
+
+export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
+  operations: '/operations/daily',
+  'fleet-map': '/operations/fleet-map',
+  maintenance: '/operations/fleet-maintenance',
+  transporters: '/operations/transporters',
+  crushers: '/operations/crushers',
+  customs: '/operations/customs',
+  planning: '/operations/planning',
+
+  invoicing: '/finance/invoices',
+  vouchers: '/finance/vouchers',
+  'finance-chart': '/finance/chart',
+  'finance-trial-balance': '/finance/trial-balance',
+  'finance-audit-closing': '/finance/audit-closing',
+  'ai-insights': '/finance/ai-auditor',
+
+  'executive-admin': '/settings/approvals',
+  billing: '/settings/billing',
+  'master-data': '/settings/master-data',
+  'tenant-settings': '/settings/tenant',
+  'workflow-builder': '/settings/workflows',
+  'design-studio': '/dev-studio',
+
+  hub: '/operations/daily',
+  dashboard: '/operations/daily',
+  approvals: '/settings/approvals',
+  procurement: '/operations/daily',
+  inventory: '/operations/daily',
+  mfa: '/login',
+  'admin-hub': '/operations/daily',
+};
+
+export const getTabFromPath = (path: string): ActiveTab => {
+  const cleanPath = path.replace(/\/$/, '');
+  if (ROUTE_TAB_MAP[cleanPath]) return ROUTE_TAB_MAP[cleanPath];
+  if (ROUTE_TAB_MAP[path]) return ROUTE_TAB_MAP[path];
+
+  if (cleanPath.startsWith('/operations/daily')) return 'operations';
+  if (cleanPath.startsWith('/operations/fleet-map')) return 'fleet-map';
+  if (cleanPath.startsWith('/operations/fleet-maintenance')) return 'maintenance';
+  if (cleanPath.startsWith('/operations/transporters')) return 'transporters';
+  if (cleanPath.startsWith('/operations/crushers')) return 'crushers';
+  if (cleanPath.startsWith('/operations/customs')) return 'customs';
+  if (cleanPath.startsWith('/operations/planning')) return 'planning';
+
+  if (cleanPath.startsWith('/finance/invoices')) return 'invoicing';
+  if (cleanPath.startsWith('/finance/vouchers')) return 'vouchers';
+  if (cleanPath.startsWith('/finance/chart')) return 'finance-chart';
+  if (cleanPath.startsWith('/finance/trial-balance')) return 'finance-trial-balance';
+  if (cleanPath.startsWith('/finance/audit-closing')) return 'finance-audit-closing';
+  if (cleanPath.startsWith('/finance/ai-auditor')) return 'ai-insights';
+
+  if (cleanPath.startsWith('/settings/approvals')) return 'executive-admin';
+  if (cleanPath.startsWith('/settings/billing')) return 'billing';
+  if (cleanPath.startsWith('/settings/master-data')) return 'master-data';
+  if (cleanPath.startsWith('/settings/tenant')) return 'tenant-settings';
+  if (cleanPath.startsWith('/settings/workflows')) return 'workflow-builder';
+  if (cleanPath.startsWith('/dev-studio')) return 'design-studio';
+
+  return 'operations';
+};
+
+// Professional Multi-Tenant Secondary Navigation Structure
+export const tenantNavigation: {
+  id: ActiveTab;
+  path: string;
+  labelAr: string;
+  labelEn: string;
+  icon: React.ComponentType<{ className?: string }>;
+  group: 'Operations & Logistics' | 'Finance, Accounting & Control';
+}[] = [
+  // 1. Operations & Logistics Ribbon - Strictly 7 Core Modules
+  { id: 'operations', path: '/operations/daily', labelAr: 'سجل العمليات اليومية', labelEn: 'Daily Operations Logs', icon: Truck, group: 'Operations & Logistics' },
+  { id: 'fleet-map', path: '/operations/fleet-map', labelAr: 'رادار وخريطة الأسطول', labelEn: 'Fleet Radar & GPS', icon: Radio, group: 'Operations & Logistics' },
+  { id: 'maintenance', path: '/operations/fleet-maintenance', labelAr: 'صيانة الأسطول والوقود', labelEn: 'Fleet Maintenance & Fuel', icon: Wrench, group: 'Operations & Logistics' },
+  { id: 'transporters', path: '/operations/transporters', labelAr: 'الناقلون ونسب الهدر', labelEn: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
+  { id: 'crushers', path: '/operations/crushers', labelAr: 'كشوفات الكسارات', labelEn: 'Crusher Statements', icon: Building2, group: 'Operations & Logistics' },
+  { id: 'customs', path: '/operations/customs', labelAr: 'لوحة التخليص الجمركي', labelEn: 'Customs Clearance', icon: Globe, group: 'Operations & Logistics' },
+  { id: 'planning', path: '/operations/planning', labelAr: 'إدارة التخطيط والتشغيل', labelEn: 'Planning & Charters', icon: Layers, group: 'Operations & Logistics' },
+
+  // 2. Finance, Accounting & Control Ribbon - Strictly 6 Core Modules
+  { id: 'invoicing', path: '/finance/invoices', labelAr: 'الفوترة الضريبية', labelEn: 'ZATCA Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
+  { id: 'vouchers', path: '/finance/vouchers', labelAr: 'السندات المالية', labelEn: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
+  { id: 'finance-chart', path: '/finance/chart', labelAr: 'شجرة الحسابات', labelEn: 'Chart of Accounts', icon: Landmark, group: 'Finance, Accounting & Control' },
+  { id: 'finance-trial-balance', path: '/finance/trial-balance', labelAr: 'ميزان المراجعة', labelEn: 'Trial Balance', icon: Scale, group: 'Finance, Accounting & Control' },
+  { id: 'finance-audit-closing', path: '/finance/audit-closing', labelAr: 'الإقفال السنوي والتدقيق', labelEn: 'Annual Audit Closing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
+  { id: 'ai-insights', path: '/finance/ai-auditor', labelAr: 'مدقق العمليات الذكي', labelEn: 'AI Financial Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
+];
+
 function AppContent() {
   const { language, currentUser, brandConfig, isDriverMode, themeMode, authTier, tenantId, logoutUser, isTwoTierAuthenticated } = useApp();
   const isAr = language === 'ar';
@@ -88,63 +215,64 @@ function AppContent() {
     }
     return '/';
   });
-  const [activeTab, setActiveTab] = useState<ActiveTab>(() => (typeof window !== 'undefined' && window.location.pathname === '/planning' ? 'planning' : 'hub'));
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    if (typeof window !== 'undefined') {
+      return getTabFromPath(window.location.pathname);
+    }
+    return 'operations';
+  });
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isExportPrintModalOpen, setIsExportPrintModalOpen] = useState(false);
+
+  const [selectedDomain, setSelectedDomain] = useState<'Operations & Logistics' | 'Finance, Accounting & Control'>(() => {
+    const tab = typeof window !== 'undefined' ? getTabFromPath(window.location.pathname) : 'operations';
+    const item = tenantNavigation.find(n => n.id === tab);
+    if (item?.group) return item.group;
+    if (tab === 'finance-chart' || tab === 'finance-trial-balance' || tab === 'finance-audit-closing' || tab === 'invoicing' || tab === 'vouchers' || tab === 'ai-insights') {
+      return 'Finance, Accounting & Control';
+    }
+    return 'Operations & Logistics';
+  });
+
+  // Centralized URL Navigation & History Synchronizer
+  const navigateToTab = (tab: ActiveTab, updateHistory = true) => {
+    setActiveTab(tab);
+    const navItem = tenantNavigation.find(n => n.id === tab);
+    if (navItem) {
+      setSelectedDomain(navItem.group);
+    } else if (tab === 'finance-chart' || tab === 'finance-trial-balance' || tab === 'finance-audit-closing' || tab === 'invoicing' || tab === 'vouchers' || tab === 'ai-insights') {
+      setSelectedDomain('Finance, Accounting & Control');
+    } else {
+      setSelectedDomain('Operations & Logistics');
+    }
+
+    const targetPath = TAB_ROUTE_MAP[tab] || '/operations/daily';
+    if (updateHistory && typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+      setCurrentPath(targetPath);
+    }
+  };
+
+  // Browser History (popstate) Synchronization
   useEffect(() => {
     const syncPath = () => {
       if (typeof window !== 'undefined') {
         const path = window.location.pathname;
         setCurrentPath(path);
-        if (path === '/planning') {
-          setActiveTab('planning');
-        } else if (path === '/finance/chart') {
-          setActiveTab('finance-chart');
-        } else if (path === '/finance/trial-balance') {
-          setActiveTab('finance-trial-balance');
-        } else if (path === '/finance/audit-closing') {
-          setActiveTab('finance-audit-closing');
+        const resolvedTab = getTabFromPath(path);
+        setActiveTab(resolvedTab);
+        const item = tenantNavigation.find(n => n.id === resolvedTab);
+        if (item?.group) {
+          setSelectedDomain(item.group);
         }
       }
     };
-    syncPath();
     window.addEventListener('popstate', syncPath);
     return () => window.removeEventListener('popstate', syncPath);
   }, []);
-
-  useEffect(() => {
-    if (activeTab === 'planning' && typeof window !== 'undefined' && window.location.pathname !== '/planning') {
-      window.history.pushState({}, '', '/planning');
-    }
-  }, [activeTab]);
-
-
-  const tenantNavigation: { id: ActiveTab; labelAr: string; labelEn: string; icon: React.ComponentType<{ className?: string }>; group: 'Operations & Logistics' | 'Finance, Accounting & Control' }[] = [
-    { id: 'hub', labelAr: 'بوابة المستأجرين', labelEn: 'Home Hub', icon: Building2, group: 'Operations & Logistics' },
-    { id: 'dashboard', labelAr: 'لوحة التحكم التنفيذية', labelEn: 'Executive Dashboard', icon: LayoutDashboard, group: 'Operations & Logistics' },
-    { id: 'planning', labelAr: 'إدارة التخطيط والتشغيل', labelEn: 'Planning Department', icon: Layers, group: 'Operations & Logistics' },
-    { id: 'operations', labelAr: 'سجل العمليات اليومية', labelEn: 'Daily Operations Logs', icon: Truck, group: 'Operations & Logistics' },
-    { id: 'maintenance', labelAr: 'صيانة الأسطول والوقود', labelEn: 'Fleet Maintenance & Fuel', icon: Wrench, group: 'Operations & Logistics' },
-    { id: 'fleet-map', labelAr: 'رادار وخريطة الأسطول', labelEn: 'Live Fleet Radar', icon: Radio, group: 'Operations & Logistics' },
-    { id: 'transporters', labelAr: 'الناقلون ونسب الهدر', labelEn: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
-    { id: 'crushers', labelAr: 'كشوفات الكسارات', labelEn: 'Crusher Statements', icon: Building2, group: 'Operations & Logistics' },
-    { id: 'master-data', labelAr: 'البيانات الرئيسية والتسعير', labelEn: 'Master Data & Pricing', icon: Users, group: 'Operations & Logistics' },
-    { id: 'workflow-builder', labelAr: 'أتمتة العمليات والمسارات', labelEn: 'Workflow Automation', icon: Cpu, group: 'Operations & Logistics' },
-    { id: 'customs', labelAr: 'لوحة التخليص الجمركي', labelEn: 'Customs Clearance Board', icon: Globe, group: 'Operations & Logistics' },
-    { id: 'invoicing', labelAr: 'الفوترة الضريبية (ZATCA)', labelEn: 'Tax Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
-    { id: 'vouchers', labelAr: 'السندات المالية', labelEn: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
-    { id: 'finance-chart', labelAr: 'شجرة الحسابات', labelEn: 'Chart of Accounts', icon: Landmark, group: 'Finance, Accounting & Control' },
-    { id: 'finance-trial-balance', labelAr: 'ميزان المراجعة', labelEn: 'Trial Balance', icon: Scale, group: 'Finance, Accounting & Control' },
-    { id: 'finance-audit-closing', labelAr: 'الإقفال السنوي والتدقيق', labelEn: 'Annual Audit Closing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
-    { id: 'billing', labelAr: 'خطة الاشتراك والفوترة', labelEn: 'SaaS Plan & Billing', icon: CreditCard, group: 'Finance, Accounting & Control' },
-    { id: 'executive-admin', labelAr: 'الموافقات التنفيذية والتدقيق', labelEn: 'Executive Approvals & Audit', icon: Landmark, group: 'Finance, Accounting & Control' },
-    { id: 'ai-insights', labelAr: 'مدقق العمليات الذكي', labelEn: 'AI Operations Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
-    { id: 'design-studio', labelAr: 'استوديو التصميم والنظام', labelEn: 'Design System & AI Studio', icon: Palette, group: 'Finance, Accounting & Control' },
-    { id: 'tenant-settings', labelAr: 'إدارة المنشأة والنطاقات', labelEn: 'Tenant Admin & Domains', icon: Globe, group: 'Finance, Accounting & Control' },
-  ];
-
-  const [selectedDomain, setSelectedDomain] = useState<'Operations & Logistics' | 'Finance, Accounting & Control'>('Operations & Logistics');
 
   useEffect(() => {
     const item = tenantNavigation.find(n => n.id === activeTab);
@@ -161,14 +289,19 @@ function AppContent() {
 
   useEffect(() => {
     localStorage.setItem('oxengl_session_active', String(isLoggedIn));
-    if (isLoggedIn) setActiveTab(currentUser?.role === 'Super_Admin' ? 'dashboard' : 'hub');
-    else localStorage.removeItem('oxengl_recovery_session');
-  }, [isLoggedIn, currentUser?.role]);
+    if (isLoggedIn) {
+      if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
+        navigateToTab('operations');
+      }
+    } else {
+      localStorage.removeItem('oxengl_recovery_session');
+    }
+  }, [isLoggedIn]);
 
   // If driver mode is turned on and current tab is restricted, switch to operations
   useEffect(() => {
     if (isDriverMode && activeTab !== 'operations' && activeTab !== 'transporters') {
-      setActiveTab('operations');
+      navigateToTab('operations');
     }
   }, [isDriverMode, activeTab]);
 
@@ -399,7 +532,8 @@ function AppContent() {
   if (currentPath === '/login' || (!isLoggedIn && activeSubdomain)) {
     if (isLoggedIn) {
       if (typeof window !== 'undefined') {
-        window.history.replaceState({}, '', '/');
+        window.history.replaceState({}, '', '/operations/daily');
+        setCurrentPath('/operations/daily');
       }
     } else {
       return (
@@ -407,7 +541,7 @@ function AppContent() {
           <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onLoginSuccess={() => {
             setIsLoggedIn(true);
             if (typeof window !== 'undefined') {
-              window.location.href = '/';
+              window.location.href = '/operations/daily';
             }
           }} />} />
         </Suspense>
@@ -422,7 +556,7 @@ function AppContent() {
           <Route path="/" element={<LandingPageView onLoginSuccess={() => {
             setIsLoggedIn(true);
             if (typeof window !== 'undefined') {
-              window.location.href = '/';
+              window.location.href = '/operations/daily';
             }
           }} />} />
         </Suspense>
@@ -436,7 +570,7 @@ function AppContent() {
         <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onLoginSuccess={() => {
           setIsLoggedIn(true);
           if (typeof window !== 'undefined') {
-            window.location.href = '/';
+            window.location.href = '/operations/daily';
           }
         }} />} />
       </Suspense>
@@ -567,6 +701,7 @@ function AppContent() {
         onOpenAIModal={() => setIsAIChatOpen(true)}
         onOpenExportPrintModal={() => setIsExportPrintModalOpen(true)}
         onLogout={leaveWorkspace}
+        onNavigateTab={(tab) => navigateToTab(tab as any)}
       />}
 
       {activeTab !== 'hub' && (() => {
@@ -601,8 +736,9 @@ function AppContent() {
                     id="domain-switch-operations"
                     onClick={() => {
                       setSelectedDomain('Operations & Logistics');
-                      if (tenantNavigation.find((n) => n.id === activeTab)?.group !== 'Operations & Logistics') {
-                        setActiveTab('operations');
+                      const activeGroup = tenantNavigation.find((n) => n.id === activeTab)?.group;
+                      if (activeGroup !== 'Operations & Logistics') {
+                        navigateToTab('operations');
                       }
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
@@ -622,8 +758,9 @@ function AppContent() {
                     id="domain-switch-finance"
                     onClick={() => {
                       setSelectedDomain('Finance, Accounting & Control');
-                      if (tenantNavigation.find((n) => n.id === activeTab)?.group !== 'Finance, Accounting & Control') {
-                        setActiveTab('invoicing');
+                      const activeGroup = tenantNavigation.find((n) => n.id === activeTab)?.group;
+                      if (activeGroup !== 'Finance, Accounting & Control') {
+                        navigateToTab('invoicing');
                       }
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
@@ -664,18 +801,7 @@ function AppContent() {
                   return (
                     <button
                       key={item.id}
-                      onClick={() => {
-                        if (item.id === 'customs') {
-                          window.history.pushState({}, '', '/customs');
-                        } else if (item.id === 'finance-chart') {
-                          window.history.pushState({}, '', '/finance/chart');
-                        } else if (item.id === 'finance-trial-balance') {
-                          window.history.pushState({}, '', '/finance/trial-balance');
-                        } else if (item.id === 'finance-audit-closing') {
-                          window.history.pushState({}, '', '/finance/audit-closing');
-                        }
-                        setActiveTab(item.id);
-                      }}
+                      onClick={() => navigateToTab(item.id)}
                       className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold transition-all ${
                         isActive
                           ? isOps
@@ -698,15 +824,13 @@ function AppContent() {
       })()}
 
       <div className="flex">
-        {activeTab !== 'hub' && (
-          <Sidebar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            isOpenMobile={isMobileMenuOpen}
-            onCloseMobile={() => setIsMobileMenuOpen(false)}
-          />
-        )}
-        <main className={activeTab === 'hub' ? 'min-w-0 flex-1' : `min-w-0 flex-1 p-4 sm:p-6 lg:p-8 ${themeMode === 'dark' ? 'bg-[#0b0d19]' : 'bg-slate-100'}`}>
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={navigateToTab}
+          isOpenMobile={isMobileMenuOpen}
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
+        />
+        <main className={`min-w-0 flex-1 p-4 sm:p-6 lg:p-8 ${themeMode === 'dark' ? 'bg-[#0b0d19]' : 'bg-slate-100'}`}>
           <div className="mb-4 flex items-center justify-between lg:hidden">
             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-xs">{isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}<span>{isAr ? 'Navigation' : 'Menu'}</span></button>
             <span className="text-xs font-black text-[#F05627]">{isAr ? brandConfig.companyNameAr : brandConfig.companyNameEn}</span>

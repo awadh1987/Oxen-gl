@@ -55,6 +55,13 @@ export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialM
   const isAr = language === 'ar';
 
   const [activeSubTab, setActiveSubTab] = useState<FinanceReportMode>(initialMode);
+
+  useEffect(() => {
+    if (initialMode) {
+      setActiveSubTab(initialMode);
+    }
+  }, [initialMode]);
+
   const [coaTree, setCoaTree] = useState<CoaNode[]>([]);
   const [trialBalanceData, setTrialBalanceData] = useState<{
     is_balanced: boolean;
@@ -314,71 +321,42 @@ export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialM
               </span>
             </div>
             <h1 className="text-2xl font-black text-white mt-1">
-              {isAr ? 'المحاسبة العامة وشجرة الحسابات' : 'General Ledger & Financial Accounting'}
+              {activeSubTab === 'chart'
+                ? (isAr ? 'دليل وشجرة الحسابات العامة' : 'Hierarchical Chart of Accounts')
+                : activeSubTab === 'trial-balance'
+                ? (isAr ? 'ميزان المراجعة والأرصدة الختامية' : 'Trial Balance Ledger')
+                : (isAr ? 'الإقفال السنوي والتدقيق المالي' : 'Annual Audit Closing & Certification')}
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              {isAr
-                ? 'استعراض الهيكل الشجري للحسابات، ميزان المراجعة المجمع، والإقفال السنوي المعتمد'
-                : '5-deep hierarchical Chart of Accounts, balanced trial ledger, and annual audit certification'}
+              {activeSubTab === 'chart'
+                ? (isAr ? 'استعراض وإدارة الهيكل الشجري للحسابات، تصفية الفئات الجذرية وتصدير الدليل' : '5-deep hierarchical Chart of Accounts, class filtering, and CSV export')
+                : activeSubTab === 'trial-balance'
+                ? (isAr ? 'مطابقة وموازنة الأرصدة المدينة والدائنة لكافة الحسابات الفرعية' : 'Consolidated debit and credit balances with discrepancy detection')
+                : (isAr ? 'حساب الأرباح والخسائر وإقفال الحسابات المؤقتة وإصدار شهادة المراجعة' : 'Annual financial close, retained earnings settlement, and certified audit export')}
             </p>
           </div>
 
-          {/* Sub-Navigation Buttons & XML Export Trigger */}
+          {/* Mode Badge & XML Export Trigger */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSubTab('chart');
-                  if (typeof window !== 'undefined') {
-                    window.history.pushState({}, '', '/finance/chart');
-                  }
-                }}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
-                  activeSubTab === 'chart'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Network className="h-4 w-4" />
-                <span>{isAr ? 'دليل الحسابات الشجري' : 'Chart of Accounts'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSubTab('trial-balance');
-                  if (typeof window !== 'undefined') {
-                    window.history.pushState({}, '', '/finance/trial-balance');
-                  }
-                }}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
-                  activeSubTab === 'trial-balance'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <Scale className="h-4 w-4" />
-                <span>{isAr ? 'ميزان المراجعة' : 'Trial Balance'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveSubTab('audit-closing');
-                  if (typeof window !== 'undefined') {
-                    window.history.pushState({}, '', '/finance/audit-closing');
-                  }
-                }}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition ${
-                  activeSubTab === 'audit-closing'
-                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                <FileCheck2 className="h-4 w-4" />
-                <span>{isAr ? 'الإقفال والمراجعة السنوية' : 'Annual Audit Closing'}</span>
-              </button>
+            <div className="flex items-center gap-2 bg-slate-900/80 px-3.5 py-2 rounded-2xl border border-slate-800 text-xs font-bold">
+              {activeSubTab === 'chart' && (
+                <div className="flex items-center gap-2 text-amber-400">
+                  <Network className="h-4 w-4 text-orange-500" />
+                  <span>{isAr ? 'دليل الحسابات الشجري' : 'Chart of Accounts Tree'}</span>
+                </div>
+              )}
+              {activeSubTab === 'trial-balance' && (
+                <div className="flex items-center gap-2 text-amber-400">
+                  <Scale className="h-4 w-4 text-orange-500" />
+                  <span>{isAr ? 'ميزان المراجعة المجمع' : 'Trial Balance Ledger'}</span>
+                </div>
+              )}
+              {activeSubTab === 'audit-closing' && (
+                <div className="flex items-center gap-2 text-amber-400">
+                  <FileCheck2 className="h-4 w-4 text-orange-500" />
+                  <span>{isAr ? 'الإقفال والمراجعة السنوية' : 'Annual Audit Closing'}</span>
+                </div>
+              )}
             </div>
 
             <DownloadAuditXmlButton />
