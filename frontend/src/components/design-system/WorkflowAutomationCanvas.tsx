@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Play,
   Pause,
@@ -21,6 +22,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import type { TFunction } from 'i18next';
 
 export interface WorkflowNode {
   id: string;
@@ -35,80 +37,83 @@ export interface WorkflowNode {
   params: Record<string, string>;
 }
 
+const buildInitialNodes = (t: TFunction): WorkflowNode[] => [
+  {
+    id: 'node-1',
+    type: 'trigger',
+    department: 'Logistics',
+    title: t('workflows.node1Title', 'Trip Dispatch Created'),
+    subtitle: t('workflows.node1Subtitle', 'Triggered upon truck arrival at quarry'),
+    icon: Truck,
+    x: 60,
+    y: 120,
+    status: 'active',
+    params: {
+      'Min Tonnage Threshold': '25.0 MT',
+      'Auto Fleet Allocation': 'Enabled',
+      'Transporter Shrinkage Check': 'Active',
+    },
+  },
+  {
+    id: 'node-2',
+    type: 'action',
+    department: 'Weighbridge',
+    title: t('workflows.node2Title', 'Weighbridge Slip Certified'),
+    subtitle: t('workflows.node2Subtitle', 'Gross, Tare & Net payload verified'),
+    icon: Scale,
+    x: 380,
+    y: 120,
+    status: 'active',
+    params: {
+      'Scale Tolerance': '+/- 0.5%',
+      'ZATCA Ticket Serialization': 'Auto',
+      'Loss Mitigation Protocol': 'Strict Audit',
+    },
+  },
+  {
+    id: 'node-3',
+    type: 'condition',
+    department: 'ZATCA',
+    title: t('workflows.node3Title', 'ZATCA Phase-2 Clearance'),
+    subtitle: t('workflows.node3Subtitle', 'Cryptographic hash & QR generation'),
+    icon: ShieldCheck,
+    x: 700,
+    y: 120,
+    status: 'active',
+    params: {
+      'Compliance Mode': 'Stage-2 Production',
+      'ECDSA Cryptographic Stamp': 'Enforced',
+      'Tax Rate': '15.0% Standard VAT',
+    },
+  },
+  {
+    id: 'node-4',
+    type: 'action',
+    department: 'Finance',
+    title: t('workflows.node4Title', 'Tax Invoice & Voucher Created'),
+    subtitle: t('workflows.node4Subtitle', 'Customer ledger updated & GL entry posted'),
+    icon: FileSpreadsheet,
+    x: 1020,
+    y: 120,
+    status: 'active',
+    params: {
+      'Auto Journal Posting': 'Enabled',
+      'Subledger Split': 'Customer vs Transporter',
+      'Payment Terms': '30 Days Net',
+    },
+  },
+];
+
 export const WorkflowAutomationCanvas: React.FC = () => {
   const { themeMode, tenantTheme } = useApp();
+  const { t } = useTranslation();
   const isDark = themeMode === 'dark';
 
   const [isRunning, setIsRunning] = useState(true);
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
 
   // Initial workflow sequence connecting the end-to-end ERP lifecycle
-  const [nodes, setNodes] = useState<WorkflowNode[]>([
-    {
-      id: 'node-1',
-      type: 'trigger',
-      department: 'Logistics',
-      title: 'Trip Dispatch Created',
-      subtitle: 'Triggered upon truck arrival at quarry',
-      icon: Truck,
-      x: 60,
-      y: 120,
-      status: 'active',
-      params: {
-        'Min Tonnage Threshold': '25.0 MT',
-        'Auto Fleet Allocation': 'Enabled',
-        'Transporter Shrinkage Check': 'Active',
-      },
-    },
-    {
-      id: 'node-2',
-      type: 'action',
-      department: 'Weighbridge',
-      title: 'Weighbridge Slip Certified',
-      subtitle: 'Gross, Tare & Net payload verified',
-      icon: Scale,
-      x: 380,
-      y: 120,
-      status: 'active',
-      params: {
-        'Scale Tolerance': '+/- 0.5%',
-        'ZATCA Ticket Serialization': 'Auto',
-        'Loss Mitigation Protocol': 'Strict Audit',
-      },
-    },
-    {
-      id: 'node-3',
-      type: 'condition',
-      department: 'ZATCA',
-      title: 'ZATCA Phase-2 Clearance',
-      subtitle: 'Cryptographic hash & QR generation',
-      icon: ShieldCheck,
-      x: 700,
-      y: 120,
-      status: 'active',
-      params: {
-        'Compliance Mode': 'Stage-2 Production',
-        'ECDSA Cryptographic Stamp': 'Enforced',
-        'Tax Rate': '15.0% Standard VAT',
-      },
-    },
-    {
-      id: 'node-4',
-      type: 'action',
-      department: 'Finance',
-      title: 'Tax Invoice & Voucher Created',
-      subtitle: 'Customer ledger updated & GL entry posted',
-      icon: FileSpreadsheet,
-      x: 1020,
-      y: 120,
-      status: 'active',
-      params: {
-        'Auto Journal Posting': 'Enabled',
-        'Subledger Split': 'Customer vs Transporter',
-        'Payment Terms': '30 Days Net',
-      },
-    },
-  ]);
+  const [nodes, setNodes] = useState<WorkflowNode[]>(() => buildInitialNodes(t));
 
   const toggleSimulation = () => {
     setIsRunning(!isRunning);
@@ -125,14 +130,14 @@ export const WorkflowAutomationCanvas: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-black text-white">
-                Cross-Departmental Workflow & Automation Canvas
+                {t('workflows.title')}
               </h2>
               <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300">
-                {isRunning ? 'LIVE PIPELINE ACTIVE' : 'SIMULATION PAUSED'}
+                {isRunning ? t('workflows.livePipelineActive') : t('workflows.simulationPaused')}
               </span>
             </div>
             <p className="text-[11px] text-slate-400">
-              Interactive node sequences with live directional data pulses
+              {t('workflows.subtitle')}
             </p>
           </div>
         </div>
@@ -150,12 +155,12 @@ export const WorkflowAutomationCanvas: React.FC = () => {
             {isRunning ? (
               <>
                 <Pause className="h-3.5 w-3.5" />
-                <span>Pause Flow</span>
+                <span>{t('workflows.pauseFlow')}</span>
               </>
             ) : (
               <>
                 <Play className="h-3.5 w-3.5" />
-                <span>Simulate Flow</span>
+                <span>{t('workflows.simulateFlow')}</span>
               </>
             )}
           </button>
@@ -168,10 +173,10 @@ export const WorkflowAutomationCanvas: React.FC = () => {
               setTimeout(() => setIsRunning(true), 200);
             }}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white"
-            title="Reset Data Pipeline Simulation"
+            title={t('workflows.resetPulse')}
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            <span>Reset Pulse</span>
+            <span>{t('workflows.resetPulse')}</span>
           </button>
         </div>
       </div>
@@ -182,7 +187,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
         <div className="absolute left-4 top-4 z-20 flex w-52 flex-col gap-2 rounded-2xl border border-slate-800/80 bg-[#0e1428]/90 p-3 shadow-2xl backdrop-blur-xl">
           <div className="border-b border-slate-800/80 pb-2">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-              Automation Toolbox
+              {t('workflows.toolbox')}
             </span>
           </div>
 
@@ -190,7 +195,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
             <div className="group flex cursor-pointer items-center justify-between rounded-xl border border-orange-500/20 bg-orange-500/10 p-2 text-orange-200 transition-all hover:border-orange-500/50">
               <span className="flex items-center gap-2">
                 <Truck className="h-3.5 w-3.5 text-orange-400" />
-                <b className="text-[11px]">Dispatch Trigger</b>
+                <b className="text-[11px]">{t('workflows.dispatchTrigger')}</b>
               </span>
               <Plus className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100" />
             </div>
@@ -198,7 +203,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
             <div className="group flex cursor-pointer items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2 text-emerald-200 transition-all hover:border-emerald-500/50">
               <span className="flex items-center gap-2">
                 <Scale className="h-3.5 w-3.5 text-emerald-400" />
-                <b className="text-[11px]">Weighbridge Audit</b>
+                <b className="text-[11px]">{t('workflows.weighbridgeAudit')}</b>
               </span>
               <Plus className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100" />
             </div>
@@ -206,7 +211,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
             <div className="group flex cursor-pointer items-center justify-between rounded-xl border border-blue-500/20 bg-blue-500/10 p-2 text-blue-200 transition-all hover:border-blue-500/50">
               <span className="flex items-center gap-2">
                 <ShieldCheck className="h-3.5 w-3.5 text-blue-400" />
-                <b className="text-[11px]">ZATCA Stage-2</b>
+                <b className="text-[11px]">{t('workflows.zatcaStage2')}</b>
               </span>
               <Plus className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100" />
             </div>
@@ -214,7 +219,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
             <div className="group flex cursor-pointer items-center justify-between rounded-xl border border-violet-500/20 bg-violet-500/10 p-2 text-violet-200 transition-all hover:border-violet-500/50">
               <span className="flex items-center gap-2">
                 <Receipt className="h-3.5 w-3.5 text-violet-400" />
-                <b className="text-[11px]">Ledger Voucher</b>
+                <b className="text-[11px]">{t('workflows.ledgerVoucher')}</b>
               </span>
               <Plus className="h-3.5 w-3.5 opacity-60 group-hover:opacity-100" />
             </div>
@@ -322,7 +327,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
 
                 <div className="mt-3 flex items-center justify-between border-t border-slate-800/80 pt-2 text-[10px] text-slate-400">
                   <span className="font-mono">{node.type.toUpperCase()}</span>
-                  <span className="text-emerald-400 font-bold">100% Verified</span>
+                  <span className="text-emerald-400 font-bold">{t('workflows.verified', '100% Verified')}</span>
                 </div>
               </div>
             );
@@ -335,7 +340,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <span className="text-[10px] font-mono uppercase text-orange-400">
-                  Node Inspector
+                  {t('workflows.nodeInspector', 'Node Inspector')}
                 </span>
                 <h3 className="text-xs font-black text-white">{selectedNode.title}</h3>
               </div>
@@ -349,13 +354,13 @@ export const WorkflowAutomationCanvas: React.FC = () => {
 
             <div className="mt-4 space-y-4">
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
-                <p className="text-[10px] font-mono text-slate-400">Target Department</p>
+                <p className="text-[10px] font-mono text-slate-400">{t('workflows.targetDepartment', 'Target Department')}</p>
                 <p className="font-bold text-white text-xs">{selectedNode.department}</p>
               </div>
 
               <div className="space-y-3">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Node Configuration Parameters
+                  {t('workflows.nodeConfigParams', 'Node Configuration Parameters')}
                 </span>
                 {Object.entries(selectedNode.params).map(([key, val]) => (
                   <div
@@ -371,10 +376,10 @@ export const WorkflowAutomationCanvas: React.FC = () => {
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-[11px] text-emerald-300">
                 <div className="flex items-center gap-1.5 font-bold">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>Isolation Boundary Preserved</span>
+                  <span>{t('workflows.isolationBoundary', 'Isolation Boundary Preserved')}</span>
                 </div>
                 <p className="mt-1 text-[10px] text-emerald-300/80">
-                  Cross-tenant execution barriers verified via Schema RLS L3.
+                  {t('workflows.isolationBoundaryDesc', 'Cross-tenant execution barriers verified via Schema RLS L3.')}
                 </p>
               </div>
             </div>
