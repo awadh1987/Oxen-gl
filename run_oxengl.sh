@@ -92,8 +92,8 @@ export PYTHONPATH="${PROJECT_DIR}:${PROJECT_DIR}/backend"
 echo "⚙️  Step 5: Launching Multi-Container Application Mesh..."
 
 # 5a. FastAPI Backend Engine
-echo "  🚀 Starting Async FastAPI Engine (port 8000)..."
-"${VENV_DIR}/bin/python" -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload &
+echo "  🚀 Starting Async FastAPI Engine (port 8000 on 127.0.0.1)..."
+"${VENV_DIR}/bin/python" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload &
 UVICORN_PID=$!
 
 # 5b. Celery Worker Queue
@@ -102,8 +102,8 @@ echo "  🚀 Starting Celery Worker Tasks Queue..."
 CELERY_PID=$!
 
 # 5c. Next.js / Vite React User Portal
-echo "  🚀 Starting Frontend User Portal (port 3000)..."
-(cd "${PROJECT_DIR}/frontend" && NODE_ENV=production node dist/server.cjs) &
+echo "  🚀 Starting Frontend User Portal (port 3000 on 127.0.0.1)..."
+(cd "${PROJECT_DIR}/frontend" && HOST=127.0.0.1 NODE_ENV=production node dist/server.cjs) &
 FRONTEND_PID=$!
 
 echo "  ⏳ Verifying runtime health of initialized services..."

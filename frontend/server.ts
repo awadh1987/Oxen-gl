@@ -1012,8 +1012,9 @@ async function start() {
     });
   }
 
-  app.listen(3000, '0.0.0.0', () => {
-    console.log('Server running on http://0.0.0.0:3000');
+  const HOST = process.env.HOST || '127.0.0.1';
+  app.listen(3000, HOST, () => {
+    console.log(`Server running on http://${HOST}:3000`);
   });
 }
 
