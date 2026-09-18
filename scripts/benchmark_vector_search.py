@@ -1,7 +1,8 @@
 import asyncio
 import random
 import uuid
-from sqlalchemy import text
+from sqlalchemy import text, select
+from backend.models import Company
 from backend.database import SessionLocal as _BaseSessionLocal
 from backend.app.domains.ai.models import AIKnowledgeDocument, AIKnowledgeChunk
 from backend.app.security.abac import ABACUserContext
@@ -20,10 +21,12 @@ class AsyncSessionWrapper:
         return self._session.commit()
 
     async def execute(self, statement, params=None):
-        p = dict(params) if params else {}
-        if "query_vector" in p and isinstance(p["query_vector"], list):
-            p["query_vector"] = str(p["query_vector"])
-        return self._session.execute(statement, p)
+        if params is not None:
+            p = dict(params)
+            if "query_vector" in p and isinstance(p["query_vector"], list):
+                p["query_vector"] = str(p["query_vector"])
+            return self._session.execute(statement, p)
+        return self._session.execute(statement)
 
     async def delete(self, instance):
         return self._session.delete(instance)
@@ -41,7 +44,9 @@ def SessionLocal():
 
 async def seed_and_test_vectors():
     db = SessionLocal()
-    tenant_id = uuid.uuid4()
+    # Dynamically acquire an existing tenant ID to satisfy fk_ai_knowledge_chunks_tenant
+    tenant = await db.execute(select(Company.id).limit(1))
+    tenant_id = tenant.scalar_one()
     doc_id = uuid.uuid4()
 
     # 1. Create mock document reference entry
