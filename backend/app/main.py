@@ -6,7 +6,7 @@ import re
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from hmac import compare_digest
 from os import getenv
 from typing import Any, Generator, Optional
