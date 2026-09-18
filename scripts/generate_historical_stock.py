@@ -1,19 +1,36 @@
 import asyncio
 import uuid
 import random
+import sys
+from pathlib import Path
 from datetime import datetime, timedelta
 from decimal import Decimal
+
+# Ensure repository root and venv site-packages are accessible
+repo_root = Path(__file__).resolve().parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+venv_site = repo_root / "backend/.venv/lib/python3.12/site-packages"
+if venv_site.exists() and str(venv_site) not in sys.path:
+    sys.path.insert(0, str(venv_site))
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import SessionLocal
+from backend.models import Company
 from backend.app.domains.inventory.models import StockBalance
 
-TENANT_ID = uuid.UUID("fc04f267-47ac-4bb4-bcd3-285425c4df69")
 WAREHOUSE_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 MATERIAL_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 
 async def seed_historical_stock_ledger():
     db = SessionLocal()
-    print("[DATA SEED] Commencing 6-month historical stock valuation data generation injection...")
+    # Replace the hardcoded UUID with a query to res_companies:
+    tenant = await db.execute(select(Company.id).limit(1))
+    tenant_id = tenant.scalar_one()
+
+    print(f"[DATA SEED] Commencing 6-month historical stock valuation data generation injection for tenant {tenant_id}...")
     
     base_date = datetime.utcnow() - timedelta(days=180)
     base_value = 120000.00  # Starting capital buffer: $120,000
@@ -25,7 +42,7 @@ async def seed_historical_stock_ledger():
         
         balance_snapshot = StockBalance(
             id=uuid.uuid4(),
-            tenant_id=TENANT_ID,
+            tenant_id=tenant_id,
             warehouse_id=WAREHOUSE_ID,
             material_id=MATERIAL_ID,
             quantity_on_hand=Decimal("1000.0000"),

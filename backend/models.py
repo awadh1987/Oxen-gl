@@ -65,6 +65,9 @@ class ResCompany(TimestampMixin, Base):
         super().__init__(*args, **kwargs)
 
 
+Company = ResCompany
+
+
 class TenantAuditLog(Base):
     __tablename__ = "tenant_audit_logs"
     __table_args__ = {"extend_existing": True}

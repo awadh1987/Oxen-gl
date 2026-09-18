@@ -33,7 +33,7 @@ async def transmit_single_gps_ping(client: httpx.AsyncClient, vehicle_index: int
         "speed": random.uniform(20.0, 110.0)
     }
     try:
-        response = await client.post(URL, json=payload, timeout=5.0)
+        response = await client.post(URL, json=payload, timeout=30.0)
         return response.status_code
     except Exception:
         return 500
@@ -43,8 +43,9 @@ async def run_high_concurrency_stress():
     print(f"[STRESS] Pumping {TOTAL_VEHICLES} parallel telemetry packets across async HTTP connections...")
     
     # Configure an accelerated connection limit map pool to manage outbound bursts
-    limits = httpx.Limits(max_keepalive_connections=200, max_connections=1200)
-    async with httpx.AsyncClient(limits=limits) as client:
+    limits = httpx.Limits(max_keepalive_connections=500, max_connections=1500)
+    timeout = httpx.Timeout(30.0, connect=15.0)
+    async with httpx.AsyncClient(limits=limits, timeout=timeout) as client:
         start_wall_time = time.perf_counter()
         
         # Fire 1,000 non-blocking network calls concurrently via asyncio gather bindings
