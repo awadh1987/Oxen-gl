@@ -220,8 +220,12 @@ export const PlanningDepartmentView: React.FC = () => {
             {allHazards.map((h) => (
               <div key={h.id} className="p-5 bg-slate-900/60 rounded-2xl border border-slate-800 space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-amber-400">{h.severity} SEVERITY</span>
-                  <span className="text-xs text-slate-400">{h.mitigation_status}</span>
+                  <span className="text-xs font-bold text-amber-400">
+                    <bdi>{h.severity}</bdi> {t('planning.severity', 'SEVERITY')}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    <bdi>{h.mitigation_status}</bdi>
+                  </span>
                 </div>
                 <p className="text-sm font-semibold text-white">{h.desired_outcome}</p>
                 <p className="text-xs text-slate-400">{h.potential_hazard_description}</p>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Layers,
   Plus,
@@ -26,6 +27,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
   onTaskUpdated,
   onOpenHazardModal,
 }) => {
+  const { t } = useTranslation();
   const [selectedPhase, setSelectedPhase] = useState<string>('ALL');
   const [selectedDept, setSelectedDept] = useState<string>('ALL');
   const [showBatchModal, setShowBatchModal] = useState(false);
@@ -149,7 +151,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/70 p-4 rounded-2xl border border-slate-800">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
-            <Filter className="w-3.5 h-3.5" /> Filter Matrix:
+            <Filter className="w-3.5 h-3.5" /> {t('planning.filterMatrix', 'Filter Matrix:')}
           </span>
 
           {/* Phase Filter */}
@@ -158,7 +160,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
             onChange={(e) => setSelectedPhase(e.target.value)}
             className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500"
           >
-            <option value="ALL">All Phases ({tasks.length})</option>
+            <option value="ALL">{t('planning.allPhases', 'All Phases')} ({tasks.length})</option>
             {phases.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -172,7 +174,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
             onChange={(e) => setSelectedDept(e.target.value)}
             className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500"
           >
-            <option value="ALL">All Departments</option>
+            <option value="ALL">{t('planning.allDepartments', 'All Departments')}</option>
             {departments.map((d) => (
               <option key={d} value={d}>
                 {d}
@@ -185,7 +187,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
           onClick={() => setShowBatchModal(true)}
           className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5"
         >
-          <Plus className="w-3.5 h-3.5" /> Batch Add Tasks
+          <Plus className="w-3.5 h-3.5" /> {t('planning.batchAddTasks', 'Batch Add Tasks')}
         </button>
       </div>
 
@@ -194,20 +196,20 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
         <table className="w-full text-left text-sm border-collapse">
           <thead>
             <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <th className="py-3 px-4">Task Name & Scope</th>
-              <th className="py-3 px-4">Phase & Dept</th>
-              <th className="py-3 px-4">Workload / Cost</th>
-              <th className="py-3 px-4">Assigned Personnel</th>
-              <th className="py-3 px-4">Priority</th>
-              <th className="py-3 px-4">Status</th>
-              <th className="py-3 px-4 text-right">Hazard Tracker</th>
+              <th className="py-3 px-4">{t('planning.taskNameScope', 'Task Name & Scope')}</th>
+              <th className="py-3 px-4">{t('planning.phaseDept', 'Phase & Dept')}</th>
+              <th className="py-3 px-4">{t('planning.workloadCost', 'Workload / Cost')}</th>
+              <th className="py-3 px-4">{t('planning.assignedPersonnel', 'Assigned Personnel')}</th>
+              <th className="py-3 px-4">{t('planning.priority', 'Priority')}</th>
+              <th className="py-3 px-4">{t('planning.status', 'Status')}</th>
+              <th className="py-3 px-4 text-right">{t('planning.hazardTracker', 'Hazard Tracker')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
             {filteredTasks.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-slate-500 text-sm">
-                  No execution tasks matching selected criteria.
+                  {t('planning.noTasks', 'No execution tasks matching selected criteria.')}
                 </td>
               </tr>
             ) : (
@@ -226,7 +228,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
                       </div>
                       {task.materials_required && task.materials_required.length > 0 && (
                         <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                          <span className="font-mono text-slate-400">Materials:</span>{' '}
+                          <span className="font-mono text-slate-400">{t('planning.materialsLabel', 'Materials:')}</span>{' '}
                           {task.materials_required.join(', ')}
                         </div>
                       )}
@@ -247,11 +249,11 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
                     <td className="py-3.5 px-4">
                       <div className="text-xs font-semibold text-slate-200 flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-blue-400" />
-                        {task.planned_hours} hrs
+                        <bdi>{task.planned_hours} {t('planning.hours', 'hrs')}</bdi>
                       </div>
                       <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
                         <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                        SAR {Number(task.task_cost).toLocaleString()}
+                        <bdi>{Number(task.task_cost).toLocaleString()} {t('common.currency', 'SAR')}</bdi>
                       </div>
                     </td>
 
@@ -259,7 +261,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
                     <td className="py-3.5 px-4">
                       <div className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-slate-400" />
-                        {task.assigned_user_name || 'Unassigned'}
+                        {task.assigned_user_name || t('planning.unassigned', 'Unassigned')}
                       </div>
                     </td>
 
@@ -314,7 +316,11 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
                         }`}
                       >
                         <ShieldAlert className="w-3.5 h-3.5" />
-                        <span>{activeHazards.length > 0 ? `${activeHazards.length} Active` : 'Log Risk'}</span>
+                        <span>
+                          {activeHazards.length > 0
+                            ? t('planning.activeCount', { count: activeHazards.length, defaultValue: `${activeHazards.length} Active` })
+                            : t('planning.logRisk', 'Log Risk')}
+                        </span>
                       </button>
                     </td>
                   </tr>

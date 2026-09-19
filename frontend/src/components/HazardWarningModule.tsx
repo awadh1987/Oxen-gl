@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ShieldAlert,
   AlertTriangle,
@@ -24,6 +25,7 @@ export const HazardWarningModule: React.FC<HazardWarningModuleProps> = ({
   hazards,
   onHazardCreatedOrUpdated,
 }) => {
+  const { t } = useTranslation();
   const [showAddForm, setShowAddForm] = useState(false);
   const [desiredOutcome, setDesiredOutcome] = useState('');
   const [hazardDesc, setHazardDesc] = useState('');
@@ -112,7 +114,7 @@ export const HazardWarningModule: React.FC<HazardWarningModuleProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-bold rounded-md uppercase">
-                Tier 3 Risk Tracker
+                {t('planning.tier3RiskTracker', 'Tier 3 Risk Tracker')}
               </span>
               <span className="text-xs text-slate-400">
                 {targetTask ? `Linked: ${targetTask.task_name}` : 'Platform Scope'}
@@ -120,7 +122,7 @@ export const HazardWarningModule: React.FC<HazardWarningModuleProps> = ({
             </div>
             <h3 className="text-lg font-black text-white flex items-center gap-2">
               <ShieldAlert className="w-5 h-5 text-amber-400" />
-              Strategic Hazards & Mitigation Cockpit
+              {t('planning.cockpitTitle', 'Strategic Hazards & Mitigation Cockpit')}
             </h3>
           </div>
           <button
@@ -142,7 +144,7 @@ export const HazardWarningModule: React.FC<HazardWarningModuleProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Active Hazards ({relevantHazards.filter((h) => h.mitigation_status !== 'MITIGATED').length})
+              {t('planning.activeHazardsTab', 'Active Hazards')} ({relevantHazards.filter((h) => h.mitigation_status !== 'MITIGATED').length})
             </button>
             <button
               onClick={() => setActiveTab('MITIGATED')}
@@ -152,7 +154,7 @@ export const HazardWarningModule: React.FC<HazardWarningModuleProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              Mitigated ({relevantHazards.filter((h) => h.mitigation_status === 'MITIGATED').length})
+              {t('planning.mitigatedTab', 'Mitigated')} ({relevantHazards.filter((h) => h.mitigation_status === 'MITIGATED').length})
             </button>
             <button
               onClick={() => setActiveTab('ALL')}
@@ -162,7 +164,7 @@ export const HazardWarningModule: React.FC<HazardWarningModuleProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              All Records ({relevantHazards.length})
+              {t('planning.allRecordsTab', 'All Records')} ({relevantHazards.length})
             </button>
           </div>
 
@@ -171,7 +173,7 @@ export const HazardWarningModule: React.FC<HazardWarningModuleProps> = ({
               onClick={() => setShowAddForm(!showAddForm)}
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5"
             >
-              <Plus className="w-3.5 h-3.5" /> Log Hazard
+              <Plus className="w-3.5 h-3.5" /> {t('planning.logHazard', 'Log Hazard')}
             </button>
           )}
         </div>
