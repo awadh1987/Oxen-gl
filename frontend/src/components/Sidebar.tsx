@@ -384,12 +384,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelAr: 'الحوكمة والنظام',
         labelEn: 'System Governance',
         icon: ShieldCheck,
+        // 'ai-insights' intentionally omitted — canonical entry is the top sub-nav ribbon
+        // (/finance/ai-auditor). The floating AIAssistantWidget drawer is the secondary entry.
         itemIds: [
           'master-data',
           'billing',
           'workflow-builder',
           'design-studio',
-          'ai-insights',
           'executive-admin',
           'tenant-settings',
           'admin-hub',

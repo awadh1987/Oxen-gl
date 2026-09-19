@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Play,
@@ -37,6 +37,26 @@ export interface WorkflowNode {
   params: Record<string, string>;
 }
 
+export const getDepartmentLabel = (dept: string, t: TFunction): string => {
+  const map: Record<string, string> = {
+    Logistics: t('workflows.deptLogistics', 'Logistics'),
+    Weighbridge: t('workflows.deptWeighbridge', 'Weighbridge'),
+    ZATCA: t('workflows.deptZatca', 'ZATCA'),
+    Finance: t('workflows.deptFinance', 'Finance'),
+    Audit: t('workflows.deptAudit', 'Audit'),
+  };
+  return map[dept] || dept;
+};
+
+export const getNodeTypeLabel = (type: string, t: TFunction): string => {
+  const map: Record<string, string> = {
+    trigger: t('workflows.typeTrigger', 'TRIGGER'),
+    condition: t('workflows.typeCondition', 'CONDITION'),
+    action: t('workflows.typeAction', 'ACTION'),
+  };
+  return map[type] || type.toUpperCase();
+};
+
 const buildInitialNodes = (t: TFunction): WorkflowNode[] => [
   {
     id: 'node-1',
@@ -49,9 +69,9 @@ const buildInitialNodes = (t: TFunction): WorkflowNode[] => [
     y: 120,
     status: 'active',
     params: {
-      'Min Tonnage Threshold': '25.0 MT',
-      'Auto Fleet Allocation': 'Enabled',
-      'Transporter Shrinkage Check': 'Active',
+      [t('workflows.paramMinTonnage', 'Min Tonnage Threshold')]: '25.0 MT',
+      [t('workflows.paramAutoFleet', 'Auto Fleet Allocation')]: t('workflows.valEnabled', 'Enabled'),
+      [t('workflows.paramShrinkageCheck', 'Transporter Shrinkage Check')]: t('workflows.valActive', 'Active'),
     },
   },
   {
@@ -65,9 +85,9 @@ const buildInitialNodes = (t: TFunction): WorkflowNode[] => [
     y: 120,
     status: 'active',
     params: {
-      'Scale Tolerance': '+/- 0.5%',
-      'ZATCA Ticket Serialization': 'Auto',
-      'Loss Mitigation Protocol': 'Strict Audit',
+      [t('workflows.paramScaleTolerance', 'Scale Tolerance')]: '+/- 0.5%',
+      [t('workflows.paramZatcaSerial', 'ZATCA Ticket Serialization')]: t('workflows.valAuto', 'Auto'),
+      [t('workflows.paramLossMitigation', 'Loss Mitigation Protocol')]: t('workflows.valStrictAudit', 'Strict Audit'),
     },
   },
   {
@@ -81,9 +101,9 @@ const buildInitialNodes = (t: TFunction): WorkflowNode[] => [
     y: 120,
     status: 'active',
     params: {
-      'Compliance Mode': 'Stage-2 Production',
-      'ECDSA Cryptographic Stamp': 'Enforced',
-      'Tax Rate': '15.0% Standard VAT',
+      [t('workflows.paramComplianceMode', 'Compliance Mode')]: t('workflows.valStage2Prod', 'Stage-2 Production'),
+      [t('workflows.paramEcdsaStamp', 'ECDSA Cryptographic Stamp')]: t('workflows.valEnforced', 'Enforced'),
+      [t('workflows.paramTaxRate', 'Tax Rate')]: t('workflows.valStandardVat', '15.0% Standard VAT'),
     },
   },
   {
@@ -97,16 +117,16 @@ const buildInitialNodes = (t: TFunction): WorkflowNode[] => [
     y: 120,
     status: 'active',
     params: {
-      'Auto Journal Posting': 'Enabled',
-      'Subledger Split': 'Customer vs Transporter',
-      'Payment Terms': '30 Days Net',
+      [t('workflows.paramAutoJournal', 'Auto Journal Posting')]: t('workflows.valEnabled', 'Enabled'),
+      [t('workflows.paramSubledgerSplit', 'Subledger Split')]: t('workflows.valCustomerTransporter', 'Customer vs Transporter'),
+      [t('workflows.paramPaymentTerms', 'Payment Terms')]: t('workflows.valPaymentTerms30', '30 Days Net'),
     },
   },
 ];
 
 export const WorkflowAutomationCanvas: React.FC = () => {
   const { themeMode, tenantTheme } = useApp();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isDark = themeMode === 'dark';
 
   const [isRunning, setIsRunning] = useState(true);
@@ -114,6 +134,15 @@ export const WorkflowAutomationCanvas: React.FC = () => {
 
   // Initial workflow sequence connecting the end-to-end ERP lifecycle
   const [nodes, setNodes] = useState<WorkflowNode[]>(() => buildInitialNodes(t));
+
+  useEffect(() => {
+    const updated = buildInitialNodes(t);
+    setNodes(updated);
+    if (selectedNode) {
+      const match = updated.find((n) => n.id === selectedNode.id);
+      if (match) setSelectedNode(match);
+    }
+  }, [i18n.language, t]);
 
   const toggleSimulation = () => {
     setIsRunning(!isRunning);
@@ -313,7 +342,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
                     </div>
                     <div>
                       <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        {node.department}
+                        {getDepartmentLabel(node.department, t)}
                       </span>
                       <h4 className="text-xs font-black text-white">{node.title}</h4>
                     </div>
@@ -326,7 +355,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
                 </p>
 
                 <div className="mt-3 flex items-center justify-between border-t border-slate-800/80 pt-2 text-[10px] text-slate-400">
-                  <span className="font-mono">{node.type.toUpperCase()}</span>
+                  <span className="font-mono">{getNodeTypeLabel(node.type, t)}</span>
                   <span className="text-emerald-400 font-bold">{t('workflows.verified', '100% Verified')}</span>
                 </div>
               </div>
@@ -355,7 +384,7 @@ export const WorkflowAutomationCanvas: React.FC = () => {
             <div className="mt-4 space-y-4">
               <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
                 <p className="text-[10px] font-mono text-slate-400">{t('workflows.targetDepartment', 'Target Department')}</p>
-                <p className="font-bold text-white text-xs">{selectedNode.department}</p>
+                <p className="font-bold text-white text-xs">{getDepartmentLabel(selectedNode.department, t)}</p>
               </div>
 
               <div className="space-y-3">

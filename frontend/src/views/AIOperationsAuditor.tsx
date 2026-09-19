@@ -28,6 +28,8 @@ import {
   ExternalLink,
   ChevronRight,
   Shield,
+  Receipt,
+  Zap,
 } from 'lucide-react';
 import { formatCurrency, formatTonnage } from '../utils/formatters';
 import { OfficialLetterheadHeader } from '../components/OfficialLetterheadHeader';
@@ -125,7 +127,7 @@ export const AIOperationsAuditor: React.FC = () => {
 
   const anomalyCardRef = useRef<HTMLDivElement | null>(null);
 
-  // Deep-link focus anomaly check from URL
+  // Deep-link focus anomaly check from URL + scroll into view
   useEffect(() => {
     const checkFocusParam = () => {
       if (typeof window !== 'undefined') {
@@ -134,6 +136,12 @@ export const AIOperationsAuditor: React.FC = () => {
         if (focus) {
           setFocusAnomalyId(focus);
           setActiveTab('audit');
+          // Scroll the highlighted anomaly card into view after render
+          setTimeout(() => {
+            const card = document.getElementById(`anomaly-card-${focus}`) ||
+                         document.getElementById('live-anomaly-triage-panel');
+            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 350);
         }
       }
     };
@@ -543,6 +551,85 @@ export const AIOperationsAuditor: React.FC = () => {
       {/* TAB 1: Operational Audit Studio */}
       {activeTab === 'audit' && (
         <div className="space-y-6">
+
+          {/* ALWAYS-VISIBLE: Live Anomaly Triage Panel — shows pre-audit discrepancies from live telemetry */}
+          <div
+            id="live-anomaly-triage-panel"
+            className="rounded-2xl border border-amber-200/80 bg-amber-50/40 p-5 shadow-xs"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                <Zap className="h-4 w-4 text-amber-600 fill-amber-200" />
+                <span>
+                  {isAr
+                    ? 'تنبيهات الفاقد الحي (>1.5%) — جاهزة للتسوية الفورية'
+                    : 'Live Wastage Alerts (>1.5%) — Ready for Immediate Resolution'}
+                </span>
+              </h3>
+              <span className="rounded-full bg-amber-100 border border-amber-200 px-2.5 py-0.5 text-[10px] font-bold text-amber-900">
+                {liveDiscrepancies.anomalies.length} {isAr ? 'رحلة مرصودة' : 'Detected'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {liveDiscrepancies.anomalies.map((anom) => {
+                const isFocused = focusAnomalyId === anom.id || (focusAnomalyId === 'anom-3190' && anom.id === 'anom-3190');
+                return (
+                  <div
+                    key={anom.id}
+                    id={`anomaly-card-${anom.id}`}
+                    className={`relative rounded-xl border p-4 transition-all ${
+                      isFocused
+                        ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-400/50 shadow-md'
+                        : 'border-amber-200 bg-white shadow-xs hover:border-amber-400'
+                    }`}
+                  >
+                    {isFocused && (
+                      <span className="absolute -top-2.5 left-3 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-black text-white">
+                        {isAr ? '🔗 مرتبط من التنبيه' : '🔗 Linked from Alert'}
+                      </span>
+                    )}
+
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-xs text-slate-900 truncate">{anom.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[9px] font-bold text-rose-800">
+                            {anom.wastage_percentage}% {isAr ? 'فاقد' : 'Loss'}
+                          </span>
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-mono text-slate-600">
+                            <bdi>{anom.truck_no}</bdi>
+                          </span>
+                        </div>
+                      </div>
+                      <span className="font-mono text-sm font-black text-rose-700 shrink-0">
+                        {formatCurrency(anom.loss_value)}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600 leading-relaxed mb-3">{anom.details}</p>
+
+                    <div className="flex items-center justify-between gap-2 border-t border-amber-100 pt-3">
+                      <div className="text-[10px] text-slate-500 min-w-0">
+                        <span>{isAr ? 'الناقل: ' : 'Carrier: '}</span>
+                        <strong className="text-slate-700">{anom.carrier}</strong>
+                      </div>
+                      <button
+                        type="button"
+                        id={`debit-voucher-btn-${anom.id}`}
+                        onClick={() => handleCreateDebitVoucher(anom)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-orange-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:from-rose-700 hover:to-orange-700 active:scale-95 transition-all shrink-0"
+                      >
+                        <Receipt className="h-3.5 w-3.5" />
+                        <span>{isAr ? 'إنشاء سند قيد / خصم تلقائي' : 'Issue Debit Note Voucher'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Natural Language Prompt & Quick Scenarios */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
