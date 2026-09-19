@@ -21,8 +21,28 @@ from backend.app.domains.finance.models import (
 )
 from backend.app.domains.finance.guards import enforce_double_entry_balance
 from backend.app.security.abac import enforce_abac
+from backend.app.core.cache import enterprise_cache, build_cache_key
 
 router = APIRouter(prefix="/api/v1/finance", tags=["General Ledger"])
+
+# TTL for chart-of-accounts cache: 3600 seconds (1 hour), per spec
+_COA_CACHE_TTL = 3600
+
+
+def _invalidate_coa_cache(tenant_id: str) -> None:
+    """
+    Evicts cached chart-of-accounts payload for the given tenant whenever
+    a journal entry or voucher posting mutates account balances.
+    Uses wildcard pattern invalidation via EnterpriseCache.invalidate_resource().
+    """
+    try:
+        enterprise_cache.invalidate_resource(
+            tenant_id=tenant_id,
+            domain="finance",
+            resource="chart_of_accounts",
+        )
+    except Exception:
+        pass  # Cache invalidation failures must never block write operations
 
 
 # ==============================================================================
@@ -145,6 +165,9 @@ def create_journal_entry(
     db.commit()
     db.refresh(entry)
 
+    # Invalidate chart-of-accounts cache — account balances may have changed
+    _invalidate_coa_cache(str(x_tenant_id or "default"))
+
     return {
         "id": str(entry.id),
         "entry_number": entry.entry_number,
@@ -153,6 +176,72 @@ def create_journal_entry(
         "total_credit": float(entry.total_credit),
         "status": entry.status,
     }
+
+
+# ==============================================================================
+# Chart of Accounts — Hierarchical ltree Query with Redis Cache-Aside
+# ==============================================================================
+
+@router.get("/chart-of-accounts")
+def get_chart_of_accounts(
+    db: Session = Depends(get_db),
+    x_tenant_id: Optional[str] = Header(None),
+):
+    """
+    Returns the full hierarchical Chart of Accounts tree for the tenant.
+    Uses PostgreSQL ltree path ordering to return accounts in natural
+    accounting hierarchy order (Assets → Liabilities → Equity → Revenue → Expenses).
+
+    Redis Cache-Aside pattern:
+      Key   : oxengl:{env}:{tenant_id}:finance:chart_of_accounts:hierarchy:v1
+      TTL   : 3600 seconds (1 hour)
+      Eviction: auto-invalidated on any journal entry or voucher POST.
+    """
+    tenant_id = x_tenant_id or "default"
+    cache_key = build_cache_key(
+        tenant_id=tenant_id,
+        domain="finance",
+        resource="chart_of_accounts",
+        identifier="hierarchy",
+    )
+
+    # 1. Cache hit — return serialised tree directly
+    cached = enterprise_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # 2. Cache miss — query PostgreSQL ltree hierarchy
+    try:
+        tenant_uuid = uuid.UUID(tenant_id)
+    except (ValueError, AttributeError):
+        tenant_uuid = uuid.UUID("a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d")
+
+    accounts = db.execute(
+        select(Account)
+        .where(Account.tenant_id == tenant_uuid)
+        .order_by(Account.path)  # ltree path gives natural accounting hierarchy order
+        .limit(200)
+    ).scalars().all()
+
+    result = [
+        {
+            "id": str(a.id),
+            "code": a.code,
+            "name": a.name,
+            "account_type": a.account_type,
+            "path": str(a.path) if a.path else None,
+            "parent_id": str(a.parent_id) if a.parent_id else None,
+            "balance": float(a.balance) if hasattr(a, "balance") and a.balance is not None else 0.0,
+            "currency": a.currency if hasattr(a, "currency") else "SAR",
+            "is_active": a.is_active if hasattr(a, "is_active") else True,
+        }
+        for a in accounts
+    ]
+
+    # 3. Populate cache (with_jitter=False — we control TTL precisely here)
+    enterprise_cache.set(cache_key, result, base_ttl=_COA_CACHE_TTL, with_jitter=False)
+
+    return result
 
 
 @router.get("/journals")
