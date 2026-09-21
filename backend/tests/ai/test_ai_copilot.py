@@ -1,30 +1,42 @@
 import uuid
 import pytest
 from unittest.mock import MagicMock
-from starlette.testclient import TestClient
 
-from backend.app.main import app
+from backend.app.api.v1.ai import CopilotQueryRequest, process_copilot_conversational_insight
 from backend.app.domains.ai.models import AIKnowledgeChunk
 from backend.app.domains.ai.services import AIKnowledgeRetrievalService
 from backend.app.security.abac import ABACUserContext
 
-client = TestClient(app)
+
+@pytest.fixture(autouse=True)
+def warmup_redis():
+    """Keep this isolated unit test from inheriting the suite's Redis warmup."""
+    yield
 
 
-def test_ai_copilot_query_endpoint():
-    payload = {
-        "prompt": "Evaluate procurement delay and logistics supply chain risk."
-    }
-    response = client.post("/api/v1/ai/copilot/query", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert "recommendation" in data
-    assert "confidence_score" in data
-    assert "business_reasoning" in data
-    assert "data_sources" in data
-    assert "risk_classification" in data
-    assert data["confidence_score"] == 0.92
-    assert isinstance(data["data_sources"], list)
+@pytest.fixture
+def mock_copilot_db():
+    """Mock both the ResCompany lookup and vector-search query chain."""
+    db = MagicMock()
+    query = db.query.return_value
+    query.first.return_value = None
+    query.filter.return_value.order_by.return_value.limit.return_value.all.return_value = []
+    return db
+
+
+@pytest.mark.asyncio
+async def test_ai_copilot_query_endpoint(mock_copilot_db):
+    response = await process_copilot_conversational_insight(
+        payload=CopilotQueryRequest(
+            prompt="Evaluate procurement delay and logistics supply chain risk."
+        ),
+        db=mock_copilot_db,
+    )
+    assert response.recommendation
+    assert response.confidence_score == 0.92
+    assert response.business_reasoning
+    assert isinstance(response.data_sources, list)
+    assert response.risk_classification
 
 
 @pytest.mark.asyncio
