@@ -537,15 +537,15 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                   },
                   {
                     id: 'crusher-statement' as ExportDocType,
-                    labelAr: 'كشف حساب ومطابقة الكسارات',
-                    labelEn: 'Crusher Supplier Statement',
+                    labelAr: 'كشف حساب ومطابقة موردي المواد',
+                    labelEn: 'Material Supplier Statement',
                     icon: Building,
                     defaultOrientation: 'portrait',
                   },
                   {
                     id: 'transporter-shrinkage' as ExportDocType,
-                    labelAr: 'تقرير فاقد الوزن وأداء الناقلين',
-                    labelEn: 'Transporter Shrinkage Audit',
+                    labelAr: 'تقرير فاقد الوزن وأداء موردي الخدمات',
+                    labelEn: 'Service Supplier Shrinkage Audit',
                     icon: TrendingDown,
                     defaultOrientation: 'portrait',
                   },
@@ -828,9 +828,9 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                         : docType === 'daily-operations'
                         ? 'سجل العمليات اليومية ومطابقة الحمولات'
                         : docType === 'crusher-statement'
-                        ? 'كشف حساب ومطابقة الكسارات'
+                        ? 'كشف حساب ومطابقة موردي المواد'
                         : docType === 'transporter-shrinkage'
-                        ? 'تقرير فاقد الوزن وأداء الناقلين'
+                        ? 'تقرير فاقد الوزن وأداء موردي الخدمات'
                         : 'سند مالي معتمد'
                     }
                     documentTypeEn={
@@ -839,9 +839,9 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                         : docType === 'daily-operations'
                         ? 'DAILY DISPATCH & SCALE LOG'
                         : docType === 'crusher-statement'
-                        ? 'CRUSHER STATEMENT'
+                        ? 'MATERIAL SUPPLIER STATEMENT'
                         : docType === 'transporter-shrinkage'
-                        ? 'TRANSPORTER LOSS AUDIT'
+                        ? 'SERVICE SUPPLIER LOSS AUDIT'
                         : 'FINANCIAL VOUCHER'
                     }
                     documentNumber={docRefNumber}

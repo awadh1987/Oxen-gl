@@ -43,6 +43,8 @@ const SuperAdminTenantsView = React.lazy(() => import('./views/SuperAdminTenants
 const SuperAdminLogsView = React.lazy(() => import('./views/SuperAdminLogsView').then(m => ({ default: m.SuperAdminLogsView })));
 const SuperAdminAnalyticsView = React.lazy(() => import('./views/SuperAdminAnalyticsView').then(m => ({ default: m.SuperAdminAnalyticsView })));
 const ResetPasswordView = React.lazy(() => import('./views/ResetPasswordView').then(m => ({ default: m.ResetPasswordView })));
+const ProcurementView = React.lazy(() => import('./views/ProcurementView').then(m => ({ default: m.ProcurementView })));
+const HRMSView = React.lazy(() => import('./views/HRMSView').then(m => ({ default: m.HRMSView })));
 
 const ViewLoadingFallback = () => (
   <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-12 text-center">
@@ -72,6 +74,8 @@ export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
   '/operations/crushers': 'crushers',
   '/operations/customs': 'customs',
   '/operations/planning': 'planning',
+  '/operations/procurement': 'procurement',
+  '/operations/hr': 'hr',
 
   // Finance Ribbon
   '/finance/invoices': 'invoicing',
@@ -94,6 +98,8 @@ export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
   // Shortcuts & Legacy Fallbacks
   '/operations': 'operations',
   '/planning': 'planning',
+  '/procurement': 'procurement',
+  '/hr': 'hr',
   '/customs': 'customs',
   '/invoicing': 'invoicing',
   '/vouchers': 'vouchers',
@@ -108,6 +114,8 @@ export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
   crushers: '/operations/crushers',
   customs: '/operations/customs',
   planning: '/operations/planning',
+  procurement: '/operations/procurement',
+  hr: '/operations/hr',
 
   invoicing: '/finance/invoices',
   vouchers: '/finance/vouchers',
@@ -126,8 +134,7 @@ export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
   hub: '/operations/daily',
   dashboard: '/operations/daily',
   approvals: '/settings/approvals',
-  procurement: '/operations/daily',
-  inventory: '/operations/daily',
+  inventory: '/operations/procurement',
   mfa: '/login',
   'admin-hub': '/operations/daily',
 };
@@ -145,6 +152,8 @@ export const getTabFromPath = (path: string): ActiveTab => {
   if (cleanPath.startsWith('/operations/crushers')) return 'crushers';
   if (cleanPath.startsWith('/operations/customs')) return 'customs';
   if (cleanPath.startsWith('/operations/planning')) return 'planning';
+  if (cleanPath.startsWith('/operations/procurement') || cleanPath.startsWith('/procurement')) return 'procurement';
+  if (cleanPath.startsWith('/operations/hr') || cleanPath.startsWith('/hr')) return 'hr';
 
   if (cleanPath.startsWith('/finance/invoices')) return 'invoicing';
   if (cleanPath.startsWith('/finance/vouchers')) return 'vouchers';
@@ -172,16 +181,16 @@ export const tenantNavigation: {
   icon: React.ComponentType<{ className?: string }>;
   group: 'Operations & Logistics' | 'Finance, Accounting & Control';
 }[] = [
-  // 1. Operations & Logistics Ribbon - Strictly 7 Core Modules
+  // 1. Operations & Logistics Ribbon - Strictly Core Modules
   { id: 'operations', path: '/operations/daily', labelAr: 'سجل العمليات اليومية', labelEn: 'Daily Operations Logs', icon: Truck, group: 'Operations & Logistics' },
   { id: 'fleet-map', path: '/operations/fleet-map', labelAr: 'رادار وخريطة الأسطول', labelEn: 'Fleet Radar & GPS', icon: Radio, group: 'Operations & Logistics' },
   { id: 'maintenance', path: '/operations/fleet-maintenance', labelAr: 'صيانة الأسطول والوقود', labelEn: 'Fleet Maintenance & Fuel', icon: Wrench, group: 'Operations & Logistics' },
-  { id: 'transporters', path: '/operations/transporters', labelAr: 'الناقلون ونسب الهدر', labelEn: 'Transporters & Shrinkage', icon: Scale, group: 'Operations & Logistics' },
-  { id: 'crushers', path: '/operations/crushers', labelAr: 'كشوفات الكسارات', labelEn: 'Crusher Statements', icon: Building2, group: 'Operations & Logistics' },
+  { id: 'transporters', path: '/operations/transporters', labelAr: 'موردي الخدمات والتسويات', labelEn: 'Service Suppliers', icon: Scale, group: 'Operations & Logistics' },
+  { id: 'crushers', path: '/operations/crushers', labelAr: 'موردي المواد وحساباتهم', labelEn: 'Material Suppliers', icon: Building2, group: 'Operations & Logistics' },
   { id: 'customs', path: '/operations/customs', labelAr: 'لوحة التخليص الجمركي', labelEn: 'Customs Clearance', icon: Globe, group: 'Operations & Logistics' },
   { id: 'planning', path: '/operations/planning', labelAr: 'إدارة التخطيط والتشغيل', labelEn: 'Planning & Charters', icon: Layers, group: 'Operations & Logistics' },
 
-  // 2. Finance, Accounting & Control Ribbon - Strictly 6 Core Modules
+  // 2. Finance, Accounting & Control Ribbon
   { id: 'invoicing', path: '/finance/invoices', labelAr: 'الفوترة الضريبية', labelEn: 'ZATCA Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
   { id: 'vouchers', path: '/finance/vouchers', labelAr: 'السندات المالية', labelEn: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
   { id: 'finance-chart', path: '/finance/chart', labelAr: 'شجرة الحسابات', labelEn: 'Chart of Accounts', icon: Landmark, group: 'Finance, Accounting & Control' },
@@ -625,6 +634,7 @@ function AppContent() {
     approvals: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     procurement: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
     inventory: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
+    hr: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     mfa: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     customs: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'admin-hub': ['Super_Admin', 'Admin'],
@@ -641,6 +651,10 @@ function AppContent() {
         return <CustomsClearanceView />;
       case 'approvals':
         return <ApprovalQueueView />;
+      case 'procurement':
+        return <ProcurementView />;
+      case 'hr':
+        return <HRMSView />;
       case 'mfa':
         return <MfaVerificationView onCancel={() => setActiveTab('dashboard')} />;
       case 'planning':

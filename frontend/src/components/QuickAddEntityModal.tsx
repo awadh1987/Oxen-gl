@@ -130,19 +130,19 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
       case 'Customer':
         return {
           title: isAr ? 'إضافة عميل جديد سريعاً' : 'Quick Add New Client',
-          subtitle: isAr ? 'تسجيل شركة أو مصنع خرسانة جديد في الدليل' : 'Register a new customer entity',
+          subtitle: isAr ? 'تسجيل عميل جديد في الدليل' : 'Register a new customer entity',
           icon: Building2,
         };
       case 'Crusher':
         return {
-          title: isAr ? 'إضافة مورد مواد خام جديد' : 'Quick Add Raw Materials Supplier',
-          subtitle: isAr ? 'تسجيل مقلع أو مورد مواد في النظام' : 'Register a new quarry or supplier',
+          title: isAr ? 'إضافة مورد مواد جديد' : 'Quick Add Material Supplier',
+          subtitle: isAr ? 'تسجيل مورد مواد في النظام' : 'Register a new material supplier',
           icon: Database,
         };
       case 'Transporter':
         return {
-          title: isAr ? 'إضافة مزود خدمة / شاحنة' : 'Quick Add Service Supplier / Truck',
-          subtitle: isAr ? 'تسجيل مؤسسة نقليات أو شاحنة نقل جديدة' : 'Register a fleet subcontractor',
+          title: isAr ? 'إضافة مورد خدمة / شاحنة' : 'Quick Add Service Supplier / Truck',
+          subtitle: isAr ? 'تسجيل مورد خدمة أو شاحنة جديدة' : 'Register a service supplier or truck',
           icon: Truck,
         };
       case 'Material':
@@ -247,7 +247,7 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
             <>
               <div>
                 <label className="mb-1 block text-xs font-bold text-slate-700">
-                  {isAr ? 'اسم مورد المواد الخام *' : 'Raw Materials Supplier Name *'}
+                  {isAr ? 'اسم مورد المواد *' : 'Material Supplier Name *'}
                 </label>
                 <input
                   type="text"

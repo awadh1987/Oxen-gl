@@ -127,8 +127,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       ],
     },
     crushers: {
-      titleAr: 'سجل الكسارات والموردين (Crushers & Suppliers)',
-      titleEn: 'Crushers & Quarries Master Data',
+      titleAr: 'سجل موردي المواد (Material Suppliers)',
+      titleEn: 'Material Suppliers Master Data',
       filename: 'Crushers_Import_Template_Meayon.csv',
       headers: [
         'crusherName',
@@ -502,7 +502,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
               </div>
               <p className="text-xs text-orange-200/80">
                 {isAr
-                  ? 'رفع وتحديث سجلات العملاء، الكسارات، والناقلين دفعة واحدة مع التحقق التلقائي'
+                  ? 'رفع وتحديث سجلات العملاء وموردي المواد وموردي الخدمات دفعة واحدة مع التحقق التلقائي'
                   : 'Batch upload and sync master data with real-time ZATCA tax validation'}
               </p>
             </div>
@@ -516,37 +516,33 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
           </button>
         </div>
 
-        {/* Entity Type Switcher & Top Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/90 px-6 py-3">
-          {/* Target Select */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500">{isAr ? 'نوع البيانات المستهدفة:' : 'Target Entity:'}</span>
-            <div className="inline-flex rounded-xl bg-slate-200/80 p-1">
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-slate-200 bg-slate-50 px-6 py-2">
+          <div className="flex gap-2">
+            <div className="flex rounded-xl bg-slate-200/70 p-1">
               <button
                 onClick={() => {
                   setEntityType('customers');
                   setParsedRows([]);
                   setActiveTab('upload');
-                  setImportSummary(null);
                 }}
                 className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
                   entityType === 'customers' ? 'bg-white text-orange-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {isAr ? 'العملاء (Clients)' : 'Customers'}
+                {isAr ? 'العملاء (Customers)' : 'Customers'}
               </button>
               <button
                 onClick={() => {
                   setEntityType('crushers');
                   setParsedRows([]);
                   setActiveTab('upload');
-                  setImportSummary(null);
                 }}
                 className={`rounded-lg px-3 py-1 text-xs font-bold transition-all ${
                   entityType === 'crushers' ? 'bg-white text-orange-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {isAr ? 'الكسارات والموردين (Suppliers)' : 'Crushers'}
+                {isAr ? 'موردي المواد (Material Suppliers)' : 'Material Suppliers'}
               </button>
               <button
                 onClick={() => {
@@ -559,7 +555,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                   entityType === 'transporters' ? 'bg-white text-orange-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {isAr ? 'الناقلين (Transporters)' : 'Transporters'}
+                {isAr ? 'موردي الخدمات (Service Suppliers)' : 'Service Suppliers'}
               </button>
             </div>
           </div>

@@ -14,8 +14,10 @@
     "operations": "Daily Operations Logs",
     "maintenance": "Fleet Maintenance & Fuel",
     "fleet_map": "Live Fleet Radar & Map",
-    "crushers": "Crusher Statements",
-    "transporters": "Transporters & Shrinkage",
+    "crushers": "Material Suppliers",
+    "transporters": "Service Suppliers",
+    "procurement": "Procurement & S2P",
+    "hr": "Human Resources & WPS",
     "invoicing": "Tax Invoicing (ZATCA)",
     "vouchers": "Payment & Receipt Vouchers",
     "finance_chart": "Chart of Accounts (5-Deep)",
@@ -35,6 +37,8 @@
   "categories": {
     "core_operations": "Core Operations",
     "logistics_fleet": "Logistics & Fleet",
+    "procurement": "Procurement & SCM",
+    "hr": "Human Resources & Personnel",
     "finance_gl": "Finance & GL",
     "system_governance": "System Governance"
   },

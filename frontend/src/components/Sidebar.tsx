@@ -21,11 +21,14 @@ import {
   Network,
   Scale,
   FileCheck2,
+  ShoppingCart,
+  Users,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { UserAvatar } from './UserAvatar';
 
 export type ActiveTab =
   | 'hub'
@@ -51,6 +54,7 @@ export type ActiveTab =
   | 'approvals'
   | 'procurement'
   | 'inventory'
+  | 'hr'
   | 'mfa'
   | 'customs'
   | 'admin-hub';
@@ -74,7 +78,7 @@ interface MenuItemDef {
 }
 
 interface NavCategoryDef {
-  id: 'core' | 'logistics' | 'finance' | 'governance';
+  id: 'core' | 'procurement' | 'logistics' | 'finance' | 'hr' | 'governance';
   labelAr: string;
   labelEn: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -195,7 +199,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         badge: 'ZATCA P2',
       },
 
-      // 2. Logistics & Fleet
+      // 2. Procurement & S2P
+      {
+        id: 'procurement',
+        labelAr: 'المشتريات وسلسلة التوريد',
+        labelEn: 'Procurement & S2P',
+        path: '/operations/procurement',
+        icon: ShoppingCart,
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
+        badge: 'S2P',
+      },
+
+      // 3. Logistics & Fleet
       {
         id: 'fleet-map',
         labelAr: 'خريطة التتبع والرادار المباشر',
@@ -216,8 +231,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       },
       {
         id: 'transporters',
-        labelAr: 'أداء مزودي الخدمات والتسويات',
-        labelEn: 'Transporters & Shrinkage',
+        labelAr: 'موردي الخدمات والتسويات',
+        labelEn: 'Service Suppliers',
         path: '/operations/transporters',
         icon: Scale,
         roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
@@ -225,15 +240,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       },
       {
         id: 'crushers',
-        labelAr: 'موردو المواد الخام وحساباتهم',
-        labelEn: 'Crusher Statements',
+        labelAr: 'موردي المواد وحساباتهم',
+        labelEn: 'Material Suppliers',
         path: '/operations/crushers',
         icon: Building2,
         roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
         badge: null,
       },
 
-      // 3. Finance & GL
+      // 4. Finance & GL
       {
         id: 'invoicing',
         labelAr: 'الفواتير الضريبية للعملاء',
@@ -278,6 +293,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         icon: FileCheck2,
         roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
         badge: 'Audit',
+      },
+
+      // 5. Human Resources & Payroll
+      {
+        id: 'hr',
+        labelAr: 'الموارد البشرية والرواتب',
+        labelEn: 'Human Resources (HR)',
+        path: '/operations/hr',
+        icon: Users,
+        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
+        badge: 'HRMS',
       },
 
       // 4. System Governance
@@ -355,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     [currentUser?.role, authTier, isAr, isDriverMode, kpis.pendingApprovalsCount]
   );
 
-  // 4 Enterprise Accordion Categories
+  // Enterprise Accordion Categories
   const categories: NavCategoryDef[] = useMemo(
     () => [
       {
@@ -364,6 +390,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Core Operations',
         icon: LayoutDashboard,
         itemIds: ['dashboard', 'planning', 'operations', 'customs'],
+      },
+      {
+        id: 'procurement',
+        labelAr: 'المشتريات وسلسلة التوريد',
+        labelEn: 'Procurement & S2P',
+        icon: ShoppingCart,
+        itemIds: ['procurement'],
       },
       {
         id: 'logistics',
@@ -378,6 +411,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Finance & GL',
         icon: Receipt,
         itemIds: ['invoicing', 'vouchers', 'finance-chart', 'finance-trial-balance', 'finance-audit-closing'],
+      },
+      {
+        id: 'hr',
+        labelAr: 'الموارد البشرية والرواتب',
+        labelEn: 'Human Resources (HR)',
+        icon: Users,
+        itemIds: ['hr'],
       },
       {
         id: 'governance',
@@ -404,8 +444,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {
       core: false,
+      procurement: false,
       logistics: false,
       finance: false,
+      hr: false,
       governance: false,
     };
     const found = categories.find((c) => c.itemIds.includes(activeTab));
@@ -844,13 +886,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed ? (
               <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-2">
                 <div className="flex items-center gap-2">
-                  <img
-                    src={
-                      currentUser.avatar ||
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
-                    }
-                    alt={currentUser.fullName}
-                    className="h-7 w-7 rounded-lg object-cover ring-1 ring-orange-500/30"
+                  <UserAvatar
+                    user={currentUser}
+                    sizeClassName="h-7 w-7 text-[10px]"
+                    className="rounded-lg"
                   />
                   <div className="overflow-hidden">
                     <p className="truncate text-xs font-bold text-white">
@@ -870,13 +909,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="flex justify-center"
                 title={`${currentUser?.fullName || 'User'} (${currentUser?.role || 'Operator'})`}
               >
-                <img
-                  src={
-                    currentUser.avatar ||
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80'
-                  }
-                  alt={currentUser.fullName}
-                  className="h-8 w-8 rounded-xl object-cover ring-1 ring-orange-500/40"
+                <UserAvatar
+                  user={currentUser}
+                  sizeClassName="h-8 w-8 text-xs"
+                  className="rounded-xl"
                 />
               </div>
             )}

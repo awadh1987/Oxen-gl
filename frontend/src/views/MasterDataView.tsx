@@ -338,14 +338,14 @@ export const MasterDataView: React.FC = () => {
         };
       case 'crusher':
         return {
-          labelAr: '+ إضافة مورد مواد خام',
-          labelEn: '+ Add Quarry Supplier',
+          labelAr: '+ إضافة مورد مواد',
+          labelEn: '+ Add Material Supplier',
           icon: Database,
         };
       case 'transporter':
         return {
-          labelAr: '+ إضافة ناقل ومزود لوجستي',
-          labelEn: '+ Add Transporter',
+          labelAr: '+ إضافة مورد خدمات',
+          labelEn: '+ Add Service Supplier',
           icon: Truck,
         };
       case 'material':
@@ -391,8 +391,8 @@ export const MasterDataView: React.FC = () => {
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isAr
-                  ? 'إدارة مركزية لسجلات العملاء، موردي المواد الخام، مزودي النقل واللوجستيات، تسعير المواد، وحسابات المستخدمين'
-                  : 'Centralized enterprise directory for clients, quarries, transporters, material catalogs, and RBAC users'}
+                  ? 'إدارة مركزية لسجلات العملاء، موردي المواد، موردي الخدمات، تسعير المواد، وحسابات المستخدمين'
+                  : 'Centralized enterprise directory for clients, material suppliers, service suppliers, material catalogs, and RBAC users'}
               </p>
             </div>
           </div>
@@ -420,16 +420,16 @@ export const MasterDataView: React.FC = () => {
           },
           {
             id: 'crusher',
-            labelAr: 'موردو المواد الخام',
-            labelEn: 'Raw Material Suppliers',
+            labelAr: 'موردي المواد',
+            labelEn: 'Material Suppliers',
             count: crushers.filter((c) => !c.is_deleted).length,
             icon: Database,
             accent: 'from-amber-600 to-orange-600',
           },
           {
             id: 'transporter',
-            labelAr: 'مزودو الخدمات اللوجستية',
-            labelEn: 'Logistics & Transporters',
+            labelAr: 'موردي الخدمات',
+            labelEn: 'Service Suppliers',
             count: transporters.filter((t) => !t.is_deleted).length,
             icon: Truck,
             accent: 'from-emerald-600 to-teal-600',
@@ -637,7 +637,7 @@ export const MasterDataView: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
               <Building2 className="h-4 w-4 text-orange-600" />
-              <span>{isAr ? 'دليل العملاء ومشاريع الخرسانة الجاهزة' : 'Clients & Readymix Batching Plants'}</span>
+              <span>{isAr ? 'دليل العملاء' : 'Clients Registry'}</span>
             </h3>
             <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
               {activeCustomers.length} {isAr ? 'عملاء مسجلين' : 'Registered Clients'}
@@ -717,10 +717,10 @@ export const MasterDataView: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
               <Database className="h-4 w-4 text-orange-600" />
-              <span>{isAr ? 'دليل الكسارات وموردي المواد الخام والمقالع' : 'Quarries & Raw Material Suppliers'}</span>
+              <span>{isAr ? 'دليل موردي المواد' : 'Material Suppliers'}</span>
             </h3>
             <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
-              {activeCrushers.length} {isAr ? 'كسارات مسجلة' : 'Registered Crushers'}
+              {activeCrushers.length} {isAr ? 'موردي مواد مسجلين' : 'Registered Material Suppliers'}
             </span>
           </div>
 
@@ -728,7 +728,7 @@ export const MasterDataView: React.FC = () => {
             <table className="w-full text-right text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
-                  <th className="py-3 px-4">{isAr ? 'اسم الكسارة' : 'Crusher Name'}</th>
+                  <th className="py-3 px-4">{isAr ? 'اسم مورد المواد' : 'Supplier Name'}</th>
                   <th className="py-3 px-4">{isAr ? 'الموقع الجغرافي' : 'Location'}</th>
                   <th className="py-3 px-4">{isAr ? 'المادة الموردة' : 'Material'}</th>
                   <th className="py-3 px-4">{isAr ? 'الحساب البنكي / الآيبان' : 'Bank Account'}</th>
@@ -740,7 +740,7 @@ export const MasterDataView: React.FC = () => {
                 {activeCrushers.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
-                      {isAr ? 'لا توجد كسارات مطابقة للبحث أو التصفية.' : 'No quarries match the active query.'}
+                      {isAr ? 'لا يوجد موردي مواد مطابقين للبحث أو التصفية.' : 'No material suppliers match the active query.'}
                     </td>
                   </tr>
                 ) : (
@@ -792,10 +792,10 @@ export const MasterDataView: React.FC = () => {
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
               <Truck className="h-4 w-4 text-orange-600" />
-              <span>{isAr ? 'دليل مقاولي النقل وأسطول الشاحنات اللوجستية' : 'Transporters & Logistics Fleet'}</span>
+              <span>{isAr ? 'دليل موردي الخدمات والأسطول' : 'Service Suppliers & Fleet'}</span>
             </h3>
             <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
-              {activeTransporters.length} {isAr ? 'ناقلين مسجلين' : 'Registered Transporters'}
+              {activeTransporters.length} {isAr ? 'موردي خدمات مسجلين' : 'Registered Service Suppliers'}
             </span>
           </div>
 
@@ -803,7 +803,7 @@ export const MasterDataView: React.FC = () => {
             <table className="w-full text-right text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
-                  <th className="py-3 px-4">{isAr ? 'اسم الناقل / المؤسسة' : 'Transporter Name'}</th>
+                  <th className="py-3 px-4">{isAr ? 'اسم مورد الخدمة / المؤسسة' : 'Service Supplier Name'}</th>
                   <th className="py-3 px-4">{isAr ? 'اسم السائق' : 'Driver'}</th>
                   <th className="py-3 px-4">{isAr ? 'رقم الشاحنة الافتراضية' : 'Default Truck #'}</th>
                   <th className="py-3 px-4">{isAr ? 'الهاتف' : 'Phone'}</th>

@@ -143,12 +143,12 @@ export const CrusherLedgerView: React.FC = () => {
             {isAr ? 'دفتر توريد المواد الخام' : 'Sourcing Ledger'}
           </p>
           <h1 className="mt-1 text-xl font-black text-slate-900 dark:text-white">
-            {isAr ? 'حسابات كسارات ومقالع المواد الحصوية' : 'Raw Material Payables & Accounts Ledger'}
+            {isAr ? 'حسابات موردي المواد' : 'Material Suppliers Ledger'}
           </h1>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {isAr
-              ? 'متابعة مشتريات المواد الخام، سندات الصرف الدائنة، ومطابقة الأرصدة المستحقة للمقالع.'
-              : 'Track raw material purchases, supplier debit vouchers, and outstanding balances.'}
+              ? 'متابعة مشتريات المواد، سندات الصرف الدائنة، ومطابقة الأرصدة المستحقة للموردين.'
+              : 'Track material purchases, supplier debit vouchers, and outstanding balances.'}
           </p>
         </div>
 
@@ -252,7 +252,7 @@ export const CrusherLedgerView: React.FC = () => {
         })}
         {!suppliers.length && (
           <div className="col-span-full rounded-2xl border border-dashed border-slate-300 dark:border-slate-800 p-8 text-center text-sm text-slate-400">
-            {isAr ? 'لا يوجد موردين أو كسارات مسجلة لهذا المستأجر.' : 'No raw materials suppliers are available for this tenant.'}
+            {isAr ? 'لا يوجد موردي مواد مسجلين لهذا المستأجر.' : 'No material suppliers are available for this tenant.'}
           </div>
         )}
       </section>

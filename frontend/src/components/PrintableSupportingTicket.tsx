@@ -181,7 +181,7 @@ export const PrintableSupportingTicket: React.FC<PrintableSupportingTicketProps>
             {isAr ? 'صورة إشعار الميزان الأصلي والختم الضريبي:' : 'Original Physical Scale Ticket Attachment:'}
           </span>
           <span className="text-[10px] font-mono text-slate-500">
-            Certified Hash: MYN-{trip.id.toUpperCase()}-VERIFIED
+            Certified Ref: MYN-{trip.id.slice(0, 8).toUpperCase()}-VERIFIED
           </span>
         </div>
 

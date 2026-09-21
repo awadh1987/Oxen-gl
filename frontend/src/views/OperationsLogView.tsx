@@ -86,7 +86,19 @@ export const OperationsLogView: React.FC = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 12;
+  // Dynamic Month Tabs Generation
+  const availableMonths = useMemo(() => {
+    const currentMonth = new Date().getMonth() + 1;
+    const opMonths = accessibleOperations
+      .map((op) => op.operation_month)
+      .filter((m): m is number => typeof m === 'number' && m >= 1 && m <= 12);
+    const maxMonth = Math.max(currentMonth, ...opMonths, 8);
+    const months: string[] = ['ALL'];
+    for (let m = maxMonth; m >= 1; m--) {
+      months.push(String(m));
+    }
+    return months;
+  }, [accessibleOperations]);
 
   // Filtered dataset
   const filteredOperations = useMemo(() => {
@@ -299,7 +311,7 @@ export const OperationsLogView: React.FC = () => {
               onChange={(e) => setSelectedCrusher(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-800 focus:border-orange-500 focus:bg-white focus:outline-none"
             >
-              <option value="">{isAr ? 'كافة موردي المواد الخام' : 'All Raw Materials Suppliers'}</option>
+              <option value="">{isAr ? 'كافة موردي المواد' : 'All Material Suppliers'}</option>
               {crushers.map((c) => (
                 <option key={c.id} value={c.crusherName}>
                   {c.crusherName}
@@ -315,7 +327,7 @@ export const OperationsLogView: React.FC = () => {
               onChange={(e) => setSelectedTransporter(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-800 focus:border-orange-500 focus:bg-white focus:outline-none"
             >
-              <option value="">{isAr ? 'كافة مزودي الخدمات' : 'All Service Suppliers'}</option>
+              <option value="">{isAr ? 'كافة موردي الخدمات' : 'All Service Suppliers'}</option>
               {transporters.map((t) => (
                 <option key={t.id} value={t.transporterName}>
                   {t.transporterName}
@@ -346,7 +358,7 @@ export const OperationsLogView: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-600">{isAr ? 'الشهر المالي:' : 'Month:'}</span>
             <div className="flex flex-wrap gap-1">
-              {['ALL', '8', '7', '6', '5', '4', '3'].map((m) => (
+              {availableMonths.map((m) => (
                 <button
                   key={m}
                   onClick={() => setSelectedMonth(m)}
@@ -356,7 +368,7 @@ export const OperationsLogView: React.FC = () => {
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {m === 'ALL' ? (isAr ? 'الكل' : 'All') : `${m}/2026`}
+                  {m === 'ALL' ? (isAr ? 'الكل' : 'All') : `${m}/${new Date().getFullYear()}`}
                 </button>
               ))}
             </div>

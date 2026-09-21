@@ -186,7 +186,7 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
               ? 'تعديل بيانات العميل'
               : 'Edit Customer Details'
             : isAr
-              ? 'إضافة عميل / شركة خرسانة جديدة'
+              ? 'إضافة عميل جديد'
               : 'Add New Customer',
           icon: Building2,
         };
@@ -194,21 +194,21 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
         return {
           title: isEdit
             ? isAr
-              ? 'تعديل بيانات مورد المواد الخام'
-              : 'Edit Raw Materials Supplier Details'
+              ? 'تعديل بيانات مورد المواد'
+              : 'Edit Material Supplier Details'
             : isAr
-              ? 'إضافة مورد مواد خام جديد'
-              : 'Add Raw Materials Supplier',
+              ? 'إضافة مورد مواد جديد'
+              : 'Add Material Supplier',
           icon: Database,
         };
       case 'transporter':
         return {
           title: isEdit
             ? isAr
-              ? 'تعديل بيانات مقاول النقل'
+              ? 'تعديل بيانات مورد الخدمة'
               : 'Edit Service Supplier Details'
             : isAr
-              ? 'إضافة مقاول نقل / شاحنة جديدة'
+              ? 'إضافة مورد خدمة جديد'
               : 'Add Service Supplier',
           icon: Truck,
         };
@@ -363,7 +363,7 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
 
               <div>
                 <label className="mb-1 block text-xs font-bold text-slate-700">
-                  {isAr ? 'عنوان وموقع مصنع الخرسانة / المشروع' : 'Plant / Project Address'}
+                  {isAr ? 'العنوان والموقع الجغرافي / المشروع' : 'Site / Project Address'}
                 </label>
                 <input
                   type="text"

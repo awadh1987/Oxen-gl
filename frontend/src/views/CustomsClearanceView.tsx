@@ -26,6 +26,17 @@ import { useTranslation } from 'react-i18next';
 
 export type CustomsManifestItem = ApiCustomsManifest;
 
+const maskHash = (hash?: string | null): string => {
+  if (!hash) return '—';
+  if (hash.length <= 16) return hash;
+  return `${hash.slice(0, 8)}...${hash.slice(-8)}`;
+};
+
+const maskUuid = (uuid?: string | null): string => {
+  if (!uuid) return '—';
+  return `REF-${uuid.slice(0, 8).toUpperCase()}`;
+};
+
 export const CustomsClearanceView: React.FC = () => {
   const { currentCompany, language } = useApp();
   const { t } = useTranslation();
@@ -509,7 +520,7 @@ export const CustomsClearanceView: React.FC = () => {
                         <bdi>{selectedManifest.manifest_number}</bdi>
                       </h3>
                       <p className="text-[11px] font-mono text-slate-400 mt-0.5">
-                        <bdi>UUID: {selectedManifest.id}</bdi>
+                        <bdi>{maskUuid(selectedManifest.id)}</bdi>
                       </p>
                     </div>
                     <span className="text-xs font-mono px-2 py-1 rounded bg-slate-900 border border-slate-800 text-cyan-400">
@@ -589,14 +600,16 @@ export const CustomsClearanceView: React.FC = () => {
                       </button>
                     </div>
                     <p className="text-slate-300 text-[10px] break-all leading-relaxed bg-black/60 p-2.5 rounded-lg border border-slate-800 font-mono">
-                      <bdi>{selectedManifest.block_hash || selectedManifest.payload_hash}</bdi>
+                      <bdi title={selectedManifest.block_hash || selectedManifest.payload_hash}>
+                        {maskHash(selectedManifest.block_hash || selectedManifest.payload_hash)}
+                      </bdi>
                     </p>
                   </div>
 
                   <div>
                     <span className="text-[10px] text-slate-500 block mb-1">{t('customs.prevHash', 'PREVIOUS BLOCK HASH:')}</span>
                     <p className="text-slate-500 text-[10px] break-all leading-relaxed bg-black/40 p-2 rounded-lg border border-slate-900 font-mono">
-                      <bdi>{selectedManifest.previous_hash}</bdi>
+                      <bdi title={selectedManifest.previous_hash}>{maskHash(selectedManifest.previous_hash)}</bdi>
                     </p>
                   </div>
                 </div>
@@ -767,7 +780,9 @@ export const CustomsClearanceView: React.FC = () => {
                               </button>
                             </div>
                             <p className="text-cyan-300 text-[11px] break-all leading-relaxed font-mono">
-                              <bdi>{block.block_hash || block.payload_hash}</bdi>
+                              <bdi title={block.block_hash || block.payload_hash}>
+                                {maskHash(block.block_hash || block.payload_hash)}
+                              </bdi>
                             </p>
                           </div>
 
@@ -776,7 +791,7 @@ export const CustomsClearanceView: React.FC = () => {
                               <span>{t('customs.prevLinkedHash', 'PREVIOUS LINKED HASH:')}</span>
                             </div>
                             <p className="text-slate-500 text-[11px] break-all leading-relaxed font-mono">
-                              <bdi>{block.previous_hash}</bdi>
+                              <bdi title={block.previous_hash}>{maskHash(block.previous_hash)}</bdi>
                             </p>
                           </div>
                         </div>

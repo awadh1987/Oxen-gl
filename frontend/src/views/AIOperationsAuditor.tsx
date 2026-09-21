@@ -889,9 +889,9 @@ export const AIOperationsAuditor: React.FC = () => {
                   onChange={(e) => setLetterRecipientType(e.target.value as any)}
                   className="w-full rounded-xl border border-slate-200 p-2 text-xs font-semibold"
                 >
-                  <option value="Transporter">{isAr ? 'ناقل لوجستي' : 'Transporter'}</option>
-                  <option value="Crusher">{isAr ? 'مورد مواد خام (كسارة)' : 'Quarry Supplier'}</option>
-                  <option value="Customer">{isAr ? 'عميل خرسانة جاهزة' : 'Customer'}</option>
+                  <option value="Transporter">{isAr ? 'مورد خدمة (ناقل)' : 'Service Supplier (Transporter)'}</option>
+                  <option value="Crusher">{isAr ? 'مورد مواد' : 'Material Supplier'}</option>
+                  <option value="Customer">{isAr ? 'عميل' : 'Customer / Client'}</option>
                 </select>
               </div>
 

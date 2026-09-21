@@ -188,7 +188,7 @@ export const TransporterPerformanceView: React.FC = () => {
       icon: BanknoteArrowUp,
     },
     {
-      title: isAr ? 'صافي مستحق السداد للناقلين' : 'Net Freight Payable',
+      title: isAr ? 'صافي مستحق السداد لموردي الخدمات' : 'Net Freight Payable',
       value: formatCurrency(totals.payout, language),
       tone: 'text-emerald-600 dark:text-emerald-400',
       icon: ReceiptText,
@@ -196,8 +196,8 @@ export const TransporterPerformanceView: React.FC = () => {
   ];
 
   const tableHeaders = isAr
-    ? ['#', 'اسم الناقل / المقاول', 'الرحلات', 'المحمّل', 'المسلّم', 'الهدر والفاقد', 'نسبة الفقد', 'إجمالي النولون', 'الخصومات والجزاءات', 'الصافي المستحق', 'حالة الامتثال', 'الإجراء']
-    : ['#', 'Carrier / Supplier Name', 'Trips', 'Loaded', 'Delivered', 'Wastage', 'Loss %', 'Freight Fee', 'Penalties', 'Net Payout', 'Compliance', 'Action'];
+    ? ['#', 'اسم مورد الخدمة / الناقل', 'الرحلات', 'المحمّل', 'المسلّم', 'الهدر والفاقد', 'نسبة الفقد', 'إجمالي النولون', 'الخصومات والجزاءات', 'الصافي المستحق', 'حالة الامتثال', 'الإجراء']
+    : ['#', 'Service Supplier / Carrier', 'Trips', 'Loaded', 'Delivered', 'Wastage', 'Loss %', 'Freight Fee', 'Penalties', 'Net Payout', 'Compliance', 'Action'];
 
   return (
     <div className="space-y-5" id="transporter-performance-view">
@@ -208,7 +208,7 @@ export const TransporterPerformanceView: React.FC = () => {
             {isAr ? 'دفتر العمليات التشغيلية' : 'Operational ledger'}
           </p>
           <h1 className="mt-1 text-xl font-black text-slate-950 dark:text-white">
-            {isAr ? 'فاقد النقل وتسويات نولون الشاحنات' : 'Carrier Loss & Freight Settlements'}
+            {isAr ? 'فاقد النقل وتسويات موردي الخدمات اللوجستية' : 'Service Supplier Loss & Freight Settlements'}
           </h1>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {isAr

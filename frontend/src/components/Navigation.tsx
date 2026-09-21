@@ -17,12 +17,14 @@ import {
   Building,
   Network,
 } from 'lucide-react';
+import { UserAvatar } from './UserAvatar';
 
 export type NavigationTab =
   | 'dashboard'
   | 'approvals'
   | 'procurement'
   | 'inventory'
+  | 'hr'
   | 'vouchers'
   | 'finance-chart'
   | 'operations'
@@ -78,6 +80,13 @@ export const Navigation: React.FC<NavigationProps> = ({
       labelEn: 'Inventory & Dual-UOM',
       icon: Boxes,
       allowedRoles: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
+    },
+    {
+      id: 'hr',
+      labelAr: 'الموارد البشرية والرواتب',
+      labelEn: 'Human Resources & WPS',
+      icon: Users,
+      allowedRoles: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     },
     {
       id: 'vouchers',
@@ -152,9 +161,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         {/* User Context Badge */}
         <div className="mx-2 mb-4 rounded-xl bg-slate-900/80 p-3 border border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-xs font-bold text-amber-400 border border-slate-700">
-              {currentUser?.fullName?.charAt(0) || 'U'}
-            </div>
+            <UserAvatar
+              user={currentUser}
+              sizeClassName="h-8 w-8 text-xs"
+              className="rounded-lg"
+            />
             <div className="overflow-hidden">
               <p className="text-xs font-semibold text-white truncate">
                 {currentUser?.fullName || 'Administrator'}

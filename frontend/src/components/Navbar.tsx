@@ -27,6 +27,7 @@ import {
 import { UserRole } from '../types';
 import { TENANT_PALETTES } from '../theme/designTokens';
 import { BrandLogo } from './BrandLogo';
+import { UserAvatar } from './UserAvatar';
 import { isApexDomain } from '../utils/subdomain';
 
 export interface SystemAlert {
@@ -754,12 +755,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
 
         {/* User Profile Avatar & Logout */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#1A1A1A] to-[#F05627] font-bold text-white shadow-xs text-xs"
-            title={`${currentUser?.fullName ?? ''} (${currentUser?.role ?? 'Guest'})`}
-          >
-            {(currentUser?.username ?? 'US').slice(0, 2).toUpperCase()}
-          </div>
+          <UserAvatar user={currentUser} sizeClassName="h-9 w-9 text-xs" />
           {onLogout && (
             <button
               onClick={() => {
