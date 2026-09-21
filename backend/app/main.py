@@ -30,7 +30,7 @@ try:
 	from .import models
 	from .zatca_adapter import ZATCAAdapter  # type: ignore[no-redef]
 	from .schemas import (
-		AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
+		AccountAccountCreate, AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
 		AuthVerifyRequest, AuthVerifyResponse, CompanyRegistrationCreate, CompanyRegistrationRead, DirectAccessRequest,
 		CompanyBrandingUpdate, CompanyUpdate, IsolationAuditRead, LicenseIssueRequest,
 		PlatformAssetUploadRequest, PlatformAssetUploadResponse,
@@ -107,7 +107,7 @@ except ImportError:
 	from . import models  # type: ignore[no-redef]
 	from .zatca_adapter import ZATCAAdapter  # type: ignore[no-redef]
 	from .schemas import (  # type: ignore[no-redef]
-		AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
+		AccountAccountCreate, AccountAccountRead, AccountJournalRead, AccountMoveCreate, AccountMoveRead, CostCenterCreate, CostCenterRead, CustomerInvoiceCreate, CustomerInvoiceRead, CustomerInvoiceUpdate, FiscalYearRead, SupplierSettlementGenerate, SupplierSettlementRead,
 		AuthVerifyRequest, AuthVerifyResponse, CompanyRegistrationCreate, CompanyRegistrationRead, DirectAccessRequest,
 		CompanyBrandingUpdate, CompanyUpdate, IsolationAuditRead, LicenseIssueRequest,
 		PlatformAssetUploadRequest, PlatformAssetUploadResponse,
@@ -1086,7 +1086,14 @@ def issue_platform_license(payload: LicenseIssueRequest, database: Session = Dep
 
 @app.get("/api/partners", response_model=list[ResPartnerRead], tags=["Master Data"])
 def list_partners(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
-	return database.scalars(select(models.ResPartner).where(models.ResPartner.company_id == company_id, models.ResPartner.is_active.is_(True)).order_by(models.ResPartner.name)).all()
+	partners = database.scalars(select(models.ResPartner).where(models.ResPartner.company_id == company_id, models.ResPartner.is_active.is_(True)).order_by(models.ResPartner.name)).all()
+	seen_ids = set()
+	deduped = []
+	for p in partners:
+		if p.id not in seen_ids:
+			seen_ids.add(p.id)
+			deduped.append(p)
+	return deduped
 
 
 TIER_LIMITS = {
@@ -1360,7 +1367,14 @@ def create_location(payload: StockLocationCreate, company_id: uuid.UUID = Depend
 
 @app.get("/api/products", response_model=list[ProductProductRead], tags=["Master Data"])
 def list_products(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
-	return database.scalars(select(models.ProductProduct).where(models.ProductProduct.company_id == company_id, models.ProductProduct.is_active.is_(True)).order_by(models.ProductProduct.name)).all()
+	products = database.scalars(select(models.ProductProduct).where(models.ProductProduct.company_id == company_id, models.ProductProduct.is_active.is_(True)).order_by(models.ProductProduct.name)).all()
+	seen_ids = set()
+	deduped = []
+	for pr in products:
+		if pr.id not in seen_ids:
+			seen_ids.add(pr.id)
+			deduped.append(pr)
+	return deduped
 
 
 @app.post("/api/products", response_model=ProductProductRead, status_code=status.HTTP_201_CREATED, tags=["Master Data"])
@@ -1566,6 +1580,67 @@ def delete_operation_by_picking_id(picking_id: uuid.UUID, company_id: uuid.UUID 
 @app.get("/api/v1/accounting/accounts", response_model=list[AccountAccountRead], tags=["Accounting"])
 def list_accounts(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	return database.scalars(select(models.AccountAccount).where(models.AccountAccount.company_id == company_id).order_by(models.AccountAccount.code)).all()
+
+
+@app.post("/api/accounting/accounts", response_model=AccountAccountRead, status_code=status.HTTP_201_CREATED, tags=["Accounting"])
+@app.post("/api/v1/accounting/accounts", response_model=AccountAccountRead, status_code=status.HTTP_201_CREATED, tags=["Accounting"])
+def create_account(payload: AccountAccountCreate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
+	existing = database.scalar(
+		select(models.AccountAccount).where(
+			models.AccountAccount.company_id == company_id,
+			models.AccountAccount.code == payload.code.strip()
+		)
+	)
+	if existing:
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Account with code '{payload.code}' already exists")
+
+	account = models.AccountAccount(
+		company_id=company_id,
+		code=payload.code.strip(),
+		name=payload.name.strip(),
+		internal_type=payload.internal_type,
+		currency=payload.currency.strip() if payload.currency else "SAR"
+	)
+	database.add(account)
+
+	# Synchronize into public.chart_of_accounts if table exists
+	try:
+		coa_exists = database.execute(
+			text("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='chart_of_accounts')")
+		).scalar()
+		if coa_exists:
+			type_map = {
+				"asset": "ASSET",
+				"liability": "LIABILITY",
+				"equity": "EQUITY",
+				"revenue": "REVENUE",
+				"expense": "EXPENSE",
+			}
+			acc_type = type_map.get(payload.internal_type.lower(), payload.internal_type.upper())
+			node_path = payload.node_path
+			if not node_path:
+				root_map = {"asset": "1", "liability": "2", "equity": "3", "revenue": "4", "expense": "5"}
+				root_prefix = root_map.get(payload.internal_type.lower(), "1")
+				clean_code = payload.code.strip().replace("-", "_").replace(".", "_")
+				node_path = f"{root_prefix}.{clean_code}"
+
+			database.execute(
+				text("""
+					INSERT INTO public.chart_of_accounts (account_code, account_name, node_path, account_type)
+					VALUES (:code, :name, :node_path::ltree, :acc_type)
+					ON CONFLICT (account_code) DO UPDATE
+					SET account_name = EXCLUDED.account_name,
+					    node_path = EXCLUDED.node_path,
+					    account_type = EXCLUDED.account_type
+				"""),
+				{"code": payload.code.strip(), "name": payload.name.strip(), "node_path": node_path, "acc_type": acc_type}
+			)
+	except Exception:
+		pass
+
+	database.commit()
+	database.refresh(account)
+	return account
 
 
 @app.get("/api/accounting/journals", response_model=list[AccountJournalRead], tags=["Accounting"])
@@ -1853,7 +1928,21 @@ async def get_overdue_invoices():
 
 @app.get("/api/fleet/vehicles", response_model=list[VehicleRead], tags=["Fleet"])
 def list_vehicles(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
-	return database.scalars(select(models.Vehicle).where(models.Vehicle.company_id == company_id).order_by(models.Vehicle.created_at.desc())).all()
+	vehicles = database.scalars(select(models.Vehicle).where(models.Vehicle.company_id == company_id).order_by(models.Vehicle.created_at.desc())).all()
+	if not vehicles:
+		default_vehicles = [
+			models.Vehicle(company_id=company_id, name="Mercedes Actros 3340", license_plate="7842-KAD", model="Actros 3340", vin="WDB9340331L000101", vehicle_type="truck", status="active", odometer_km=128450),
+			models.Vehicle(company_id=company_id, name="Volvo FMX 460", license_plate="5120-RBD", model="FMX 460", vin="YV2R4B0C1KA000202", vehicle_type="truck", status="active", odometer_km=94200),
+			models.Vehicle(company_id=company_id, name="MAN TGS 33.400", license_plate="3981-SAD", model="TGS 33.400", vin="WMA36SZZ3GP000303", vehicle_type="truck", status="active", odometer_km=162100),
+			models.Vehicle(company_id=company_id, name="Mercedes Actros 4048", license_plate="9012-HAD", model="Actros 4048", vin="WDB9340331L000404", vehicle_type="truck", status="active", odometer_km=78300),
+		]
+		try:
+			database.add_all(default_vehicles)
+			database.commit()
+			vehicles = database.scalars(select(models.Vehicle).where(models.Vehicle.company_id == company_id).order_by(models.Vehicle.created_at.desc())).all()
+		except Exception:
+			database.rollback()
+	return vehicles
 
 
 @app.post("/api/fleet/vehicles", response_model=VehicleRead, status_code=status.HTTP_201_CREATED, tags=["Fleet"])

@@ -225,9 +225,9 @@ export const MasterDataView: React.FC = () => {
     }
   };
 
-  // Filtered Datasets
+  // Filtered Datasets with Strict ID Deduplication
   const activeCustomers = useMemo(() => {
-    return customers
+    const list = customers
       .filter((c) => !c.is_deleted)
       .filter((c) => {
         if (!searchQuery) return true;
@@ -245,10 +245,11 @@ export const MasterDataView: React.FC = () => {
         if (quickFilter === 'with-credit') return Boolean(c.creditLimit && c.creditLimit > 0);
         return true;
       });
+    return Array.from(new Map(list.map((c) => [c.id, c])).values());
   }, [customers, searchQuery, quickFilter]);
 
   const activeCrushers = useMemo(() => {
-    return crushers
+    const list = crushers
       .filter((c) => !c.is_deleted)
       .filter((c) => {
         if (!searchQuery) return true;
@@ -263,10 +264,11 @@ export const MasterDataView: React.FC = () => {
         if (quickFilter === 'all') return true;
         return c.location && c.location.includes(quickFilter);
       });
+    return Array.from(new Map(list.map((c) => [c.id, c])).values());
   }, [crushers, searchQuery, quickFilter]);
 
   const activeTransporters = useMemo(() => {
-    return transporters
+    const list = transporters
       .filter((t) => !t.is_deleted)
       .filter((t) => {
         if (!searchQuery) return true;
@@ -283,10 +285,11 @@ export const MasterDataView: React.FC = () => {
         if (quickFilter === 'medium') return (t.capacityTons || 44) < 40;
         return true;
       });
+    return Array.from(new Map(list.map((t) => [t.id, t])).values());
   }, [transporters, searchQuery, quickFilter]);
 
   const activeMaterials = useMemo(() => {
-    return materials
+    const list = materials
       .filter((m) => !m.is_deleted)
       .filter((m) => {
         if (!searchQuery) return true;
@@ -301,10 +304,11 @@ export const MasterDataView: React.FC = () => {
         if (quickFilter === 'all') return true;
         return m.category.toLowerCase() === quickFilter.toLowerCase();
       });
+    return Array.from(new Map(list.map((m) => [m.id, m])).values());
   }, [materials, searchQuery, quickFilter]);
 
   const activeUsers = useMemo(() => {
-    return users
+    const list = users
       .filter((u) => !u.is_deleted)
       .filter((u) => {
         if (!searchQuery) return true;
@@ -320,6 +324,7 @@ export const MasterDataView: React.FC = () => {
         if (quickFilter === 'all') return true;
         return u.role === quickFilter;
       });
+    return Array.from(new Map(list.map((u) => [u.id, u])).values());
   }, [users, searchQuery, quickFilter]);
 
   // Dynamic Action Button text & icon

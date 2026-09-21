@@ -290,6 +290,14 @@ class WeighbridgeOperationRead(ORMReadModel):
     scale_ticket_attachment: str | None = None
 
 
+class AccountAccountCreate(BaseModel):
+    code: str
+    name: str
+    internal_type: Literal["asset", "liability", "equity", "revenue", "expense"]
+    currency: str = "SAR"
+    node_path: str | None = None
+
+
 class AccountAccountRead(ORMReadModel):
     id: UUID
     company_id: UUID

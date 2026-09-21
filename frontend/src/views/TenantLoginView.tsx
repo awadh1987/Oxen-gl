@@ -230,7 +230,7 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({
 
       {/* Top Bar */}
       <header className="relative z-10 mx-auto w-full max-w-5xl flex items-center justify-between py-3">
-        <button onClick={() => { window.location.href = 'https://oxengl.me/'; }}
+        <button
           type="button"
           onClick={() => navigateTo('/')}
           className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition"

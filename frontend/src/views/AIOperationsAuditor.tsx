@@ -95,6 +95,9 @@ export const AIOperationsAuditor: React.FC = () => {
   const [selectedCrusher, setSelectedCrusher] = useState(
     crushers[0]?.crusherName || 'مورد المواد الخام اليمامة'
   );
+  const [selectedCustomer, setSelectedCustomer] = useState(
+    customers[0]?.customerName || 'شركة يوني بيتون للخرسانة الجاهزة'
+  );
   const [letterRecipientType, setLetterRecipientType] = useState<
     'Transporter' | 'Crusher' | 'Customer'
   >('Transporter');
@@ -382,7 +385,7 @@ export const AIOperationsAuditor: React.FC = () => {
         ? selectedTransporter
         : letterRecipientType === 'Crusher'
         ? selectedCrusher
-        : 'شركة يوني بيتون للخرسانة الجاهزة';
+        : selectedCustomer;
 
     try {
       const res = await fetch('/api/ai/draft-letter', {
@@ -921,12 +924,17 @@ export const AIOperationsAuditor: React.FC = () => {
                     ))}
                   </select>
                 ) : (
-                  <input
-                    type="text"
-                    readOnly
-                    value="شركة يوني بيتون للخرسانة الجاهزة"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 text-xs font-semibold"
-                  />
+                  <select
+                    value={selectedCustomer}
+                    onChange={(e) => setSelectedCustomer(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 p-2 text-xs font-semibold"
+                  >
+                    {customers.map((c) => (
+                      <option key={c.id} value={c.customerName}>
+                        {c.customerName}
+                      </option>
+                    ))}
+                  </select>
                 )}
               </div>
             </div>

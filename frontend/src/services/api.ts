@@ -550,6 +550,20 @@ export const erpApi = {
     method: 'DELETE',
   }),
   getAccountingAccounts: (companyId: string) => request<ApiAccount[]>('/api/accounting/accounts', companyId),
+  createAccountingAccount: (
+    companyId: string,
+    payload: {
+      code: string;
+      name: string;
+      internal_type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+      currency?: string;
+      node_path?: string;
+    }
+  ) =>
+    request<ApiAccount>('/api/accounting/accounts', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   getAccountingMoves: (companyId: string) => request<ApiAccountMove[]>('/api/accounting/moves', companyId),
   getAccountingMove: (companyId: string, moveId: string) => request<ApiAccountMove>(`/api/accounting/moves/${moveId}`, companyId),
   createAccountMove: (companyId: string, payload: AccountMoveCreatePayload) => request<ApiAccountMove>('/api/accounting/moves', companyId, {

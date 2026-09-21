@@ -22,6 +22,7 @@ import {
   Sparkles,
   Thermometer,
   ExternalLink,
+  Network,
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { TENANT_PALETTES } from '../theme/designTokens';
@@ -404,6 +405,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
                         <span>{isAr ? 'البيانات الرئيسية (Master Data & RBAC)' : 'Master Data & RBAC'}</span>
                       </span>
                       <span className="text-[9px] font-mono text-slate-400">/settings/master-data</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigateTab?.('finance-chart');
+                        setShowSettings(false);
+                      }}
+                      className="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Network className="h-3.5 w-3.5 text-orange-500" />
+                        <span>{isAr ? 'دليل الحسابات (Chart of Accounts)' : 'Chart of Accounts'}</span>
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-400">/finance/chart</span>
                     </button>
 
                     <button

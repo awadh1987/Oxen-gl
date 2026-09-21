@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { DownloadAuditXmlButton } from '../components/DownloadAuditXmlButton';
+import { erpApi } from '../services/api';
 import {
   Network,
   Scale,
@@ -23,6 +24,8 @@ import {
   CheckCircle2,
   PieChart,
   Calendar,
+  Plus,
+  X,
 } from 'lucide-react';
 
 export type FinanceReportMode = 'chart' | 'trial-balance' | 'audit-closing';
@@ -100,6 +103,62 @@ export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialM
 
   const toggleExpand = (path: string) => {
     setExpandedPaths((prev) => ({ ...prev, [path]: !prev[path] }));
+  };
+
+  const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
+  const [isSubmittingAccount, setIsSubmittingAccount] = useState(false);
+  const [accountFormError, setAccountFormError] = useState<string | null>(null);
+  const [newAccount, setNewAccount] = useState({
+    rootClass: '1',
+    code: '111105',
+    name: '',
+    internal_type: 'asset' as 'asset' | 'liability' | 'equity' | 'revenue' | 'expense',
+    currency: 'SAR',
+    node_path: '',
+  });
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccount.code.trim() || !newAccount.name.trim()) return;
+    setIsSubmittingAccount(true);
+    setAccountFormError(null);
+    try {
+      const targetCompanyId = effectiveTenantId || '00000000-0000-0000-0000-000000000001';
+      const rootMap: Record<string, 'asset' | 'liability' | 'equity' | 'revenue' | 'expense'> = {
+        '1': 'asset',
+        '2': 'liability',
+        '3': 'equity',
+        '4': 'revenue',
+        '5': 'expense',
+      };
+      const intType = rootMap[newAccount.rootClass] || newAccount.internal_type;
+      const cleanCode = newAccount.code.trim();
+      const nodePath = newAccount.node_path ? newAccount.node_path : `${newAccount.rootClass}.${cleanCode.replace(/[-.]/g, '_')}`;
+
+      await erpApi.createAccountingAccount(targetCompanyId, {
+        code: cleanCode,
+        name: newAccount.name.trim(),
+        internal_type: intType,
+        currency: newAccount.currency,
+        node_path: nodePath,
+      });
+
+      await fetchCoaTree();
+      setIsAddAccountModalOpen(false);
+      setNewAccount({
+        rootClass: '1',
+        code: '',
+        name: '',
+        internal_type: 'asset',
+        currency: 'SAR',
+        node_path: '',
+      });
+    } catch (err: any) {
+      console.error('Failed to create account:', err);
+      setAccountFormError(err.message || 'Failed to save account');
+    } finally {
+      setIsSubmittingAccount(false);
+    }
   };
 
   // Fetch Chart of Accounts Tree
@@ -360,6 +419,17 @@ export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialM
             </div>
 
             <DownloadAuditXmlButton />
+
+            {activeSubTab === 'chart' && (
+              <button
+                type="button"
+                onClick={() => setIsAddAccountModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-2xl bg-orange-600 hover:bg-orange-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-orange-600/30 transition cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>{isAr ? '+ إضافة حساب' : '+ Add Account'}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -399,6 +469,14 @@ export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialM
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAddAccountModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>{isAr ? '+ إضافة حساب' : '+ Add Account'}</span>
+              </button>
               <button
                 type="button"
                 onClick={fetchCoaTree}
@@ -688,6 +766,137 @@ export const FinanceReportsView: React.FC<FinanceReportsViewProps> = ({ initialM
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD ACCOUNT MODAL */}
+      {isAddAccountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl text-slate-100">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Network className="h-5 w-5 text-orange-500" />
+                <h3 className="text-sm font-bold text-white">
+                  {isAr ? 'إضافة حساب جديد إلى دليل الحسابات' : 'Add New Account to Chart of Accounts'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddAccountModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {accountFormError && (
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{accountFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateAccount} className="mt-4 space-y-4 text-xs">
+              <div>
+                <label className="mb-1 block font-bold text-slate-300">
+                  {isAr ? 'الفئة الجذرية (الحساب الأب) *' : 'Root Class / Category *'}
+                </label>
+                <select
+                  value={newAccount.rootClass}
+                  onChange={(e) => {
+                    const r = e.target.value;
+                    const typeMap: Record<string, { type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense'; prefix: string }> = {
+                      '1': { type: 'asset', prefix: '1' },
+                      '2': { type: 'liability', prefix: '2' },
+                      '3': { type: 'equity', prefix: '3' },
+                      '4': { type: 'revenue', prefix: '4' },
+                      '5': { type: 'expense', prefix: '5' },
+                    };
+                    const mapped = typeMap[r] || { type: 'asset', prefix: '1' };
+                    setNewAccount((prev) => ({
+                      ...prev,
+                      rootClass: r,
+                      internal_type: mapped.type,
+                      code: prev.code ? `${mapped.prefix}${prev.code.slice(1)}` : `${mapped.prefix}11101`,
+                    }));
+                  }}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white focus:border-orange-500 focus:outline-none"
+                >
+                  <option value="1">{isAr ? '1 - الأصول (Assets)' : '1 - Assets'}</option>
+                  <option value="2">{isAr ? '2 - الخصوم (Liabilities)' : '2 - Liabilities'}</option>
+                  <option value="3">{isAr ? '3 - حقوق الملكية (Equity)' : '3 - Equity'}</option>
+                  <option value="4">{isAr ? '4 - الإيرادات (Revenue)' : '4 - Revenue'}</option>
+                  <option value="5">{isAr ? '5 - المصروفات (Expenses)' : '5 - Expenses'}</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block font-bold text-slate-300">
+                    {isAr ? 'رمز الحساب (Code) *' : 'Account Code *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 111105"
+                    value={newAccount.code}
+                    onChange={(e) => setNewAccount({ ...newAccount, code: e.target.value })}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-mono font-bold text-white focus:border-orange-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-bold text-slate-300">
+                    {isAr ? 'العملة' : 'Currency'}
+                  </label>
+                  <select
+                    value={newAccount.currency}
+                    onChange={(e) => setNewAccount({ ...newAccount, currency: e.target.value })}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white focus:border-orange-500 focus:outline-none"
+                  >
+                    <option value="SAR">SAR (ريال سعودي)</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block font-bold text-slate-300">
+                  {isAr ? 'اسم الحساب *' : 'Account Name *'}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={isAr ? 'مثال: بنك الراجحي - حساب العمليات' : 'e.g. Al Rajhi Bank - Operations'}
+                  value={newAccount.name}
+                  onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-bold text-white focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddAccountModalOpen(false)}
+                  className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:text-white"
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAccount}
+                  className="flex items-center gap-1.5 rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-500 disabled:opacity-50 transition"
+                >
+                  {isSubmittingAccount ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  <span>{isAr ? 'حفظ الحساب' : 'Save Account'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

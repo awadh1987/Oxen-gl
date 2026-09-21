@@ -676,9 +676,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             is_deleted: false,
           }));
 
-        setCustomers(apiCustomers);
-        setCrushers(apiCrushers);
-        setTransporters(apiTransporters);
+        setCustomers(Array.from(new Map(apiCustomers.map((c) => [c.id, c])).values()));
+        setCrushers(Array.from(new Map(apiCrushers.map((c) => [c.id, c])).values()));
+        setTransporters(Array.from(new Map(apiTransporters.map((t) => [t.id, t])).values()));
       })
       .catch((error) => console.warn('Partners API unavailable:', error));
 
@@ -2342,7 +2342,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           status: u.is_active ? 'Active' : 'Suspended',
           created_at: u.created_at,
         }));
-        setUsers(mapped);
+        setUsers(Array.from(new Map(mapped.map((u) => [u.id, u])).values()));
       }
     } catch (err) {
       console.warn('Notice loading users from live backend API:', err);

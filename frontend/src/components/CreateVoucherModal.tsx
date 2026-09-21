@@ -116,28 +116,31 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
     if (partyType === 'Crusher') {
       const crush = crushers.find((c) => c.id === selectedId);
       if (crush) {
-        setPartyName(crush.name);
+        const cName = crush.crusherName || crush.name || '';
+        setPartyName(cName);
         setPartyTaxNumber(crush.taxNumber || '');
         if (!purpose) {
-          setPurpose(`سداد مستحقات توريد مواد حصوية لـ (${crush.name})`);
+          setPurpose(`سداد مستحقات توريد مواد حصوية لـ (${cName})`);
         }
       }
     } else if (partyType === 'Transporter') {
       const trans = transporters.find((t) => t.id === selectedId);
       if (trans) {
-        setPartyName(trans.name);
+        const tName = trans.transporterName || trans.name || '';
+        setPartyName(tName);
         setPartyTaxNumber(trans.taxNumber || '');
         if (!purpose) {
-          setPurpose(`سداد أجور نقل وتوريد لشاحنات أسطول (${trans.name})`);
+          setPurpose(`سداد أجور نقل وتوريد لشاحنات أسطول (${tName})`);
         }
       }
     } else if (partyType === 'Customer') {
       const cust = customers.find((c) => c.id === selectedId);
       if (cust) {
-        setPartyName(cust.customerName);
+        const custName = cust.customerName || (cust as any).name || '';
+        setPartyName(custName);
         setPartyTaxNumber(cust.taxNumber || '');
         if (!purpose) {
-          setPurpose(`استلام دفعة سداد فواتير توريد من عميل (${cust.customerName})`);
+          setPurpose(`استلام دفعة سداد فواتير توريد من عميل (${custName})`);
         }
       }
     }
@@ -391,19 +394,19 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
                     {partyType === 'Crusher' &&
                       crushers.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.name}
+                          {c.crusherName || c.name}
                         </option>
                       ))}
                     {partyType === 'Transporter' &&
                       transporters.map((t) => (
                         <option key={t.id} value={t.id}>
-                          {t.name}
+                          {t.transporterName || t.name}
                         </option>
                       ))}
                     {partyType === 'Customer' &&
                       customers.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.customerName}
+                          {c.customerName || (c as any).name}
                         </option>
                       ))}
                   </select>

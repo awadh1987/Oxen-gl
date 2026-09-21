@@ -26,6 +26,7 @@ import {
   FileSpreadsheet,
   ChevronLeft,
   ChevronRight,
+  Network,
 } from 'lucide-react';
 
 export const FinancialVouchersView: React.FC = () => {
@@ -326,6 +327,22 @@ export const FinancialVouchersView: React.FC = () => {
             <Printer className="h-3.5 w-3.5" />
             <span>{isAr ? 'معاينة وطباعة' : 'Export & Print'}</span>
           </button>
+
+          {canAccessFinancials && (
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.history.pushState({}, '', '/finance/chart');
+                  window.dispatchEvent(new Event('popstate'));
+                }
+              }}
+              className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition-colors"
+              title={isAr ? 'دليل الحسابات' : 'Chart of Accounts'}
+            >
+              <Network className="h-3.5 w-3.5 text-orange-600" />
+              <span>{isAr ? 'دليل الحسابات' : 'Chart of Accounts'}</span>
+            </button>
+          )}
 
           {canAccessFinancials && activeTab === 'vouchers' && (
             <button

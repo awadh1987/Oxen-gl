@@ -15,6 +15,7 @@ import {
   ChevronRight,
   LogOut,
   Building,
+  Network,
 } from 'lucide-react';
 
 export type NavigationTab =
@@ -23,6 +24,7 @@ export type NavigationTab =
   | 'procurement'
   | 'inventory'
   | 'vouchers'
+  | 'finance-chart'
   | 'operations'
   | 'maintenance'
   | 'master-data'
@@ -82,6 +84,13 @@ export const Navigation: React.FC<NavigationProps> = ({
       labelAr: 'الأستاذ العام والمحاسبة',
       labelEn: 'General Ledger & Financials',
       icon: BookOpen,
+      allowedRoles: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
+    },
+    {
+      id: 'finance-chart',
+      labelAr: 'دليل الحسابات الشجري',
+      labelEn: 'Chart of Accounts Tree',
+      icon: Network,
       allowedRoles: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     },
     {
