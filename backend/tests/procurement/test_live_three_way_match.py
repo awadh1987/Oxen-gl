@@ -1,7 +1,7 @@
 import pytest, uuid
 from decimal import Decimal
 from fastapi import status
-from app.domains.procurement.models import PurchaseOrder, GoodsReceipt, VendorBill
+from backend.app.domains.procurement.models import PurchaseOrder, GoodsReceipt, VendorBill
 
 @pytest.mark.asyncio
 async def test_3way_01_matched_happy_path(async_client, db_session):
