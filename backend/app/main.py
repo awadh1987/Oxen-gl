@@ -1386,7 +1386,8 @@ def operation_response(ticket: models.WeighbridgeTicket) -> WeighbridgeOperation
 		dest_location_id=move.location_dest_id, dest_location_name=move.destination_location.name,
 		ticket_id=ticket.id, ticket_number=ticket.ticket_number, truck_number=ticket.truck_number,
 		gross_weight=ticket.gross_weight, tare_weight=ticket.tare_weight, net_weight=ticket.net_weight,
-		weighed_in_at=ticket.weighed_in_at,
+		weighed_in_at=ticket.weighed_in_at, attachments=ticket.attachments or [],
+		scale_ticket_attachment=ticket.scale_ticket_attachment,
 	)
 
 
@@ -1522,7 +1523,7 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 				else:
 					database.add(models.StockQuant(company_id=company_id, product_id=product.id, location_id=location_id, quantity=quantity_change))
 
-			ticket = models.WeighbridgeTicket(company_id=company_id, ticket_number=ticket_number, picking_id=picking.id, truck_number=payload.truck_number, gross_weight=gross_weight, tare_weight=tare_weight, net_weight=net_weight, weighed_in_at=datetime.now(timezone.utc), weighed_out_at=datetime.now(timezone.utc))
+			ticket = models.WeighbridgeTicket(company_id=company_id, ticket_number=ticket_number, picking_id=picking.id, truck_number=payload.truck_number, gross_weight=gross_weight, tare_weight=tare_weight, net_weight=net_weight, weighed_in_at=datetime.now(timezone.utc), weighed_out_at=datetime.now(timezone.utc), attachments=payload.attachments, scale_ticket_attachment=payload.scale_ticket_attachment)
 			database.add(ticket)
 		database.commit()
 		database.refresh(ticket)
@@ -5122,5 +5123,4 @@ from backend.app.domains.planning.logo_upload import router as logo_upload_route
 
 # Include the branding router alongside active application resource domains
 app.include_router(logo_upload_router)
-
 

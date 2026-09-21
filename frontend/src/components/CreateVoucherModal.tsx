@@ -38,7 +38,7 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
     customers,
     currentUser,
     brandConfig,
-    addVoucher,
+    createVoucher,
     isAdmin,
     isCOO,
     showToast,
@@ -143,7 +143,7 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!partyName.trim()) {
       showToast(isAr ? 'يرجى إدخال اسم المستفيد / المستلم منه' : 'Please provide party name', 'warning');
@@ -154,7 +154,7 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
       return;
     }
 
-    const created = addVoucher({
+    const created = await createVoucher({
       voucherNumber: '',
       type,
       category,

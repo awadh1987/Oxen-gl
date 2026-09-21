@@ -578,6 +578,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       operation_year: operationYear,
       created_at: weighedAt,
       updated_at: weighedAt,
+      attachments: operation.attachments || [],
+      scale_ticket_attachment: operation.scale_ticket_attachment || '',
     };
   };
 
@@ -680,6 +682,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch((error) => console.warn('Partners API unavailable:', error));
 
+    const fetchMaterials = erpApi
+      .getProducts(currentCompany.id)
+      .then((products) => {
+        const mappedMaterials: MaterialOption[] = (Array.isArray(products) ? products : []).map((product: any) => ({
+          id: product.id,
+          nameAr: product.name,
+          nameEn: product.name,
+          category: 'Aggregate',
+          defaultPurchasePrice: Number(product.standard_cost || 0),
+          defaultSellingPrice: Number(product.sale_price || 0),
+          unit: product.unit_of_measure || 'MT',
+          is_deleted: false,
+        }));
+        setMaterials(Array.from(new Map(mappedMaterials.map((material) => [material.id, material])).values()));
+      })
+      .catch((error) => console.warn('Materials API unavailable:', error));
+
     const fetchVouchers = erpApi
       .getVouchers(currentCompany.id)
       .then((serverVouchers) => {
@@ -705,12 +724,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             created_at: v.entry_date || new Date().toISOString(),
             updated_at: v.entry_date || new Date().toISOString(),
           }));
-          setVouchers(mappedVouchers);
+          setVouchers(Array.from(new Map(mappedVouchers.map((voucher) => [voucher.id, voucher])).values()));
         }
       })
       .catch((error) => console.warn('Vouchers API unavailable:', error));
 
-    Promise.allSettled([fetchOperations, fetchPartners, fetchVouchers]).finally(() => {
+    Promise.allSettled([fetchOperations, fetchPartners, fetchMaterials, fetchVouchers]).finally(() => {
       setIsLoadingData(false);
     });
   }, [isOnline, currentCompany]);
@@ -1297,6 +1316,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         truckNumber: opData.truck_no,
         grossWeight: opData.qty_loaded,
         tareWeight: Math.max(0, opData.qty_loaded - opData.qty_delivered),
+        attachments: opData.attachments || [],
+        scaleTicketAttachment: opData.scale_ticket_attachment,
       });
       const serverRecord: OperationRecord = {
         ...mapApiOperation(operation),
@@ -1766,8 +1787,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     vchData: Omit<FinancialVoucher, 'id' | 'created_at' | 'updated_at' | 'amountInWordsAr'>
   ): Promise<FinancialVoucher> => {
     const newVoucher = addVoucher(vchData);
-    if (newVoucher.status === 'Approved' && currentCompany) {
-      await approveVoucher(newVoucher.id, 'اعتماد فوري وترحيل إلى دفتر الأستاذ العام');
+    if (currentCompany) {
+      try {
+        const accounts = await erpApi.getAccountingAccounts(currentCompany.id);
+        const cashAccount = accounts.find((account) => account.code === '101000') || accounts.find((account) => account.internal_type === 'asset');
+        const counterAccount = newVoucher.type === 'Receipt'
+          ? (accounts.find((account) => account.code === '120000') || accounts.find((account) => account.internal_type === 'revenue'))
+          : (accounts.find((account) => account.code === '201000') || accounts.find((account) => account.internal_type === 'expense'));
+        const isReceipt = newVoucher.type === 'Receipt';
+        const move = await erpApi.createAccountMove(currentCompany.id, {
+          journal_code: 'MISC',
+          move_type: 'settlement',
+          ref: newVoucher.voucherNumber,
+          name: newVoucher.purpose || newVoucher.voucherNumber,
+          lines: [
+            { account_id: isReceipt ? cashAccount?.id : counterAccount?.id, account_code: isReceipt ? (cashAccount?.code || '101000') : (counterAccount?.code || '201000'), debit: isReceipt ? newVoucher.amount : 0, credit: isReceipt ? 0 : newVoucher.amount, name: newVoucher.partyName },
+            { account_id: isReceipt ? counterAccount?.id : cashAccount?.id, account_code: isReceipt ? (counterAccount?.code || '120000') : (cashAccount?.code || '101000'), debit: isReceipt ? 0 : newVoucher.amount, credit: isReceipt ? newVoucher.amount : 0, name: newVoucher.partyName },
+          ],
+        });
+        const persistedVoucher = { ...newVoucher, id: move.id || newVoucher.id, move_id: move.id, isApproved: true, status: 'Approved' as const };
+        setVouchers((previous) => [persistedVoucher, ...previous.filter((voucher) => voucher.id !== newVoucher.id && voucher.id !== persistedVoucher.id)]);
+        return persistedVoucher;
+      } catch (error) {
+        console.warn('[VoucherSync] Failed to persist voucher:', error);
+      }
     }
     return newVoucher;
   };

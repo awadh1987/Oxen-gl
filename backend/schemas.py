@@ -248,6 +248,8 @@ class WeighbridgeOperationCreate(BaseModel):
     driver_name: str | None = None
     unit_of_measure: str | None = "MT"
     company_id: UUID | None = None
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
+    scale_ticket_attachment: str | None = None
 
     @model_validator(mode="after")
     def validate_weighbridge_operation(self) -> "WeighbridgeOperationCreate":
@@ -284,6 +286,8 @@ class WeighbridgeOperationRead(ORMReadModel):
     tare_weight: Decimal
     net_weight: Decimal
     weighed_in_at: datetime
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
+    scale_ticket_attachment: str | None = None
 
 
 class AccountAccountRead(ORMReadModel):

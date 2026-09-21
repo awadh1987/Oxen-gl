@@ -16,6 +16,8 @@ export interface ApiOperation {
   tare_weight: number;
   net_weight: number;
   weighed_in_at: string;
+  attachments?: any[];
+  scale_ticket_attachment?: string;
 }
 
 export interface ApiCompany {
@@ -308,7 +310,15 @@ export interface ApiSettlement {
 export interface Partner { id: string; name: string; partner_type: string; email?: string | null; phone?: string | null; tax_number?: string | null; commercial_registration?: string | null; branch_scope_ids?: string | null; warehouse_scope_ids?: string | null; access_control_list?: string | null; }
 export type PartnerPayload = Omit<Partner, 'id'>;
 interface Location { id: string; name: string; location_type: string; }
-interface Product { id: string; sku: string; name: string; }
+interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  product_type?: string;
+  unit_of_measure?: string;
+  standard_cost?: number;
+  sale_price?: number;
+}
 
 import { setAuthCookie, getAuthCookie, clearAuthCookie, getSubdomain } from '../utils/subdomain';
 
@@ -535,6 +545,7 @@ export const erpApi = {
     body: JSON.stringify(payload),
   }),
   getOperations: (companyId: string) => request<ApiOperation[]>('/api/operations', companyId),
+  getProducts: (companyId: string) => request<Product[]>('/api/products', companyId),
   deleteOperation: (companyId: string, pickingId: string) => request<void>(`/api/operations/${pickingId}`, companyId, {
     method: 'DELETE',
   }),
@@ -657,6 +668,8 @@ export const erpApi = {
     truckNumber: string;
     grossWeight: number;
     tareWeight: number;
+    attachments?: any[];
+    scaleTicketAttachment?: string;
   }) {
     const partner = await findOrCreate<Partner>('/api/partners', input.companyId, (record) => record.name === input.transporterName, {
       name: input.transporterName, partner_type: 'service_supplier',
@@ -680,6 +693,8 @@ export const erpApi = {
           truck_number: input.truckNumber,
           gross_weight: input.grossWeight,
           tare_weight: input.tareWeight,
+          attachments: input.attachments || [],
+          scale_ticket_attachment: input.scaleTicketAttachment || null,
         }),
       });
     },
@@ -741,4 +756,3 @@ export interface CreateCustomsManifestPayload {
   total_value_sar?: number;
   hs_codes?: string[];
 }
-

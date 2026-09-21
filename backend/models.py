@@ -346,6 +346,9 @@ class WeighbridgeTicket(TimestampMixin, Base):
     net_weight: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     weighed_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     weighed_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    # Supporting documents belong to the durable operation record, not React state.
+    attachments: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
+    scale_ticket_attachment: Mapped[Optional[str]] = mapped_column(Text)
 
     picking: Mapped[StockPicking] = relationship(back_populates="weighbridge_tickets")
 
