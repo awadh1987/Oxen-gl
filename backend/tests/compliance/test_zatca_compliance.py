@@ -301,3 +301,72 @@ def test_halala_rounding_precision_no_floating_point_drift():
     grand_total = (subtotal + rounded_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     assert grand_total == Decimal("1150.38")
     assert subtotal + rounded_vat == grand_total
+
+
+def test_zatca_math_calculation_api(compliance_db):
+    """Test the /api/compliance/zatca/calculate-invoice backend endpoint."""
+    from starlette.testclient import TestClient
+    from backend.app.main import app, create_session_token
+
+    client = TestClient(app)
+    company = compliance_db["company"]
+    db = compliance_db["db"]
+
+    user = models.ResUser(
+        id=uuid.uuid4(),
+        company_id=company.id,
+        email=f"calc_tester_{uuid.uuid4().hex[:6]}@example.com",
+        role="Admin",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+
+    token = create_session_token(
+        subject=user.email,
+        company_id=company.id,
+        role="Admin",
+        tenant_slug=company.slug,
+    )
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-Company-ID": str(company.id),
+    }
+
+    # 1. Test quantity and unit price
+    res = client.post(
+        "/api/compliance/zatca/calculate-invoice",
+        json={"quantity": "100.5", "unit_price": "25.25", "vat_rate": "0.15"},
+        headers=headers,
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert Decimal(str(data["subtotal"])) == Decimal("2537.63")
+    assert Decimal(str(data["vat_amount"])) == Decimal("380.64")
+    assert Decimal(str(data["grand_total"])) == Decimal("2918.27")
+
+
+def test_zatca_string_date_handling():
+    """Verify that generate_zatca_qr_code gracefully handles ISO string dates without throwing AttributeError."""
+    priv_pem, cert_pem = get_or_create_fallback_credentials()
+    priv_key = load_private_key(priv_pem)
+    pk_bytes = get_public_key_bytes(priv_key)
+    dummy_hash = hashlib.sha256(b"dummy").digest()
+    dummy_sig = sign_hash_ecdsa(priv_key, dummy_hash)
+
+    # Pass ISO string timestamp instead of datetime object
+    qr_b64 = generate_zatca_qr_code(
+        seller_name="Oxen Logistics",
+        vat_number="300099999900003",
+        timestamp="2026-09-22T00:00:00Z",
+        total_amount=Decimal("1150.00"),
+        vat_amount=Decimal("150.00"),
+        invoice_hash=dummy_hash,
+        digital_signature=dummy_sig,
+        public_key=pk_bytes,
+    )
+    assert qr_b64 is not None
+    assert len(qr_b64) > 50
+    decoded_tags = decode_tlv(base64.b64decode(qr_b64))
+    assert 1 in decoded_tags
+    assert decoded_tags[1].decode("utf-8") == "Oxen Logistics"

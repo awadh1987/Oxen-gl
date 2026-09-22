@@ -17,7 +17,7 @@ import hashlib
 import json
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional, Tuple
 
@@ -29,6 +29,27 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from . import models
+
+
+def _normalize_datetime(dt: datetime | str | None) -> datetime:
+    """Safely converts any datetime or string timestamp to a timezone-aware UTC datetime."""
+    if dt is None:
+        return datetime.now(timezone.utc)
+    if isinstance(dt, str):
+        try:
+            cleaned = dt.replace("Z", "+00:00")
+            parsed = datetime.fromisoformat(cleaned)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed
+        except Exception:
+            return datetime.now(timezone.utc)
+    if isinstance(dt, datetime):
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+    return datetime.now(timezone.utc)
+
 
 # Default test / development fallback ECDSA key & CSID
 _FALLBACK_PRIVATE_KEY_PEM: Optional[str] = None
@@ -60,7 +81,7 @@ def get_or_create_fallback_credentials() -> Tuple[str, str]:
         .public_key(priv_key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.now(timezone.utc))
-        .not_valid_after(datetime.now(timezone.utc) + (datetime.max - datetime.now(timezone.utc) if False else datetime.resolution * 365 * 86400 * 1000000))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=365))
         .sign(priv_key, hashes.SHA256())
     )
     cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
@@ -182,7 +203,8 @@ def generate_zatca_qr_code(
     else:
         sig_bytes = bytes(digital_signature)
 
-    iso_ts = timestamp.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if timestamp.tzinfo else f"{timestamp.isoformat()}Z"
+    norm_ts = _normalize_datetime(timestamp)
+    iso_ts = norm_ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     tlv_bytes = bytearray()
     tlv_bytes.extend(encode_tlv(1, seller_name))
@@ -357,12 +379,17 @@ class ZATCAAdapter:
         type_code = "0100000" if is_b2b else "0200000"
         pih = previous_hash or cls.GENESIS_HASH
 
-        subtotal_dec = Decimal(str(invoice.subtotal)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        vat_dec = Decimal(str(invoice.vat_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        grand_total_dec = Decimal(str(invoice.grand_total)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        subtotal_val = getattr(invoice, "subtotal", 0) or 0
+        vat_val = getattr(invoice, "vat_amount", 0) or 0
+        grand_val = getattr(invoice, "grand_total", 0) or (Decimal(str(subtotal_val)) + Decimal(str(vat_val)))
 
-        issue_date_str = invoice.issue_date.strftime("%Y-%m-%d")
-        issue_time_str = invoice.issue_date.strftime("%H:%M:%S")
+        subtotal_dec = Decimal(str(subtotal_val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        vat_dec = Decimal(str(vat_val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        grand_total_dec = Decimal(str(grand_val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        norm_dt = _normalize_datetime(getattr(invoice, "issue_date", None))
+        issue_date_str = norm_dt.strftime("%Y-%m-%d")
+        issue_time_str = norm_dt.strftime("%H:%M:%S")
 
         sig_val = signature_value_b64 or ""
         cert_val = certificate_b64 or ""
@@ -564,9 +591,17 @@ class ZATCAAdapter:
         buyer_name = invoice.customer_name or "Standard Customer"
         buyer_vat = invoice.customer_tax_number or "311111111100003"
 
-        subtotal_dec = Decimal(str(invoice.subtotal)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        vat_dec = Decimal(str(invoice.vat_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        grand_total_dec = Decimal(str(invoice.grand_total)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        subtotal_val = getattr(invoice, "subtotal", 0) or 0
+        vat_val = getattr(invoice, "vat_amount", 0) or 0
+        grand_val = getattr(invoice, "grand_total", 0) or (Decimal(str(subtotal_val)) + Decimal(str(vat_val)))
+
+        subtotal_dec = Decimal(str(subtotal_val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        vat_dec = Decimal(str(vat_val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        grand_total_dec = Decimal(str(grand_val)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+        norm_issue_dt = _normalize_datetime(getattr(invoice, "issue_date", None))
+        issue_date_str = norm_issue_dt.strftime("%Y-%m-%d")
+        issue_time_str = norm_issue_dt.strftime("%H:%M:%S")
 
         canonical_body = cls.generate_canonical_body(
             invoice=invoice,
@@ -575,8 +610,8 @@ class ZATCAAdapter:
             buyer_name=buyer_name,
             buyer_vat=buyer_vat,
             invoice_uuid=inv_uuid,
-            issue_date_str=invoice.issue_date.strftime("%Y-%m-%d"),
-            issue_time_str=invoice.issue_date.strftime("%H:%M:%S"),
+            issue_date_str=issue_date_str,
+            issue_time_str=issue_time_str,
             invoice_type_code=type_code,
             subtotal_dec=subtotal_dec,
             vat_dec=vat_dec,
@@ -608,7 +643,7 @@ class ZATCAAdapter:
         qr_code = generate_zatca_qr_code(
             seller_name=seller_name,
             vat_number=seller_vat,
-            timestamp=invoice.issue_date,
+            timestamp=norm_issue_dt,
             total_amount=grand_total_dec,
             vat_amount=vat_dec,
             invoice_hash=invoice_hash_bytes,

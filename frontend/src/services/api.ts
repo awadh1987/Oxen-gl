@@ -592,6 +592,22 @@ export const erpApi = {
   processZatcaInvoice: (companyId: string, invoiceId: string) => request<any>(`/api/compliance/zatca/process-invoice/${invoiceId}`, companyId, {
     method: 'POST',
   }),
+  calculateZatcaInvoice: (companyId: string, payload: {
+    subtotal?: number;
+    quantity?: number;
+    unit_price?: number;
+    rate?: number;
+    amount?: number;
+    vat_rate?: number;
+  }) => request<{
+    subtotal: number;
+    vat_amount: number;
+    grand_total: number;
+    vat_rate: number;
+  }>('/api/compliance/zatca/calculate-invoice', companyId, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
   getSettlements: (companyId: string) => request<ApiSettlement[]>('/api/settlements', companyId),
   getVouchers: (companyId: string) => request<any[]>('/api/accounting/moves', companyId),
   createVoucher: (companyId: string, payload: any) => request<any>('/api/accounting/moves', companyId, {

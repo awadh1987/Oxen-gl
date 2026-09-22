@@ -63,7 +63,7 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
   const [partyId, setPartyId] = useState<string>(initialPartyId);
   const [partyName, setPartyName] = useState<string>(initialPartyName);
   const [partyTaxNumber, setPartyTaxNumber] = useState<string>('');
-  const [amount, setAmount] = useState<number>(initialAmount);
+  const [amount, setAmount] = useState<number | string>(initialAmount || '');
   const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState<'Bank Transfer' | 'Cash' | 'Cheque' | 'Credit Memo'>('Bank Transfer');
   const [bankName, setBankName] = useState<string>(brandConfig.bankNameAr || 'مصرف الراجحي');
@@ -83,7 +83,7 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
       setPartyType(initialPartyType);
       setPartyId(initialPartyId);
       setPartyName(initialPartyName);
-      setAmount(initialAmount || 0);
+      setAmount(initialAmount ? String(initialAmount) : '');
       setLinkedReferenceNo(initialLinkedRef);
       setPurpose(initialPurpose);
       setAutoApprove(isAdmin);
@@ -99,14 +99,19 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
     }
   }, [isOpen, initialType, initialCategory, initialPartyType, initialPartyId, initialPartyName, initialAmount, initialLinkedRef, initialPurpose, isAdmin, crushers, customers]);
 
-  // Live Tafqeet
-  const amountInWordsAr = useMemo(() => {
-    return tafqeetArabic(Number(amount) || 0);
+  const numericAmount = useMemo(() => {
+    const val = typeof amount === 'number' ? amount : parseFloat(String(amount));
+    return isNaN(val) ? 0 : val;
   }, [amount]);
 
+  // Live Tafqeet
+  const amountInWordsAr = useMemo(() => {
+    return tafqeetArabic(numericAmount);
+  }, [numericAmount]);
+
   const amountInWordsEn = useMemo(() => {
-    return tafqeetEnglish(Number(amount) || 0);
-  }, [amount]);
+    return tafqeetEnglish(numericAmount);
+  }, [numericAmount]);
 
   if (!isOpen) return null;
 
@@ -148,11 +153,12 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const numAmount = typeof amount === 'number' ? amount : parseFloat(String(amount));
     if (!partyName.trim()) {
       showToast(isAr ? 'يرجى إدخال اسم المستفيد / المستلم منه' : 'Please provide party name', 'warning');
       return;
     }
-    if (amount <= 0) {
+    if (isNaN(numAmount) || numAmount <= 0) {
       showToast(isAr ? 'يرجى إدخال مبلغ صحيح أكبر من الصفر' : 'Please enter a valid amount greater than 0', 'warning');
       return;
     }
@@ -162,7 +168,7 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
       type,
       category,
       date,
-      amount: Number(amount),
+      amount: numAmount,
       partyType,
       partyId: partyId || undefined,
       partyName: partyName.trim(),
@@ -228,7 +234,7 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
         </div>
 
         {/* Modal Form Body */}
-        <form onSubmit={handleSubmit} className="max-h-[82vh] overflow-y-auto p-6 space-y-5">
+        <form noValidate onSubmit={handleSubmit} className="max-h-[82vh] overflow-y-auto p-6 space-y-5">
           {/* Voucher Type & Category Switchers */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
@@ -248,14 +254,15 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <span>{isAr ? 'سند صرف (دائن)' : 'Payment Voucher'}</span>
+                  <CreditCard className="h-4 w-4" />
+                  <span>{isAr ? 'سند صـرف (Payment)' : 'Payment Voucher'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setType('Receipt');
-                    setCategory('Customer_Collection');
+                    if (category === 'Crusher_Settlement' || category === 'Transporter_Payout') setCategory('Customer_Collection');
                     setPartyType('Customer');
                   }}
                   className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-black transition-all ${
@@ -264,31 +271,34 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <span>{isAr ? 'سند قبض (مدين)' : 'Receipt Voucher'}</span>
+                  <DollarSign className="h-4 w-4" />
+                  <span>{isAr ? 'سند قـبض (Receipt)' : 'Receipt Voucher'}</span>
                 </button>
               </div>
             </div>
 
             <div>
               <label className="mb-1 block text-xs font-black text-slate-700">
-                {isAr ? 'تصنيف المعاملة:' : 'Category:'}
+                {isAr ? 'تصنيف السند المحاسبي:' : 'Voucher Category:'}
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as VoucherCategory)}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-500 focus:bg-white focus:outline-hidden"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-500 focus:outline-hidden"
               >
                 {type === 'Payment' ? (
                   <>
-                    <option value="Crusher_Settlement">{isAr ? 'سداد مستحقات كسارة' : 'Crusher Settlement'}</option>
-                    <option value="Transporter_Payment">{isAr ? 'مستحقات أسطول ناقل' : 'Transporter Freight'}</option>
-                    <option value="Operational_Expense">{isAr ? 'مصروفات تشغيلية وموقع' : 'Operational Expense'}</option>
-                    <option value="General">{isAr ? 'دفعة عامة / موردين' : 'General Payment'}</option>
+                    <option value="Crusher_Settlement">{isAr ? 'سداد مستحقات كسارة ومواد خام' : 'Crusher Settlement'}</option>
+                    <option value="Transporter_Payout">{isAr ? 'صرف مستحقات مقاولي النقل' : 'Transporter Payout'}</option>
+                    <option value="Operational_Expense">{isAr ? 'مصروفات تشغيلية ومحروقات' : 'Operational Expense'}</option>
+                    <option value="Administrative_Expense">{isAr ? 'مصروفات إدارية وعمومية' : 'Administrative Expense'}</option>
+                    <option value="Equipment_Maintenance">{isAr ? 'صيانة معدات وشاحنات' : 'Equipment Maintenance'}</option>
+                    <option value="Other_Payment">{isAr ? 'مدفوعات أخرى' : 'Other Payment'}</option>
                   </>
                 ) : (
                   <>
-                    <option value="Customer_Collection">{isAr ? 'تحصيل دفعة عميل' : 'Customer Collection'}</option>
-                    <option value="General">{isAr ? 'إيرادات أخرى / استرداد' : 'Other Income'}</option>
+                    <option value="Customer_Collection">{isAr ? 'تحصيل من عميل' : 'Customer Collection'}</option>
+                    <option value="Other_Receipt">{isAr ? 'مقبوضات أخرى' : 'Other Receipt'}</option>
                   </>
                 )}
               </select>
@@ -307,9 +317,8 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
                     type="number"
                     step="0.01"
                     min="0"
-                    required
-                    value={amount || ''}
-                    onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
                     placeholder="0.00"
                     className="w-full rounded-xl border border-orange-300 bg-white px-3 py-2.5 text-base font-black font-mono text-slate-900 focus:border-orange-600 focus:ring-2 focus:ring-orange-500/20 focus:outline-hidden"
                   />
@@ -325,7 +334,6 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
                 </label>
                 <input
                   type="date"
-                  required
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-900 focus:border-orange-500 focus:outline-hidden"
@@ -419,7 +427,6 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   value={partyName}
                   onChange={(e) => setPartyName(e.target.value)}
                   placeholder={isAr ? 'مثال: شركة ركاز للمقاولات' : 'e.g. Rikaz Contracting'}
@@ -507,7 +514,6 @@ export const CreateVoucherModal: React.FC<CreateVoucherModalProps> = ({
               </label>
               <textarea
                 rows={2}
-                required
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 placeholder={isAr ? 'وصف تفصيلي للدفعة، نوع المواد، أو رقم الشهر المالي' : 'Detailed description of the transaction'}

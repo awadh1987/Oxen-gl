@@ -3,6 +3,7 @@ import { Building2, CreditCard, MapPin, RefreshCw, Download, FileSpreadsheet, Pr
 import { useApp } from '../context/AppContext';
 import { ApiAccountMove, ApiSettlement, erpApi } from '../services/api';
 import { formatCurrency } from '../utils/formatters';
+import { CreateVoucherModal } from '../components/CreateVoucherModal';
 
 type Partner = { id: string; name: string; partner_type: string; tax_number?: string | null };
 
@@ -15,6 +16,7 @@ export const CrusherLedgerView: React.FC = () => {
   const [settlements, setSettlements] = useState<ApiSettlement[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isVoucherModalOpen, setIsVoucherModalOpen] = useState(false);
 
   const fetchLedgerData = async () => {
     if (!currentCompany) return;
@@ -274,9 +276,18 @@ export const CrusherLedgerView: React.FC = () => {
                 {selected.location} · {selected.tax || (isAr ? 'الرقم الضريبي قيد التوثيق' : 'Tax number pending')}
               </p>
             </div>
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {supplierMoves.length} {isAr ? 'حركة مالية ومحاسبية' : 'accounting moves'}
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsVoucherModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-colors"
+              >
+                <CreditCard className="h-3.5 w-3.5" />
+                {isAr ? 'إصدار سند صرف للمورد' : 'Issue Payment Voucher'}
+              </button>
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                {supplierMoves.length} {isAr ? 'حركة مالية ومحاسبية' : 'accounting moves'}
+              </span>
+            </div>
           </div>
 
           <div className="grid gap-3 border-b border-slate-100 dark:border-slate-800 p-5 sm:grid-cols-3">
@@ -364,6 +375,28 @@ export const CrusherLedgerView: React.FC = () => {
             </table>
           </div>
         </section>
+      )}
+
+      {selected && (
+        <CreateVoucherModal
+          isOpen={isVoucherModalOpen}
+          onClose={() => setIsVoucherModalOpen(false)}
+          initialType="Payment"
+          initialCategory="Crusher_Settlement"
+          initialPartyType="Crusher"
+          initialPartyId={selected.id}
+          initialPartyName={selected.name}
+          initialAmount={outstanding > 0 ? outstanding : 0}
+          initialPurpose={
+            isAr
+              ? `سداد مستحقات توريد مواد - ${selected.name}`
+              : `Crusher materials settlement - ${selected.name}`
+          }
+          onSuccess={() => {
+            setIsVoucherModalOpen(false);
+            fetchLedgerData();
+          }}
+        />
       )}
     </div>
   );

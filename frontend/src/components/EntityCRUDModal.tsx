@@ -218,60 +218,76 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
         return {
           title: isEdit
             ? isAr
-              ? 'تعديل تسعيرة وصنف المادة'
-              : 'Edit Material'
+              ? 'تعديل صنف المادة'
+              : 'Edit Material Item'
             : isAr
-              ? 'إضافة صنف مادة جديد لقائمة الأسعار'
+              ? 'إضافة مادة / صنف توريد جديد'
               : 'Add New Material Item',
-          icon: Package,
+          subtitle: isAr
+            ? 'الأسعار القياسية، الكود الضريبي، وهوامش الربح'
+            : 'Standard selling/buying rates & profit margins',
+          icon: Layers,
+          color: 'amber',
         };
       case 'user':
         return {
           title: isEdit
             ? isAr
-              ? 'تعديل صلاحيات المستخدم (RBAC)'
-              : 'Edit User Role & Permissions'
+              ? 'تعديل بيانات المستخدم'
+              : 'Edit User Account'
             : isAr
-              ? 'دعوة / إضافة مستخدم جديد للنظام'
+              ? 'إضافة مستخدم جديد للنظام'
               : 'Add New System User',
+          subtitle: isAr
+            ? 'الصلاحيات، الأدوار الوظيفية، والارتباط بالعملاء'
+            : 'Roles, RBAC permissions, customer portal mapping',
+          icon: Shield,
+          color: 'purple',
+        };
+      default:
+        return {
+          title: 'Entity',
+          subtitle: '',
           icon: Users,
+          color: 'slate',
         };
     }
   };
 
-  const { title, icon: Icon } = getHeader();
+  const header = getHeader();
+  const HeaderIcon = header.icon;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="entity-crud-title"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs"
     >
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl bg-white dark:bg-[#141726] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 transition-colors animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-4 bg-slate-50/50 dark:bg-slate-900/60">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 border border-orange-100 dark:border-orange-900/40">
-              <Icon className="h-5 w-5" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+              <HeaderIcon className="h-5 w-5" />
             </div>
             <div>
-              <h2 id="entity-crud-title" className="text-base font-black text-slate-900 dark:text-white">{title}</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                {isAr ? 'البيانات المرجعية وإدارة الكيانات الرئيسية' : 'Master Entity Management'}
-              </p>
+              <h2 id="entity-crud-title" className="text-base font-black text-slate-900">
+                {header.title}
+              </h2>
+              <p className="text-xs text-slate-500">{header.subtitle}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-4 flex-1">
+        <form noValidate onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-4 flex-1">
           {/* CUSTOMER FORM */}
           {entityType === 'customer' && (
             <>
@@ -282,7 +298,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.customerName || ''}
                     onChange={(e) => handleChange('customerName', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -308,7 +323,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.taxNumber || ''}
                     onChange={(e) => handleChange('taxNumber', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold font-mono text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -412,7 +426,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.crusherName || ''}
                     onChange={(e) => handleChange('crusherName', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -437,7 +450,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="مصرف الراجحي - SA4280000123608010123456"
                   value={formData.bankDetails || ''}
                   onChange={(e) => handleChange('bankDetails', e.target.value)}
@@ -507,7 +519,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.transporterName || ''}
                     onChange={(e) => handleChange('transporterName', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -519,7 +530,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.driverName || ''}
                     onChange={(e) => handleChange('driverName', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -534,7 +544,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.defaultTruckNo || ''}
                     onChange={(e) => handleChange('defaultTruckNo', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold font-mono text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -602,7 +611,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.nameAr || ''}
                     onChange={(e) => handleChange('nameAr', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -690,7 +698,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.fullNameAr || ''}
                     onChange={(e) => handleChange('fullNameAr', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -702,7 +709,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.username || ''}
                     onChange={(e) => handleChange('username', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold font-mono text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -717,7 +723,6 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                   </label>
                   <input
                     type="email"
-                    required
                     value={formData.email || ''}
                     onChange={(e) => handleChange('email', e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"

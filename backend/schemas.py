@@ -1372,6 +1372,22 @@ class ZATCALogRead(ORMReadModel):
     created_at: datetime
 
 
+class InvoiceMathCalculationRequest(BaseModel):
+    subtotal: Decimal | None = None
+    quantity: Decimal | None = None
+    unit_price: Decimal | None = None
+    rate: Decimal | None = None
+    amount: Decimal | None = None
+    vat_rate: Decimal = Decimal("0.15")
+
+
+class InvoiceMathCalculationResponse(BaseModel):
+    subtotal: Decimal
+    vat_amount: Decimal
+    grand_total: Decimal
+    vat_rate: Decimal
+
+
 class SecurityEventCreate(BaseModel):
     company_id: UUID | None = None
     user_id: UUID | None = None

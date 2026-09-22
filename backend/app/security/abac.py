@@ -120,7 +120,7 @@ def get_abac_user_context(
             if user:
                 tenant_id = user.company_id if hasattr(user, 'company_id') and user.company_id else user.id
                 # Check for super admin
-                is_admin = getattr(user, 'is_superuser', False) or getattr(user, 'role', '') == 'admin'
+                is_admin = getattr(user, 'is_superuser', False) or str(getattr(user, 'role', '')).upper() in ['SUPER_ADMIN', 'ADMIN']
                 return ABACUserContext(
                     user_id=user.id,
                     tenant_id=tenant_id,

@@ -15,6 +15,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { ApiSettlement, erpApi } from '../services/api';
 import { formatCurrency, formatTonnage } from '../utils/formatters';
+import { CreateVoucherModal } from '../components/CreateVoucherModal';
 
 type Partner = { id: string; name: string; partner_type: string };
 
@@ -27,6 +28,12 @@ export const TransporterPerformanceView: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 8;
+  const [voucherModalState, setVoucherModalState] = useState<{
+    isOpen: boolean;
+    partnerId?: string;
+    partnerName?: string;
+    amount?: number;
+  }>({ isOpen: false });
 
   const fetchData = async () => {
     if (!currentCompany) return;
@@ -48,6 +55,26 @@ export const TransporterPerformanceView: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [currentCompany]);
+
+  useEffect(() => {
+    const handleOpenVoucherModal = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        partnerId?: string;
+        partnerName?: string;
+        amount?: number;
+      }>;
+      if (customEvent.detail) {
+        setVoucherModalState({
+          isOpen: true,
+          partnerId: customEvent.detail.partnerId,
+          partnerName: customEvent.detail.partnerName,
+          amount: customEvent.detail.amount,
+        });
+      }
+    };
+    window.addEventListener('oxengl-open-voucher-modal', handleOpenVoucherModal);
+    return () => window.removeEventListener('oxengl-open-voucher-modal', handleOpenVoucherModal);
+  }, []);
 
   const rows = useMemo(() => {
     const serviceSuppliers = partners.filter((partner) =>
@@ -354,13 +381,14 @@ export const TransporterPerformanceView: React.FC = () => {
                       </button>
                     ) : (
                       <button
-                        onClick={() =>
-                          window.dispatchEvent(
-                            new CustomEvent('oxengl-open-voucher-modal', {
-                              detail: { partnerId: row.id, partnerName: row.name, amount: row.payout },
-                            })
-                          )
-                        }
+                        onClick={() => {
+                          setVoucherModalState({
+                            isOpen: true,
+                            partnerId: row.id,
+                            partnerName: row.name,
+                            amount: row.payout,
+                          });
+                        }}
                         className="bg-orange-600 hover:bg-orange-700 px-2.5 py-1.5 text-[10px] font-bold text-white shadow-sm transition-colors rounded-lg"
                       >
                         {isAr ? 'إصدار سند صرف' : 'Issue Voucher'}
@@ -410,6 +438,27 @@ export const TransporterPerformanceView: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Financial Voucher Issuance Modal */}
+      <CreateVoucherModal
+        isOpen={voucherModalState.isOpen}
+        onClose={() => setVoucherModalState({ isOpen: false })}
+        initialType="Payment"
+        initialCategory="Transporter_Payout"
+        initialPartyType="Transporter"
+        initialPartyId={voucherModalState.partnerId}
+        initialPartyName={voucherModalState.partnerName}
+        initialAmount={voucherModalState.amount}
+        initialPurpose={
+          isAr
+            ? `تسوية مستحقات نقل - ${voucherModalState.partnerName || ''}`
+            : `Freight settlement payout - ${voucherModalState.partnerName || ''}`
+        }
+        onSuccess={() => {
+          setVoucherModalState({ isOpen: false });
+          fetchData();
+        }}
+      />
     </div>
   );
 };

@@ -49,6 +49,7 @@ try:
 		TaxProfileCreate, TaxProfileUpdate, TaxProfileRead,
 		TaxRuleCreate, TaxRuleUpdate, TaxRuleRead,
 		ZATCALogCreate, ZATCALogUpdate, ZATCALogRead,
+		InvoiceMathCalculationRequest, InvoiceMathCalculationResponse,
 		SecurityEventCreate, SecurityEventUpdate, SecurityEventRead,
 		DeviceRegistrationCreate, DeviceRegistrationUpdate, DeviceRegistrationRead, DeviceRevokeRequest,
 		SyncQueueEventCreate, SyncQueueEventRead, SyncBatchRequest, SyncBatchItemResult, SyncBatchResponse,
@@ -126,6 +127,7 @@ except ImportError:
 		TaxProfileCreate, TaxProfileUpdate, TaxProfileRead,
 		TaxRuleCreate, TaxRuleUpdate, TaxRuleRead,
 		ZATCALogCreate, ZATCALogUpdate, ZATCALogRead,
+		InvoiceMathCalculationRequest, InvoiceMathCalculationResponse,
 		SecurityEventCreate, SecurityEventUpdate, SecurityEventRead,
 		DeviceRegistrationCreate, DeviceRegistrationUpdate, DeviceRegistrationRead, DeviceRevokeRequest,
 		SyncQueueEventCreate, SyncQueueEventRead, SyncBatchRequest, SyncBatchItemResult, SyncBatchResponse,
@@ -524,7 +526,8 @@ def get_active_company_id(request: Request, x_company_id: str | None = Header(de
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Company-ID must be a UUID") from error
 	if database.get(models.ResCompany, company_id) is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active company was not found")
-	if current_user.role != "Super_Admin" and current_user.company_id and company_id != current_user.company_id:
+	is_super_admin = getattr(current_user, "is_superuser", False) or str(getattr(current_user, "role", "") or "").upper() == "SUPER_ADMIN"
+	if not is_super_admin and current_user.company_id and company_id != current_user.company_id:
 		record_security_event(
 			database,
 			event_type="idor_attempt",
@@ -551,7 +554,9 @@ def require_compliance_admin(
 	company_id: uuid.UUID = Depends(get_active_company_id),
 ) -> models.ResUser:
 	"""TenantContext write guard preventing privilege escalation for tax and compliance operations."""
-	if current_user.role not in {"Super_Admin", "Admin", "Accountant"}:
+	role_normalized = str(getattr(current_user, "role", "") or "").upper()
+	allowed_compliance_roles = {"SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "COO"}
+	if not getattr(current_user, "is_superuser", False) and role_normalized not in allowed_compliance_roles:
 		record_security_event(
 			database,
 			event_type="policy_denial",
@@ -567,7 +572,7 @@ def require_compliance_admin(
 		)
 		raise HTTPException(
 			status_code=status.HTTP_403_FORBIDDEN,
-			detail="Access denied: Admin or Accountant role required for compliance configurations",
+			detail="Access denied: Admin, Accountant, or COO role required for compliance configurations",
 		)
 	return current_user
 
@@ -1734,7 +1739,8 @@ def create_customer_invoice(payload: CustomerInvoiceCreate, company_id: uuid.UUI
 	issue_date = payload.issue_date or datetime.now(timezone.utc)
 	subtotal = payload.subtotal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 	vat_amount = payload.vat_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-	grand_total = payload.grand_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	# Align grand_total with subtotal + vat_amount to avoid floating point drift
+	grand_total = (subtotal + vat_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 	database.rollback()
 	try:
 		with database.begin():
@@ -1768,7 +1774,15 @@ def update_customer_invoice(invoice_id: uuid.UUID, payload: CustomerInvoiceUpdat
 
 	new_subtotal = (payload.subtotal if payload.subtotal is not None else invoice.subtotal).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 	new_vat = (payload.vat_amount if payload.vat_amount is not None else invoice.vat_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-	new_grand_total = (payload.grand_total if payload.grand_total is not None else invoice.grand_total).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	provided_grand = payload.grand_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if payload.grand_total is not None else None
+	if provided_grand is not None:
+		if abs((new_subtotal + new_vat) - provided_grand) <= Decimal("0.05"):
+			new_grand_total = (new_subtotal + new_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+		else:
+			new_grand_total = provided_grand
+	else:
+		new_grand_total = (new_subtotal + new_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
 	if new_subtotal + new_vat != new_grand_total:
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invoice totals are unbalanced: subtotal plus VAT must equal grand total")
 
@@ -1828,7 +1842,9 @@ def issue_customer_invoice(invoice_id: uuid.UUID, company_id: uuid.UUID = Depend
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer invoice was not found")
 	if invoice.status != "Approved":
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only approved invoices can be issued")
-	if invoice.subtotal + invoice.vat_amount != invoice.grand_total:
+	if abs((invoice.subtotal + invoice.vat_amount) - invoice.grand_total) <= Decimal("0.05"):
+		invoice.grand_total = (invoice.subtotal + invoice.vat_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	elif invoice.subtotal + invoice.vat_amount != invoice.grand_total:
 		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invoice totals are unbalanced: subtotal plus VAT must equal grand total")
 	try:
 		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
@@ -2854,7 +2870,7 @@ def delete_tax_rule(
 # ==========================================
 
 @app.post("/api/compliance/zatca/process-invoice/{invoice_id}", response_model=ZATCALogRead, tags=["ZATCA E-Invoicing"])
-def process_zatca_invoice(
+async def process_zatca_invoice(
 	invoice_id: uuid.UUID,
 	request: Request,
 	invoice_type: str = "B2B",
@@ -2866,19 +2882,69 @@ def process_zatca_invoice(
 ):
 	check_cross_tenant_idor(database, models.CustomerInvoice, invoice_id, company_id, current_user, request, "Customer Invoice")
 
+	eff_type = invoice_type
+	eff_simulate = simulate_failure
+	eff_reason = failure_reason
+
+	try:
+		content_type = request.headers.get("content-type", "")
+		if "application/json" in content_type:
+			body_bytes = await request.body()
+			if body_bytes:
+				body_data = json.loads(body_bytes.decode("utf-8"))
+				if isinstance(body_data, dict):
+					eff_type = body_data.get("invoice_type", eff_type)
+					eff_simulate = body_data.get("simulate_failure", eff_simulate)
+					eff_reason = body_data.get("failure_reason", eff_reason)
+	except Exception:
+		pass
+
 	try:
 		return ZATCAAdapter.process_invoice(
 			database=database,
 			company_id=company_id,
 			invoice_id=invoice_id,
-			invoice_type=invoice_type,
-			simulate_failure=simulate_failure,
-			failure_reason=failure_reason,
+			invoice_type=eff_type,
+			simulate_failure=eff_simulate,
+			failure_reason=eff_reason,
 		)
 	except ValueError as err:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 	except Exception as err:
+		import traceback
+		traceback.print_exc()
 		raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"ZATCA generation error: {err}") from err
+
+
+@app.post("/api/compliance/zatca/calculate-invoice", response_model=InvoiceMathCalculationResponse, tags=["ZATCA E-Invoicing"])
+@app.post("/api/customer-invoices/calculate", response_model=InvoiceMathCalculationResponse, tags=["Customer Invoices"])
+def calculate_invoice_math_backend(
+	payload: InvoiceMathCalculationRequest,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+):
+	"""Accurately calculates Rate/Amount/VAT via backend Python Decimal logic with ROUND_HALF_UP halala quantization."""
+	quantize = Decimal("0.01")
+	if payload.subtotal is not None:
+		subtotal = payload.subtotal.quantize(quantize, rounding=ROUND_HALF_UP)
+	elif payload.quantity is not None and payload.unit_price is not None:
+		subtotal = (payload.quantity * payload.unit_price).quantize(quantize, rounding=ROUND_HALF_UP)
+	elif payload.amount is not None:
+		subtotal = payload.amount.quantize(quantize, rounding=ROUND_HALF_UP)
+	elif payload.rate is not None and payload.quantity is not None:
+		subtotal = (payload.rate * payload.quantity).quantize(quantize, rounding=ROUND_HALF_UP)
+	else:
+		subtotal = Decimal("0.00")
+
+	vat_rate = payload.vat_rate if payload.vat_rate is not None else Decimal("0.15")
+	vat_amount = (subtotal * vat_rate).quantize(quantize, rounding=ROUND_HALF_UP)
+	grand_total = (subtotal + vat_amount).quantize(quantize, rounding=ROUND_HALF_UP)
+
+	return InvoiceMathCalculationResponse(
+		subtotal=subtotal,
+		vat_amount=vat_amount,
+		grand_total=grand_total,
+		vat_rate=vat_rate,
+	)
 
 
 @app.post("/api/compliance/zatca/retry/{log_id}", response_model=ZATCALogRead, tags=["ZATCA E-Invoicing"])

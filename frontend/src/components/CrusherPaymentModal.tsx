@@ -120,7 +120,7 @@ export const CrusherPaymentModal: React.FC<CrusherPaymentModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
+        <form noValidate onSubmit={handleSubmit} className="mt-4 space-y-4 text-xs">
           <div>
             <label className="mb-1 block font-semibold text-slate-700 dark:text-slate-300">
               {isAr ? 'الكسارة المستفيدة *' : 'Beneficiary Crusher *'}
@@ -150,7 +150,6 @@ export const CrusherPaymentModal: React.FC<CrusherPaymentModalProps> = ({
               </label>
               <input
                 type="date"
-                required
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/90 px-3 py-2 text-xs text-slate-800 dark:text-slate-100"
@@ -165,7 +164,6 @@ export const CrusherPaymentModal: React.FC<CrusherPaymentModalProps> = ({
                 type="number"
                 step="100"
                 min="1"
-                required
                 value={amount}
                 onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
                 className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/90 px-3 py-2 text-xs font-bold text-blue-900 dark:text-blue-300 font-mono"

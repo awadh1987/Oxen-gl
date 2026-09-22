@@ -395,7 +395,7 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
         </div>
 
         {/* Main Form Body */}
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="mt-4 space-y-4">
           {/* Group 1: Logistics & Identification */}
           <div className="rounded-2xl border border-slate-200/80 bg-slate-50/40 p-3.5 space-y-3">
             <div className="text-xs font-black text-slate-800 flex items-center gap-1.5">
@@ -411,7 +411,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 </label>
                 <input
                   type="date"
-                  required
                   value={loadingDate}
                   onChange={(e) => setLoadingDate(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-500 focus:outline-none"
@@ -425,7 +424,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="مثال: 7842-ق أ د"
                   value={truckNo}
                   onChange={(e) => setTruckNo(e.target.value)}
@@ -450,7 +448,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                   </button>
                 </div>
                 <select
-                  required
                   value={transporterName}
                   onChange={(e) => handleTransporterChange(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-500 focus:outline-none"
@@ -470,7 +467,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="ST-2026-XXXXXX"
                   value={scaleTicketNo}
                   onChange={(e) => setScaleTicketNo(e.target.value)}
@@ -549,7 +545,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                   </button>
                 </div>
                 <select
-                  required
                   value={destinationCustomer}
                   onChange={(e) => setDestinationCustomer(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:border-orange-500 focus:outline-none"
@@ -608,7 +603,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                   </button>
                 </div>
                 <select
-                  required
                   value={materialType}
                   onChange={(e) => handleMaterialChange(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:outline-none"
@@ -647,7 +641,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 <input
                   type="number"
                   step="0.01"
-                  required
                   min="0.01"
                   value={qtyLoaded}
                   onChange={(e) => {
@@ -669,7 +662,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 <input
                   type="number"
                   step="0.01"
-                  required
                   min="0.01"
                   value={qtyDelivered}
                   onChange={(e) => {
@@ -707,7 +699,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 <input
                   type="number"
                   step="0.01"
-                  required
                   min="0"
                   value={salesAmountInput}
                   onChange={(e) => setSalesAmountInput(e.target.value === '' ? '' : Number(e.target.value))}
@@ -723,7 +714,6 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 <input
                   type="number"
                   step="0.01"
-                  required
                   min="0"
                   value={crusherPurchaseCostInput}
                   onChange={(e) => setCrusherPurchaseCostInput(e.target.value === '' ? '' : Number(e.target.value))}

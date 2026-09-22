@@ -76,7 +76,10 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
     e.preventDefault();
 
     if (entityType === 'Customer') {
-      if (!customerName.trim()) return;
+      if (!customerName.trim()) {
+        showToast(isAr ? 'يرجى إدخال اسم العميل' : 'Please provide customer name', 'warning');
+        return;
+      }
       const created = addCustomer({
         customerName,
         customerNameEn: customerNameEn || customerName,
@@ -88,7 +91,10 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
       });
       onSuccess(created.customerName, created.id);
     } else if (entityType === 'Crusher') {
-      if (!crusherName.trim()) return;
+      if (!crusherName.trim()) {
+        showToast(isAr ? 'يرجى إدخال اسم مورد المواد' : 'Please provide material supplier name', 'warning');
+        return;
+      }
       const created = addCrusher({
         crusherName,
         crusherNameEn: crusherName,
@@ -99,7 +105,10 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
       });
       onSuccess(created.crusherName, created.id);
     } else if (entityType === 'Transporter') {
-      if (!transporterName.trim()) return;
+      if (!transporterName.trim()) {
+        showToast(isAr ? 'يرجى إدخال اسم مزود الخدمة' : 'Please provide service supplier name', 'warning');
+        return;
+      }
       const created = addTransporter({
         transporterName,
         transporterNameEn: transporterName,
@@ -111,7 +120,10 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
       });
       onSuccess(created.transporterName, created.id);
     } else if (entityType === 'Material') {
-      if (!materialNameAr.trim()) return;
+      if (!materialNameAr.trim()) {
+        showToast(isAr ? 'يرجى إدخال اسم المادة' : 'Please provide material name', 'warning');
+        return;
+      }
       const created = addMaterial({
         nameAr: materialNameAr,
         nameEn: materialNameEn || materialNameAr,
@@ -186,7 +198,7 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form noValidate onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Customer Fields */}
           {entityType === 'Customer' && (
             <>
@@ -196,7 +208,6 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder={isAr ? 'مثال: شركة اليمامة للخرسانة الجاهزة' : 'e.g. Al Yamamah ReadyMix'}
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
@@ -213,12 +224,12 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
                     placeholder="300189452300003"
                     value={taxNumber}
                     onChange={(e) => setTaxNumber(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold font-mono text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-mono font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'رقم الهاتف / الجوال' : 'Phone'}
+                    {isAr ? 'رقم الهاتف' : 'Phone'}
                   </label>
                   <input
                     type="text"
@@ -229,17 +240,31 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
                   />
                 </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-bold text-slate-700">
-                  {isAr ? 'مسؤول الاتصال / الموقع' : 'Contact Person'}
-                </label>
-                <input
-                  type="text"
-                  placeholder={isAr ? 'م. سلطان العتيبي' : 'Eng. Sultan'}
-                  value={contactPerson}
-                  onChange={(e) => setContactPerson(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? 'الشخص المسؤول' : 'Contact Person'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="م. أحمد السالم"
+                    value={contactPerson}
+                    onChange={(e) => setContactPerson(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? 'العنوان' : 'Address'}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="الرياض - حي الملز"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  />
+                </div>
               </div>
             </>
           )}
@@ -253,7 +278,6 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder={isAr ? 'مثال: مورد مواد خام الرياض الحديثة' : 'e.g. Riyadh Raw Materials Supplier'}
                   value={crusherName}
                   onChange={(e) => setCrusherName(e.target.value)}
@@ -296,7 +320,6 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder={isAr ? 'مثال: مؤسسة قوافل نجد للنقليات' : 'e.g. Qawafel Najd Transport'}
                   value={transporterName}
                   onChange={(e) => setTransporterName(e.target.value)}
@@ -367,7 +390,6 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder={isAr ? 'مثال: حصى سن 1/2 مم' : 'Aggregate 1/2"'}
                   value={materialNameAr}
                   onChange={(e) => setMaterialNameAr(e.target.value)}
