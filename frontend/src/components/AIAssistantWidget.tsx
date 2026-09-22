@@ -160,9 +160,9 @@ How can I assist you with your operations today?`,
         }),
         suggestedActions: [
           {
-            labelAr: '🔍 تدقيق رحلات الفاقد العالي (>1.5 طن)',
-            labelEn: '🔍 Audit High-Loss Trips (>1.5 tons)',
-            query: 'أريد تقريراً تفصيلياً بالرحلات التي تجاوز فيها الفاقد 1.5 طن ومزودي الخدمات المسؤولين عنها.',
+            labelAr: '🔍 تدقيق رحلات الفاقد العالي (>1.5 MT طن)',
+            labelEn: '🔍 Audit High-Loss Trips (>1.5 MT tons)',
+            query: 'أريد تقريراً تفصيلياً بالرحلات التي تجاوز فيها الفاقد 1.5 MT طن ومزودي الخدمات المسؤولين عنها.',
           },
           {
             labelAr: '📊 ملخص الأرباح ومستحقات موردي المواد الخام',
@@ -362,11 +362,11 @@ How can I assist you with your operations today?`,
           ? `بناءً على تدقيق بيانات العمليات الحالية:
 - **إجمالي المبيعات**: ${formatCurrency(kpis.totalSales)} (صافي الربح: ${formatCurrency(kpis.netOperatingProfit)})
 - **معدل الفاقد العام**: ${kpis.overallWastagePercent.toFixed(2)}% بإجمالي فاقد وزن ${formatTonnage(kpis.totalWastageTonnage)}.
-- **تنبيه**: يُوصى بمراجعة تذاكر ميزان الشاحنة 3190 التابعة لمؤسسة النقل السريع لتسجيلها فاقد 1.4 طن لعميل يوني بيتون.`
+- **تنبيه**: يُوصى بمراجعة تذاكر ميزان الشاحنة 3190 التابعة لمؤسسة النقل السريع لتسجيلها فاقد 1.4 MT طن لعميل يوني بيتون.`
           : `Audit Summary based on live records:
 - **Total Sales**: ${formatCurrency(kpis.totalSales)} (Net Operating Profit: ${formatCurrency(kpis.netOperatingProfit)})
 - **Wastage Rate**: ${kpis.overallWastagePercent.toFixed(2)}% with total loss of ${formatTonnage(kpis.totalWastageTonnage)}.
-- **Alert**: Recommend inspecting scale tickets for Truck 3190 (Fast Transport) due to 1.4 tons loss to UniBeton.`,
+- **Alert**: Recommend inspecting scale tickets for Truck 3190 (Fast Transport) due to 1.4 MT tons loss to UniBeton.`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, fallbackReply]);

@@ -7,6 +7,8 @@ import {
   MaterialOption,
   User,
   UserRole,
+  UOMType,
+  SUPPORTED_UOMS,
 } from '../types';
 import {
   X,
@@ -116,7 +118,7 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
           category: 'Aggregate',
           defaultSellingPrice: 45,
           defaultPurchasePrice: 26,
-          unit: 'طن متري (Ton)',
+          unit: 'MT طن',
         });
       } else if (entityType === 'user') {
         setFormData({
@@ -540,7 +542,7 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'أجرة النقل للطن (ر.س)' : 'Rate / Ton (SAR)'}
+                    {isAr ? 'أجرة النقل (ر.س/MT طن)' : 'Rate / MT (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -552,7 +554,7 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'سعة الحمولة القياسية (طن)' : 'Capacity (Tons)'}
+                    {isAr ? 'سعة الحمولة القياسية (MT طن)' : 'Capacity (MT)'}
                   </label>
                   <input
                     type="number"
@@ -619,7 +621,7 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
                     {isAr ? 'التصنيف' : 'Category'}
@@ -638,7 +640,23 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'سعر الشراء الافتراضي (ر.س/طن)' : 'Buy Price (SAR/Ton)'}
+                    {isAr ? 'وحدة القياس (UOM) *' : 'Unit of Measure (UOM) *'}
+                  </label>
+                  <select
+                    value={formData.unit || 'MT طن'}
+                    onChange={(e) => handleChange('unit', e.target.value)}
+                    className="w-full rounded-xl border border-orange-300 bg-slate-50 px-3 py-2 text-xs font-bold text-orange-950 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  >
+                    {SUPPORTED_UOMS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {isAr ? u.labelAr : u.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? `سعر الشراء (ر.س/${formData.unit || 'MT طن'})` : `Buy Price (${formData.unit || 'MT طن'})`}
                   </label>
                   <input
                     type="number"
@@ -649,7 +667,7 @@ export const EntityCRUDModal: React.FC<EntityCRUDModalProps> = ({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'سعر البيع الافتراضي (ر.س/طن)' : 'Sell Price (SAR/Ton)'}
+                    {isAr ? `سعر البيع (ر.س/${formData.unit || 'MT طن'})` : `Sell Price (${formData.unit || 'MT طن'})`}
                   </label>
                   <input
                     type="number"

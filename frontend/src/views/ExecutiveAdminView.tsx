@@ -875,8 +875,8 @@ export const ExecutiveAdminView: React.FC = () => {
                   <th className="py-2.5 px-3">{isAr ? 'المصدر (الكسارة)' : 'Crusher'}</th>
                   <th className="py-2.5 px-3">{isAr ? 'العميل المستلم' : 'Customer'}</th>
                   <th className="py-2.5 px-3">{isAr ? 'المادة' : 'Material'}</th>
-                  <th className="py-2.5 px-3 text-center">{isAr ? 'المحمل (طن)' : 'Loaded'}</th>
-                  <th className="py-2.5 px-3 text-center">{isAr ? 'المستلم (طن)' : 'Delivered'}</th>
+                  <th className="py-2.5 px-3 text-center">{isAr ? 'المحمل (MT طن)' : 'Loaded (MT)'}</th>
+                  <th className="py-2.5 px-3 text-center">{isAr ? 'المستلم (MT طن)' : 'Delivered (MT)'}</th>
                   <th className="py-2.5 px-3">{isAr ? 'المبيعات' : 'Sales'}</th>
                   <th className="py-2.5 px-3">{isAr ? 'التكلفة' : 'Cost'}</th>
                   <th className="py-2.5 px-3">{isAr ? 'الربح الصافي' : 'Net Profit'}</th>

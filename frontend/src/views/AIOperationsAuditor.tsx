@@ -186,8 +186,8 @@ export const AIOperationsAuditor: React.FC = () => {
           wastage_percentage: Number(wastagePct.toFixed(1)),
           severity: wastagePct > 2.5 ? 'High' : 'Medium',
           details: isAr
-            ? `سجلت الشاحنة ${op.truck_no} فاقداً بمقدار ${lossTons.toFixed(2)} طن (${wastagePct.toFixed(1)}%) في رحلة من ${op.loading_source} إلى ${op.destination_customer}. تذكرة الميزان: ${op.scale_ticket_no || 'WB-092'}.`
-            : `Truck ${op.truck_no} logged ${lossTons.toFixed(2)} tons shrinkage (${wastagePct.toFixed(1)}%) en route to ${op.destination_customer}. Weighbridge Ticket: ${op.scale_ticket_no || 'WB-092'}.`,
+            ? `سجلت الشاحنة ${op.truck_no} فاقداً بمقدار ${lossTons.toFixed(2)} MT طن (${wastagePct.toFixed(1)}%) في رحلة من ${op.loading_source} إلى ${op.destination_customer}. تذكرة الميزان: ${op.scale_ticket_no || 'WB-092'}.`
+            : `Truck ${op.truck_no} logged ${lossTons.toFixed(2)} MT tons shrinkage (${wastagePct.toFixed(1)}%) en route to ${op.destination_customer}. Weighbridge Ticket: ${op.scale_ticket_no || 'WB-092'}.`,
           actionPlan: isAr
             ? 'خصم قيمة الفاقد من مستحقات الناقل ومعايرة ميزان البسكول.'
             : 'Deduct shrinkage value from carrier settlement and calibrate weighbridge.',
@@ -209,8 +209,8 @@ export const AIOperationsAuditor: React.FC = () => {
         wastage_percentage: 2.8,
         severity: 'Medium',
         details: isAr
-          ? 'سجلت الشاحنة 3190-ر س ب فاقداً بمقدار 1.40 طن (2.8%) في رحلة واحدة من مورد طوق إلى يوني بيتون. تجاوزت الحد المسموح 1.5%.'
-          : 'Truck 3190 logged 1.40 tons shrinkage (2.8%) from Touq Quarry to UniBeton exceeding 1.5% SLA.',
+          ? 'سجلت الشاحنة 3190-ر س ب فاقداً بمقدار 1.40 MT طن (2.8%) في رحلة واحدة من مورد طوق إلى يوني بيتون. تجاوزت الحد المسموح 1.5%.'
+          : 'Truck 3190 logged 1.40 MT shrinkage (2.8%) from Touq Quarry to UniBeton exceeding 1.5% SLA.',
         actionPlan: isAr
           ? 'خصم قيمة الفاقد من مستحقات الناقل ومعايرة ميزان البسكول.'
           : 'Deduct shrinkage value from carrier settlement and calibrate weighbridge.',
@@ -411,7 +411,7 @@ export const AIOperationsAuditor: React.FC = () => {
       console.warn('Letter drafting fallback:', err);
       setGeneratedLetter(
         isAr
-          ? `المملكة العربية السعودية\n${brandConfig.companyNameAr}\nس.ت: ${brandConfig.crNumber} | الرقم الضريبي: ${brandConfig.taxNumber}\n\nالتاريخ: ${new Date().toLocaleDateString('ar-SA')}\nالرقم المرجعي: MYN/DISP/${new Date().getFullYear()}/089\n\nالسادة / ${recipient} المحترمون،\nعناية: إدارة العمليات والحركة\n\nالسلام عليكم ورحمة الله وبركاته،،،\n\nالموضوع: إشعار رسمي بخصم قيمة الفاقد وتجاوز نسبة التسامح المسموحة\n\nبالإشارة إلى اتفاقية النقل وسجلات ميزان البسكول المعتمدة لرحلات التوريد، نود إحاطتكم بأنه بعد التدقيق الآلي تبين وجود نقص غير مبرر في حمولة الشاحنة (3190-ر س ب).\n\nتفاصيل المخالفة:\n- نسبة الفاقد المسجلة: 2.80% (تجاوزت الحد المسموح 1.5%).\n- كمية الفاقد: 1.40 طن بقيمة 420.00 ر.س.\n- المسار: مورد طوق للركام -> يوني بيتون للخرسانة الجاهزة.\n\nبناءً عليه، تم إنشاء سند قيد وخصم تلقائي للمبلغ من مستحقاتكم لشهر أغسطس 2026.\n\nشاكرين لكم حسن تعاونكم الدائم،،،\n\nالمدير التنفيذي للعمليات\n${brandConfig.companyNameAr}`
+          ? `المملكة العربية السعودية\n${brandConfig.companyNameAr}\nس.ت: ${brandConfig.crNumber} | الرقم الضريبي: ${brandConfig.taxNumber}\n\nالتاريخ: ${new Date().toLocaleDateString('ar-SA')}\nالرقم المرجعي: MYN/DISP/${new Date().getFullYear()}/089\n\nالسادة / ${recipient} المحترمون،\nعناية: إدارة العمليات والحركة\n\nالسلام عليكم ورحمة الله وبركاته،،،\n\nالموضوع: إشعار رسمي بخصم قيمة الفاقد وتجاوز نسبة التسامح المسموحة\n\nبالإشارة إلى اتفاقية النقل وسجلات ميزان البسكول المعتمدة لرحلات التوريد، نود إحاطتكم بأنه بعد التدقيق الآلي تبين وجود نقص غير مبرر في حمولة الشاحنة (3190-ر س ب).\n\nتفاصيل المخالفة:\n- نسبة الفاقد المسجلة: 2.80% (تجاوزت الحد المسموح 1.5%).\n- كمية الفاقد: 1.40 MT طن بقيمة 420.00 ر.س.\n- المسار: مورد طوق للركام -> يوني بيتون للخرسانة الجاهزة.\n\nبناءً عليه، تم إنشاء سند قيد وخصم تلقائي للمبلغ من مستحقاتكم لشهر أغسطس 2026.\n\nشاكرين لكم حسن تعاونكم الدائم،،،\n\nالمدير التنفيذي للعمليات\n${brandConfig.companyNameAr}`
           : `Kingdom of Saudi Arabia\n${brandConfig.companyNameEn}\nCR: ${brandConfig.crNumber} | VAT: ${brandConfig.taxNumber}\n\nDate: ${new Date().toISOString().split('T')[0]}\nRef: MYN/DISP/${new Date().getFullYear()}/089\n\nTo: ${recipient}\nAttn: Fleet & Operations Management\n\nSubject: Formal Debit Notice - Cargo Shrinkage Discrepancy\n\nWith reference to our freight agreement and scale records, an automated audit has confirmed shrinkage exceeding tolerance for Truck 3190-RSB.\n\nFindings:\n- Shrinkage Rate: 2.80% (Allowable: 1.5%)\n- Loss Quantity: 1.40 Metric Tons (Value: SAR 420.00)\n- Route: Touq Quarry -> UniBeton Ready-Mix\n\nAccordingly, a debit note has been created and deducted from your freight settlement.\n\nOperations Executive\n${brandConfig.companyNameEn}`
       );
     } finally {
@@ -806,7 +806,7 @@ export const AIOperationsAuditor: React.FC = () => {
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 text-slate-600">
                         <th className="py-2.5 px-3">{isAr ? 'الناقل اللوجستي' : 'Transporter'}</th>
-                        <th className="py-2.5 px-3">{isAr ? 'إجمالي الفاقد (طن)' : 'Total Loss (MT)'}</th>
+                        <th className="py-2.5 px-3">{isAr ? 'إجمالي الفاقد (MT طن)' : 'Total Loss (MT طن)'}</th>
                         <th className="py-2.5 px-3">{isAr ? 'نسبة الفاقد' : 'Loss %'}</th>
                         <th className="py-2.5 px-3">{isAr ? 'تقييم الامتثال' : 'Compliance Assessment'}</th>
                       </tr>
@@ -815,7 +815,7 @@ export const AIOperationsAuditor: React.FC = () => {
                       {analysisResult.wastageAudit.transportersWithExcessiveLoss.map((t: any, idx: number) => (
                         <tr key={idx} className="hover:bg-slate-50/60">
                           <td className="py-2.5 px-3 font-semibold text-slate-900">{t.name}</td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{t.lossTons} طن</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{t.lossTons} MT طن</td>
                           <td className="py-2.5 px-3">
                             <span className="rounded bg-rose-100 px-2 py-0.5 font-bold text-rose-800 text-[10px]">
                               {t.percentage}%

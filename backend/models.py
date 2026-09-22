@@ -344,6 +344,7 @@ class WeighbridgeTicket(TimestampMixin, Base):
     gross_weight: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     tare_weight: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     net_weight: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    unit_of_measure: Mapped[str] = mapped_column(String(32), default="MT طن", nullable=False)
     weighed_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     weighed_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     # Supporting documents belong to the durable operation record, not React state.

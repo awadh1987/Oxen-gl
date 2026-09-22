@@ -272,7 +272,7 @@ export const MATERIAL_OPTIONS: MaterialOption[] = [
     category: 'Aggregate',
     defaultSellingPrice: 48,
     defaultPurchasePrice: 28,
-    unit: 'طن متري (Ton)',
+    unit: 'MT طن',
     is_deleted: false,
   },
   {
@@ -282,7 +282,7 @@ export const MATERIAL_OPTIONS: MaterialOption[] = [
     category: 'Aggregate',
     defaultSellingPrice: 44,
     defaultPurchasePrice: 25,
-    unit: 'طن متري (Ton)',
+    unit: 'MT طن',
     is_deleted: false,
   },
   {
@@ -292,7 +292,7 @@ export const MATERIAL_OPTIONS: MaterialOption[] = [
     category: 'Sand',
     defaultSellingPrice: 38,
     defaultPurchasePrice: 20,
-    unit: 'طن متري (Ton)',
+    unit: 'MT طن',
     is_deleted: false,
   },
   {
@@ -302,7 +302,7 @@ export const MATERIAL_OPTIONS: MaterialOption[] = [
     category: 'Sand',
     defaultSellingPrice: 52,
     defaultPurchasePrice: 31,
-    unit: 'طن متري (Ton)',
+    unit: 'MT طن',
     is_deleted: false,
   },
   {
@@ -312,7 +312,7 @@ export const MATERIAL_OPTIONS: MaterialOption[] = [
     category: 'Powder',
     defaultSellingPrice: 34,
     defaultPurchasePrice: 17,
-    unit: 'طن متري (Ton)',
+    unit: 'MT طن',
     is_deleted: false,
   },
   {
@@ -322,7 +322,7 @@ export const MATERIAL_OPTIONS: MaterialOption[] = [
     category: 'Subbase',
     defaultSellingPrice: 32,
     defaultPurchasePrice: 15,
-    unit: 'طن متري (Ton)',
+    unit: 'MT طن',
     is_deleted: false,
   },
   {
@@ -332,7 +332,7 @@ export const MATERIAL_OPTIONS: MaterialOption[] = [
     category: 'Water',
     defaultSellingPrice: 22,
     defaultPurchasePrice: 9,
-    unit: 'طن متري (Ton)',
+    unit: 'MT طن',
     is_deleted: false,
   },
 ];

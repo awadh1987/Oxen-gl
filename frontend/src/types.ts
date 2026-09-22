@@ -114,6 +114,15 @@ export interface Transporter {
   deleted_by?: string;
 }
 
+export type UOMType = 'MT طن' | 'kg' | 'truck' | 'CBM';
+
+export const SUPPORTED_UOMS: { value: UOMType; labelAr: string; labelEn: string; symbol: string }[] = [
+  { value: 'MT طن', labelAr: 'MT طن (طن متري)', labelEn: 'MT (Metric Ton)', symbol: 'MT طن' },
+  { value: 'kg', labelAr: 'كجم (كيلوجرام)', labelEn: 'kg (Kilogram)', symbol: 'kg' },
+  { value: 'truck', labelAr: 'رد / شاحنة (Truckload)', labelEn: 'Truck (Truckload)', symbol: 'truck' },
+  { value: 'CBM', labelAr: 'م³ (متر مكعب)', labelEn: 'CBM (Cubic Meter)', symbol: 'CBM' },
+];
+
 export interface MaterialOption {
   id: string;
   nameAr: string;
@@ -121,7 +130,7 @@ export interface MaterialOption {
   category: 'Aggregate' | 'Sand' | 'Powder' | 'Subbase' | 'Water';
   defaultSellingPrice: number;
   defaultPurchasePrice: number;
-  unit: string;
+  unit: UOMType | string;
   is_deleted?: boolean;
   deleted_at?: string;
   deleted_by?: string;
@@ -138,8 +147,9 @@ export interface OperationRecord {
   destination_customer: string; // Customer Name
   receipt_invoice_no: string;
   material_type: string;
-  qty_loaded: number; // Metric Tons
-  qty_delivered: number; // Metric Tons
+  uom?: UOMType | string; // Universal UOM: 'MT طن' | 'kg' | 'truck' | 'CBM'
+  qty_loaded: number; // Metric Tons / UOM
+  qty_delivered: number; // Metric Tons / UOM
   qty_wastage: number; // Computed: loaded - delivered
   wastage_percentage: number; // Computed: (wastage / loaded) * 100
   scale_ticket_no: string;

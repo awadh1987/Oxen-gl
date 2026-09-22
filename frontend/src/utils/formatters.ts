@@ -14,9 +14,23 @@ export function formatNumber(val: number, lang: 'ar' | 'en' = 'ar', decimals = 2
   }).format(val || 0);
 }
 
-export function formatTonnage(weight: number, lang: 'ar' | 'en' = 'ar'): string {
+export function formatTonnage(weight: number, lang: 'ar' | 'en' = 'ar', uom?: string): string {
   const formatted = formatNumber(weight, lang, 2);
-  return lang === 'ar' ? `${formatted} طن` : `${formatted} Tons`;
+  if (uom && uom !== 'MT طن' && uom !== 'طن' && uom !== 'Tons' && uom !== 'MT') {
+    return `${formatted} ${uom}`;
+  }
+  return `${formatted} MT طن`;
+}
+
+export function formatUOM(val: number, uom: string = 'MT طن', lang: 'ar' | 'en' = 'ar'): string {
+  const formatted = formatNumber(val, lang, 2);
+  if (!uom || uom === 'MT طن' || uom === 'MT' || uom === 'طن' || uom === 'Tons') {
+    return `${formatted} MT طن`;
+  }
+  if (uom === 'kg') return `${formatted} kg`;
+  if (uom === 'truck') return `${formatted} ${lang === 'ar' ? 'شاحنة' : 'truck'}`;
+  if (uom === 'CBM') return `${formatted} CBM`;
+  return `${formatted} ${uom}`;
 }
 
 export function formatDate(dateString: string, lang: 'ar' | 'en' = 'ar'): string {

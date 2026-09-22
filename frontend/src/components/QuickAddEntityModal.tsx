@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { UOMType, SUPPORTED_UOMS } from '../types';
 import {
   X,
   Plus,
@@ -65,6 +66,7 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
   const [materialNameAr, setMaterialNameAr] = useState('');
   const [materialNameEn, setMaterialNameEn] = useState('');
   const [materialCategory, setMaterialCategory] = useState<'Aggregate' | 'Sand' | 'Powder' | 'Subbase' | 'Water'>('Aggregate');
+  const [materialUnit, setMaterialUnit] = useState<UOMType>('MT طن');
   const [defaultSellingPrice, setDefaultSellingPrice] = useState<number>(45);
   const [defaultPurchasePrice, setDefaultPurchasePrice] = useState<number>(26);
 
@@ -116,7 +118,7 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
         category: materialCategory,
         defaultSellingPrice: Number(defaultSellingPrice) || 45,
         defaultPurchasePrice: Number(defaultPurchasePrice) || 26,
-        unit: 'طن متري (Ton)',
+        unit: materialUnit,
       });
       onSuccess(created.nameAr, created.id);
     }
@@ -330,7 +332,7 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'أجرة النقل للطن (ر.س)' : 'Rate / Ton (SAR)'}
+                    {isAr ? 'أجرة النقل (ر.س/MT طن)' : 'Rate / MT (SAR)'}
                   </label>
                   <input
                     type="number"
@@ -375,7 +377,41 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'سعر الشراء الافتراضي (ر.س/طن)' : 'Buy Price (SAR/Ton)'}
+                    {isAr ? 'التصنيف' : 'Category'}
+                  </label>
+                  <select
+                    value={materialCategory}
+                    onChange={(e) => setMaterialCategory(e.target.value as any)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  >
+                    <option value="Aggregate">{isAr ? 'حصى وركام (Aggregate)' : 'Aggregate'}</option>
+                    <option value="Sand">{isAr ? 'رمل بأنواعه (Sand)' : 'Sand'}</option>
+                    <option value="Powder">{isAr ? 'بودرة وزيرو (Powder)' : 'Powder'}</option>
+                    <option value="Subbase">{isAr ? 'دفان وبيسكورس (Subbase)' : 'Subbase'}</option>
+                    <option value="Water">{isAr ? 'مياه معالجة (Water)' : 'Water'}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? 'وحدة القياس (UOM) *' : 'Unit of Measure (UOM) *'}
+                  </label>
+                  <select
+                    value={materialUnit}
+                    onChange={(e) => setMaterialUnit(e.target.value as UOMType)}
+                    className="w-full rounded-xl border border-orange-300 bg-slate-50 px-3 py-2 text-xs font-bold text-orange-950 focus:border-orange-500 focus:bg-white focus:outline-none"
+                  >
+                    {SUPPORTED_UOMS.map((u) => (
+                      <option key={u.value} value={u.value}>
+                        {isAr ? u.labelAr : u.labelEn}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">
+                    {isAr ? `سعر الشراء الافتراضي (ر.س/${materialUnit})` : `Buy Price (SAR/${materialUnit})`}
                   </label>
                   <input
                     type="number"
@@ -387,7 +423,7 @@ export const QuickAddEntityModal: React.FC<QuickAddEntityModalProps> = ({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-bold text-slate-700">
-                    {isAr ? 'سعر البيع الافتراضي (ر.س/طن)' : 'Sell Price (SAR/Ton)'}
+                    {isAr ? `سعر البيع الافتراضي (ر.س/${materialUnit})` : `Sell Price (SAR/${materialUnit})`}
                   </label>
                   <input
                     type="number"

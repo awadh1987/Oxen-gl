@@ -510,7 +510,7 @@ export const CustomerInvoicingView: React.FC = () => {
     const messageAr = `السادة / ${selectedCustomer?.customerName} المحترمين،
 نرفق لكم الفاتورة الضريبية المعتمدة رقم (${invoiceNumber}) لشهر ${selectedMonth}/${selectedYear}.
 - إجمالي الرحلات: ${totalTrips} رحلة
-- الوزن الصافي المستلم: ${totalDelivered.toLocaleString()} طن
+- الوزن الصافي المستلم: ${totalDelivered.toLocaleString()} MT طن
 - المبلغ الإجمالي المستحق: ${formatCurrency(grandTotal, 'ar')}
 - حالة الاعتماد: معتمدة وموقعة رسمياً من الإدارة العامة
 حساب التحويل: مصرف الراجحي | IBAN: SA4280000123608010123456
@@ -972,10 +972,10 @@ Myon Economic Contracting Co. Ltd.`;
                 <th className="py-3 px-3">#</th>
                 <th className="py-3 px-3">{isAr ? 'نوع المادة / البند' : 'Material Description'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'عدد الرحلات' : 'Trips'}</th>
-                <th className="py-3 px-3 text-center">{isAr ? 'الوزن المحمل (طن)' : 'Loaded'}</th>
-                <th className="py-3 px-3 text-center">{isAr ? 'الوزن الصافي (طن)' : 'Delivered'}</th>
-                <th className="py-3 px-3 text-center">{isAr ? 'الفاقد (طن)' : 'Loss'}</th>
-                <th className="py-3 px-3">{isAr ? 'سعر الطن (ر.س)' : 'Rate/Ton'}</th>
+                <th className="py-3 px-3 text-center">{isAr ? 'الوزن المحمل (MT طن)' : 'Loaded (MT)'}</th>
+                <th className="py-3 px-3 text-center">{isAr ? 'الوزن الصافي (MT طن)' : 'Delivered (MT)'}</th>
+                <th className="py-3 px-3 text-center">{isAr ? 'الفاقد (MT طن)' : 'Loss (MT)'}</th>
+                <th className="py-3 px-3">{isAr ? 'سعر الوحدة (ر.س/MT طن)' : 'Rate / MT'}</th>
                 <th className="py-3 px-3">{isAr ? 'المبلغ (بدون ضريبة)' : 'Amount'}</th>
                 <th className="py-3 px-3">{isAr ? 'الضريبة 15%' : 'VAT 15%'}</th>
                 <th className="py-3 px-3">{isAr ? 'الإجمالي (ر.س)' : 'Total (SAR)'}</th>

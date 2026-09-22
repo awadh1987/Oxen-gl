@@ -139,8 +139,8 @@ export const TransporterPerformanceView: React.FC = () => {
 
   const handleExportExcel = () => {
     const headers = isAr
-      ? ['#', 'اسم الناقل', 'الرحلات', 'المحمّل (طن)', 'المسلّم (طن)', 'الهدر (طن)', 'نسبة الفقد %', 'النولون (ر.س)', 'الجزاءات (ر.س)', 'الصافي (ر.س)', 'الامتثال']
-      : ['#', 'Carrier Name', 'Trips', 'Loaded (T)', 'Delivered (T)', 'Wastage (T)', 'Loss %', 'Gross Fee (SAR)', 'Penalties (SAR)', 'Net Payout (SAR)', 'Compliance'];
+      ? ['#', 'اسم الناقل', 'الرحلات', 'المحمّل (MT طن)', 'المسلّم (MT طن)', 'الهدر (MT طن)', 'نسبة الفقد %', 'النولون (ر.س)', 'الجزاءات (ر.س)', 'الصافي (ر.س)', 'الامتثال']
+      : ['#', 'Carrier Name', 'Trips', 'Loaded (MT طن)', 'Delivered (MT طن)', 'Wastage (MT طن)', 'Loss %', 'Gross Fee (SAR)', 'Penalties (SAR)', 'Net Payout (SAR)', 'Compliance'];
     const rowsCsv = rows.map((r, idx) => [
       idx + 1,
       `"${r.name}"`,
@@ -170,7 +170,7 @@ export const TransporterPerformanceView: React.FC = () => {
 
   const cards = [
     {
-      title: isAr ? 'إجمالي الفاقد أثناء النقل' : 'Total Route Loss',
+      title: isAr ? 'إجمالي الفاقد أثناء النقل (MT طن)' : 'Total Route Loss (MT طن)',
       value: formatTonnage(totals.loss, language),
       tone: 'text-rose-600 dark:text-rose-400',
       icon: AlertTriangle,
@@ -196,8 +196,8 @@ export const TransporterPerformanceView: React.FC = () => {
   ];
 
   const tableHeaders = isAr
-    ? ['#', 'اسم مورد الخدمة / الناقل', 'الرحلات', 'المحمّل', 'المسلّم', 'الهدر والفاقد', 'نسبة الفقد', 'إجمالي النولون', 'الخصومات والجزاءات', 'الصافي المستحق', 'حالة الامتثال', 'الإجراء']
-    : ['#', 'Service Supplier / Carrier', 'Trips', 'Loaded', 'Delivered', 'Wastage', 'Loss %', 'Freight Fee', 'Penalties', 'Net Payout', 'Compliance', 'Action'];
+    ? ['#', 'اسم مورد الخدمة / الناقل', 'الرحلات', 'المحمّل (MT طن)', 'المسلّم (MT طن)', 'الهدر والفاقد (MT طن)', 'نسبة الفقد', 'إجمالي النولون', 'الخصومات والجزاءات', 'الصافي المستحق', 'حالة الامتثال', 'الإجراء']
+    : ['#', 'Service Supplier / Carrier', 'Trips', 'Loaded (MT طن)', 'Delivered (MT طن)', 'Wastage (MT طن)', 'Loss %', 'Freight Fee', 'Penalties', 'Net Payout', 'Compliance', 'Action'];
 
   return (
     <div className="space-y-5" id="transporter-performance-view">

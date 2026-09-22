@@ -246,7 +246,7 @@ class WeighbridgeOperationCreate(BaseModel):
     net_weight: Decimal | None = None
     ticket_number: str | None = None
     driver_name: str | None = None
-    unit_of_measure: str | None = "MT"
+    unit_of_measure: str | None = "MT طن"
     company_id: UUID | None = None
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     scale_ticket_attachment: str | None = None
@@ -285,6 +285,7 @@ class WeighbridgeOperationRead(ORMReadModel):
     gross_weight: Decimal
     tare_weight: Decimal
     net_weight: Decimal
+    unit_of_measure: str = "MT طن"
     weighed_in_at: datetime
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     scale_ticket_attachment: str | None = None

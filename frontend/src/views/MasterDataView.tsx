@@ -808,7 +808,7 @@ export const MasterDataView: React.FC = () => {
                   <th className="py-3 px-4">{isAr ? 'رقم الشاحنة الافتراضية' : 'Default Truck #'}</th>
                   <th className="py-3 px-4">{isAr ? 'الهاتف' : 'Phone'}</th>
                   <th className="py-3 px-4 text-center">{isAr ? 'سعة الحمولة' : 'Capacity'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'أجرة النقل / طن' : 'Rate / Ton'}</th>
+                  <th className="py-3 px-4 text-center">{isAr ? 'أجرة النقل / MT طن' : 'Rate / MT'}</th>
                   <th className="py-3 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
@@ -826,7 +826,7 @@ export const MasterDataView: React.FC = () => {
                       <td className="py-3.5 px-4 text-slate-800">{t.driverName || '-'}</td>
                       <td className="py-3.5 px-4 font-mono font-bold text-orange-950">{t.defaultTruckNo || '-'}</td>
                       <td className="py-3.5 px-4 font-mono text-slate-600">{t.phone || '-'}</td>
-                      <td className="py-3.5 px-4 text-center font-bold text-slate-700">{t.capacityTons || 44} طن</td>
+                      <td className="py-3.5 px-4 text-center font-bold text-slate-700">{t.capacityTons || 44} MT طن</td>
                       <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700">
                         {formatCurrency(t.ratePerTon || 18, language)}
                       </td>
@@ -882,8 +882,9 @@ export const MasterDataView: React.FC = () => {
                 <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
                   <th className="py-3 px-4">{isAr ? 'اسم صنف المادة' : 'Material Name'}</th>
                   <th className="py-3 px-4">{isAr ? 'التصنيف' : 'Category'}</th>
-                  <th className="py-3 px-4">{isAr ? 'سعر الشراء الافتراضي (ر.س/طن)' : 'Buy Price / Ton'}</th>
-                  <th className="py-3 px-4">{isAr ? 'سعر البيع الافتراضي (ر.س/طن)' : 'Sell Price / Ton'}</th>
+                  <th className="py-3 px-4 text-center">{isAr ? 'وحدة القياس (UOM)' : 'UOM'}</th>
+                  <th className="py-3 px-4">{isAr ? 'سعر الشراء الافتراضي' : 'Buy Price'}</th>
+                  <th className="py-3 px-4">{isAr ? 'سعر البيع الافتراضي' : 'Sell Price'}</th>
                   <th className="py-3 px-4">{isAr ? 'هامش الربح المتوقع' : 'Expected Margin'}</th>
                   <th className="py-3 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
@@ -891,13 +892,14 @@ export const MasterDataView: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {activeMaterials.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
                       {isAr ? 'لا توجد مواد مطابقة للبحث أو التصفية.' : 'No materials match the active query.'}
                     </td>
                   </tr>
                 ) : (
                   activeMaterials.map((m) => {
                     const margin = m.defaultSellingPrice - m.defaultPurchasePrice;
+                    const uomDisplay = m.unit || 'MT طن';
                     return (
                       <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-3.5 px-4 font-bold text-slate-900">
@@ -909,14 +911,19 @@ export const MasterDataView: React.FC = () => {
                             {m.category}
                           </span>
                         </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="rounded-md bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-900 border border-orange-200">
+                            {uomDisplay}
+                          </span>
+                        </td>
                         <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
-                          {formatCurrency(m.defaultPurchasePrice, language)}
+                          {formatCurrency(m.defaultPurchasePrice, language)} / {uomDisplay}
                         </td>
                         <td className="py-3.5 px-4 font-mono font-black text-orange-950">
-                          {formatCurrency(m.defaultSellingPrice, language)}
+                          {formatCurrency(m.defaultSellingPrice, language)} / {uomDisplay}
                         </td>
                         <td className="py-3.5 px-4 font-mono font-black text-emerald-700">
-                          +{formatCurrency(margin, language)}/طن
+                          +{formatCurrency(margin, language)} / {uomDisplay}
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { OperationRecord, DocumentAttachment } from '../types';
+import { OperationRecord, DocumentAttachment, UOMType, SUPPORTED_UOMS } from '../types';
 import {
   X,
   Plus,
@@ -46,7 +46,7 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
     addOperation,
     updateOperation,
     language,
-    currentUser,
+    currentMonth,
     canAccessFinancials,
     showToast,
   } = useApp();
@@ -73,6 +73,7 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
   const [destinationCustomer, setDestinationCustomer] = useState('');
   const [receiptInvoiceNo, setReceiptInvoiceNo] = useState('');
   const [materialType, setMaterialType] = useState('');
+  const [uom, setUom] = useState<UOMType>((initialData?.uom as UOMType) || 'MT طن');
   const [qtyLoaded, setQtyLoaded] = useState<number | ''>(42.5);
   const [qtyDelivered, setQtyDelivered] = useState<number | ''>(42.0);
   const [scaleTicketNo, setScaleTicketNo] = useState('');
@@ -109,6 +110,9 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
       setDestinationCustomer(initialData.destination_customer);
       setReceiptInvoiceNo(initialData.receipt_invoice_no);
       setMaterialType(initialData.material_type);
+      if (initialData.uom) {
+        setUom(initialData.uom as UOMType);
+      }
       setQtyLoaded(initialData.qty_loaded);
       setQtyDelivered(initialData.qty_delivered);
       setScaleTicketNo(initialData.scale_ticket_no);
@@ -249,6 +253,7 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
       destination_customer: destinationCustomer,
       receipt_invoice_no: receiptInvoiceNo || `REC-${opYear}-${Math.floor(1000 + Math.random() * 9000)}`,
       material_type: materialType,
+      uom: uom,
       qty_loaded: numLoaded,
       qty_delivered: numDelivered,
       qty_wastage: qtyWastage,
@@ -340,13 +345,13 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
         <div className="mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50/80 via-amber-50/50 to-slate-50 p-3 sm:grid-cols-5">
           <div className="rounded-xl border border-white/80 bg-white/90 p-2 shadow-2xs">
             <span className="text-[10px] font-bold text-slate-500 block">
-              {isAr ? 'الفاقد (طن)' : 'Wastage (Tons)'}
+              {isAr ? `الفاقد (${uom})` : `Wastage (${uom})`}
             </span>
             <div className="flex items-baseline gap-1 mt-0.5">
               <span className={`text-xs font-black ${qtyWastage > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
                 {qtyWastage.toFixed(2)}
               </span>
-              <span className="text-[10px] text-slate-400">{isAr ? 'طن' : 't'}</span>
+              <span className="text-[10px] text-slate-500 font-bold">{uom}</span>
             </div>
           </div>
 
@@ -578,14 +583,14 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
             <div className="text-xs font-black text-orange-950 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Package className="h-3.5 w-3.5 text-orange-600" />
-                <span>{isAr ? 'نوع المادة وأوزان الميزان (بسكول طن)' : 'Material & Weighbridge Weights'}</span>
+                <span>{isAr ? `نوع المادة ووحدة القياس وأوزان الميزان (${uom})` : `Material, UOM & Scale Weights (${uom})`}</span>
               </div>
               <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-md">
                 {isAr ? 'حساب الفاقد ونسبته آلياً' : 'Auto Wastage Calculation'}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               {/* 9. نوع المادة */}
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -616,10 +621,28 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 </select>
               </div>
 
-              {/* 10. الوزن المحمل - طن */}
+              {/* وحدة القياس (UOM) */}
               <div>
                 <label className="mb-1 block text-xs font-bold text-slate-700">
-                  {isAr ? 'الوزن المحمل - طن *' : 'Loaded Weight (Tons) *'}
+                  {isAr ? 'وحدة القياس (UOM) *' : 'Unit of Measure (UOM) *'}
+                </label>
+                <select
+                  value={uom}
+                  onChange={(e) => setUom(e.target.value as UOMType)}
+                  className="w-full rounded-xl border border-orange-300 bg-white px-3 py-2 text-xs font-bold text-orange-950 focus:border-orange-500 focus:outline-none"
+                >
+                  {SUPPORTED_UOMS.map((u) => (
+                    <option key={u.value} value={u.value}>
+                      {isAr ? u.labelAr : u.labelEn}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 10. الوزن المحمل */}
+              <div>
+                <label className="mb-1 block text-xs font-bold text-slate-700">
+                  {isAr ? `الوزن المحمل (${uom}) *` : `Loaded Weight (${uom}) *`}
                 </label>
                 <input
                   type="number"
@@ -638,10 +661,10 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
                 />
               </div>
 
-              {/* 11. الوزن المستلم - طن */}
+              {/* 11. الوزن المستلم */}
               <div>
                 <label className="mb-1 block text-xs font-bold text-slate-700">
-                  {isAr ? 'الوزن المستلم - طن *' : 'Received Weight (Tons) *'}
+                  {isAr ? `الوزن المستلم (${uom}) *` : `Received Weight (${uom}) *`}
                 </label>
                 <input
                   type="number"

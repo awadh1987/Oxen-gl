@@ -115,8 +115,8 @@ export const PrintableSupportingTicket: React.FC<PrintableSupportingTicketProps>
           <thead>
             <tr className="bg-slate-900 text-white font-bold">
               <th className="py-2.5 px-4">{isAr ? 'بيان الوزن المعتمد' : 'Scale Measurement Item'}</th>
-              <th className="py-2.5 px-4 text-center">{isAr ? 'الوزن (طن متري)' : 'Weight (MT)'}</th>
-              <th className="py-2.5 px-4 text-center">{isAr ? 'سعر الطن' : 'Rate / Ton'}</th>
+              <th className="py-2.5 px-4 text-center">{isAr ? 'الوزن (MT طن)' : 'Weight (MT طن)'}</th>
+              <th className="py-2.5 px-4 text-center">{isAr ? 'سعر الوحدة (ر.س / MT طن)' : 'Rate (SAR / MT طن)'}</th>
               <th className="py-2.5 px-4">{isAr ? 'الإجمالي الفرعي' : 'Subtotal'}</th>
               <th className="py-2.5 px-4">{isAr ? 'الضريبة 15%' : 'VAT (15%)'}</th>
               <th className="py-2.5 px-4 text-left">{isAr ? 'المطالبة الإجمالية' : 'Total Amount'}</th>
@@ -128,7 +128,7 @@ export const PrintableSupportingTicket: React.FC<PrintableSupportingTicketProps>
                 {isAr ? 'الوزن القائم عند التحميل (Gross Loaded)' : 'Gross Loaded Weight'}
               </td>
               <td className="py-3 px-4 text-center font-mono font-bold text-slate-700">
-                {trip.qty_loaded.toFixed(2)} طن
+                {formatTonnage(trip.qty_loaded, isAr ? 'ar' : 'en', trip.uom || 'MT طن')}
               </td>
               <td className="py-3 px-4 text-center text-slate-400">-</td>
               <td className="py-3 px-4 text-slate-400">-</td>
@@ -141,7 +141,7 @@ export const PrintableSupportingTicket: React.FC<PrintableSupportingTicketProps>
                 <span>{isAr ? 'الوزن الصافي المستلم المعتمد للفوترة (Net Delivered)' : 'Net Delivered Billable Weight'}</span>
               </td>
               <td className="py-3 px-4 text-center font-mono font-black text-emerald-900 text-sm">
-                {trip.qty_delivered.toFixed(2)} طن
+                {formatTonnage(trip.qty_delivered, isAr ? 'ar' : 'en', trip.uom || 'MT طن')}
               </td>
               <td className="py-3 px-4 text-center font-mono font-bold text-slate-900">
                 {(trip.sales_amount / (trip.qty_delivered || 1)).toFixed(2)} ر.س
@@ -162,7 +162,7 @@ export const PrintableSupportingTicket: React.FC<PrintableSupportingTicketProps>
                   {isAr ? 'فرق الميزان / الفاقد المرصود (Wastage Variance):' : 'Scale Variance:'}
                 </td>
                 <td className="py-2 px-4 text-center font-mono text-rose-600 font-bold">
-                  {trip.qty_wastage.toFixed(2)} طن ({trip.wastage_percentage}%)
+                  {formatTonnage(trip.qty_wastage, isAr ? 'ar' : 'en', trip.uom || 'MT طن')} ({trip.wastage_percentage}%)
                 </td>
                 <td colSpan={4} className="py-2 px-4 text-slate-500">
                   {trip.notes || 'ضمن النسبة المسموح بها نظاماً'}

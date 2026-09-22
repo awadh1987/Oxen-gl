@@ -195,3 +195,40 @@ def test_weighbridge_operation_identical_locations_rejected(weighbridge_test_com
 
     resp = client.post("/api/operations/weighbridge", json=payload, headers=headers)
     assert resp.status_code == 422
+
+
+@pytest.mark.parametrize("uom", ["MT طن", "kg", "truck", "CBM"])
+def test_weighbridge_dynamic_uom_support(weighbridge_test_company, uom):
+    """Verifies that weighbridge operations support dynamic units: MT طن, kg, truck, CBM."""
+    cid = weighbridge_test_company["cid"]
+    headers = weighbridge_test_company["headers"]
+    t_no = f"WB-UOM-{uom.split()[0]}-{uuid.uuid4().hex[:4].upper()}"
+
+    payload = {
+        "partner_name": f"Supplier {uom}",
+        "product_name": f"Material in {uom}",
+        "gross_weight": 50000.0,
+        "tare_weight": 20000.0,
+        "net_weight": 30000.0,
+        "source_location_name": "WH/SourceYard",
+        "dest_location_name": "WH/DestDepot",
+        "ticket_number": t_no,
+        "truck_number": "TRK-UOM-01",
+        "unit_of_measure": uom,
+        "company_id": cid,
+    }
+
+    create_resp = client.post("/api/operations/weighbridge", json=payload, headers=headers)
+    assert create_resp.status_code == 201
+    ticket_data = create_resp.json()
+    assert ticket_data["unit_of_measure"] == uom
+
+    # Query DB to ensure persistence
+    db = SessionLocal()
+    try:
+        db_wb = db.query(WeighbridgeTicket).filter(WeighbridgeTicket.id == uuid.UUID(ticket_data["ticket_id"])).first()
+        assert db_wb is not None
+        assert db_wb.unit_of_measure == uom
+    finally:
+        db.close()
+

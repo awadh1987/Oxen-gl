@@ -260,15 +260,15 @@ export const OperationsLogView: React.FC = () => {
           <p className="text-lg font-black text-neutral-900">{filteredOperations.length} {isAr ? 'رحلة' : 'trips'}</p>
         </div>
         <div>
-          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي المحمل' : 'Loaded Tonnage'}</span>
+          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي المحمل (MT طن)' : 'Loaded (MT طن)'}</span>
           <p className="text-lg font-black text-neutral-900">{formatTonnage(currentTotalLoaded, language)}</p>
         </div>
         <div>
-          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي المستلم الصافي' : 'Delivered Tonnage'}</span>
+          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي المستلم الصافي (MT طن)' : 'Net Delivered (MT طن)'}</span>
           <p className="text-lg font-black text-[#F05627]">{formatTonnage(currentTotalDelivered, language)}</p>
         </div>
         <div>
-          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي الفاقد' : 'Total Wastage Loss'}</span>
+          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي الفاقد (MT طن)' : 'Total Wastage Loss (MT طن)'}</span>
           <p className="text-lg font-black text-rose-600">{formatTonnage(currentTotalWastage, language)}</p>
         </div>
       </div>
@@ -400,9 +400,9 @@ export const OperationsLogView: React.FC = () => {
                 <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'منشأة الإرسال' : 'Origin / Dispatch Facility'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'العميل المستلم' : 'Destination Client'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'نوع المادة' : 'Material'}</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الوزن المحمل (طن)' : 'Loaded (t)'}</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الوزن المستلم (طن)' : 'Delivered (t)'}</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الفاقد (طن / %)' : 'Wastage'}</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الوزن المحمل (MT طن)' : 'Loaded (MT طن)'}</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الوزن المستلم (MT طن)' : 'Delivered (MT طن)'}</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الفاقد (MT طن / %)' : 'Wastage (MT طن / %)'}</th>
                 {canAccessFinancials && (
                   <>
                     <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'المبيعات بدون ضريبة' : 'Sales Excl. VAT'}</th>
@@ -463,10 +463,10 @@ export const OperationsLogView: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-center font-mono font-semibold text-slate-800">
-                        {op.qty_loaded}
+                        {op.qty_loaded} MT طن
                       </td>
                       <td className="py-3 px-3 text-center font-mono font-bold text-slate-900">
-                        {op.qty_delivered}
+                        {op.qty_delivered} MT طن
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span
@@ -474,7 +474,7 @@ export const OperationsLogView: React.FC = () => {
                             isHighLoss ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
                           }`}
                         >
-                          {op.qty_wastage} طن ({op.wastage_percentage}%)
+                          {op.qty_wastage} MT طن ({op.wastage_percentage}%)
                         </span>
                       </td>
                       {canAccessFinancials && (
