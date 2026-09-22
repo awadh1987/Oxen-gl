@@ -15,6 +15,8 @@ export interface ApiOperation {
   gross_weight: number;
   tare_weight: number;
   net_weight: number;
+  uom?: string;
+  unit_of_measure?: string;
   weighed_in_at: string;
   attachments?: any[];
   scale_ticket_attachment?: string;
@@ -312,6 +314,7 @@ export interface CustomerInvoiceUpdatePayload {
   subtotal?: number;
   vat_amount?: number;
   grand_total?: number;
+  status?: 'Draft' | 'Approved' | 'Issued' | 'Cancelled';
 }
 
 export interface ApiSettlement {
@@ -787,6 +790,8 @@ export const erpApi = {
     truckNumber: string;
     grossWeight: number;
     tareWeight: number;
+    uom?: string;
+    unitOfMeasure?: string;
     attachments?: any[];
     scaleTicketAttachment?: string;
   }) {
@@ -812,6 +817,8 @@ export const erpApi = {
           truck_number: input.truckNumber,
           gross_weight: input.grossWeight,
           tare_weight: input.tareWeight,
+          uom: input.uom || input.unitOfMeasure || 'MT',
+          unit_of_measure: input.unitOfMeasure || input.uom || 'MT',
           attachments: input.attachments || [],
           scale_ticket_attachment: input.scaleTicketAttachment || null,
         }),

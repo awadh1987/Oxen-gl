@@ -568,6 +568,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       destination_customer: operation.destination_customer_name || operation.dest_location_name,
       receipt_invoice_no: operation.receipt_invoice_no || operation.ticket_number,
       material_type: operation.material_type || operation.product_name,
+      uom: operation.uom || operation.unit_of_measure || 'MT',
       qty_loaded: loadedWeight,
       qty_delivered: deliveredWeight,
       qty_wastage: wastageWeight,
@@ -1378,11 +1379,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         truckNumber: opData.truck_no,
         grossWeight: opData.qty_loaded,
         tareWeight: Math.max(0, opData.qty_loaded - opData.qty_delivered),
+        uom: (opData.uom as string) || 'MT',
+        unitOfMeasure: (opData.uom as string) || 'MT',
         attachments: opData.attachments || [],
         scaleTicketAttachment: opData.scale_ticket_attachment,
       });
       const serverRecord: OperationRecord = {
         ...mapApiOperation(operation),
+        uom: (opData.uom as string) || operation.uom || operation.unit_of_measure || 'MT',
         sales_amount: opData.sales_amount || 0,
         vat_amount: opData.vat_amount || 0,
         total_sales: opData.total_sales || 0,

@@ -89,12 +89,59 @@ class AsyncCompatibleSession(Session):
 SessionLocal = sessionmaker(bind=engine, class_=AsyncCompatibleSession, autoflush=False, autocommit=False)
 
 
-def get_db():
-    """Generator yielding a transactional database session."""
+def get_db(request: Any = None):
+    """Generator yielding a transactional database session with tenant/RLS context awareness."""
     db = SessionLocal()
+    tenant_id = None
+    is_master = False
+
+    if request is not None and hasattr(request, "headers"):
+        try:
+            headers = request.headers
+            tenant_id = (
+                headers.get("X-Tenant-ID")
+                or headers.get("x-tenant-id")
+                or headers.get("X-Company-ID")
+                or headers.get("x-company-id")
+                or getattr(request.state, "tenant_id", None)
+                or getattr(request.state, "company_id", None)
+            )
+            role = getattr(request.state, "role", None) or headers.get("x-role")
+            if role and str(role).upper().replace(" ", "_") in ["SUPER_ADMIN", "SUPERADMIN", "ADMIN", "CEO", "EXECUTIVE"]:
+                is_master = True
+
+            if not tenant_id:
+                auth = headers.get("Authorization") or headers.get("authorization")
+                if auth and auth.startswith("Bearer "):
+                    token = auth.split(" ", 1)[1].strip()
+                    try:
+                        from backend.app.dependencies import decode_jwt_token
+                        claims = decode_jwt_token(token)
+                        tenant_id = claims.get("tenant_id") or claims.get("company_id")
+                        c_role = claims.get("role")
+                        if c_role and str(c_role).upper().replace(" ", "_") in ["SUPER_ADMIN", "SUPERADMIN", "ADMIN", "CEO", "EXECUTIVE"]:
+                            is_master = True
+                    except Exception:
+                        pass
+
+            if tenant_id:
+                db.execute(text("SET LOCAL app.current_tenant_id = :tid"), {"tid": str(tenant_id)})
+                db.execute(text("SET LOCAL app.current_company_id = :tid"), {"tid": str(tenant_id)})
+            if is_master:
+                db.execute(text("SET LOCAL app.is_master_admin = 'true'"))
+        except Exception:
+            pass
+
     try:
         yield db
     finally:
+        if tenant_id or is_master:
+            try:
+                db.execute(text("RESET app.current_tenant_id;"))
+                db.execute(text("RESET app.current_company_id;"))
+                db.execute(text("RESET app.is_master_admin;"))
+            except Exception:
+                pass
         db.close()
 
 
@@ -109,12 +156,14 @@ def tenant_rls_scope(db, tenant_id: str, is_master: bool = False):
     try:
         if tenant_id:
             db.execute(text("SET LOCAL app.current_tenant_id = :tid"), {"tid": str(tenant_id)})
+            db.execute(text("SET LOCAL app.current_company_id = :tid"), {"tid": str(tenant_id)})
         if is_master:
             db.execute(text("SET LOCAL app.is_master_admin = 'true'"))
         yield db
     finally:
         try:
             db.execute(text("RESET app.current_tenant_id;"))
+            db.execute(text("RESET app.current_company_id;"))
             db.execute(text("RESET app.is_master_admin;"))
         except Exception:
             pass

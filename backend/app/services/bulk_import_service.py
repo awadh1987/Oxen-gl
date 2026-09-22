@@ -703,7 +703,8 @@ class BulkImportService:
                     gross_weight=gross_weight,
                     tare_weight=tare_weight,
                     net_weight=net_weight,
-                    unit_of_measure=str(mapped.get("unit_of_measure") or "MT طن"),
+                    uom=str(mapped.get("uom") or mapped.get("unit_of_measure") or "MT"),
+                    unit_of_measure=str(mapped.get("unit_of_measure") or mapped.get("uom") or "MT"),
                     weighed_in_at=parsed_date,
                     # Superset Fields (REM-P7)
                     material_supplier_name=mat_supp_name,

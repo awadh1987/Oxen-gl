@@ -120,15 +120,15 @@ export const ScaleTicketViewerModal: React.FC<ScaleTicketViewerModalProps> = ({
               <span className="text-orange-800 dark:text-orange-400 font-bold">{operation.material_type}</span>
             </div>
             <div className="flex justify-between text-slate-700 dark:text-slate-300">
-              <span>{isAr ? 'الوزن القائم المحمل (MT طن):' : 'Loaded Weight (MT طن):'}</span>
+              <span>{isAr ? `الكمية المحملة (${operation.uom || 'MT'}):` : `Loaded (${operation.uom || 'MT'}):`}</span>
               <span className="font-bold">{formatTonnage(operation.qty_loaded, lang, operation.uom || 'MT طن')}</span>
             </div>
             <div className="flex justify-between text-slate-700 dark:text-slate-300">
-              <span>{isAr ? 'الوزن الصافي المستلم (MT طن):' : 'Delivered Weight (MT طن):'}</span>
+              <span>{isAr ? `الكمية المستلمة (${operation.uom || 'MT'}):` : `Delivered (${operation.uom || 'MT'}):`}</span>
               <span className="font-bold">{formatTonnage(operation.qty_delivered, lang, operation.uom || 'MT طن')}</span>
             </div>
             <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-1 text-slate-900 dark:text-white font-bold">
-              <span>{isAr ? 'فرق الوزن المحسوب / الفاقد (MT طن):' : 'Wastage Loss (MT طن):'}</span>
+              <span>{isAr ? `فرق الكمية / الفاقد (${operation.uom || 'MT'}):` : `Wastage Loss (${operation.uom || 'MT'}):`}</span>
               <span className={operation.qty_wastage > 1 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}>
                 {formatTonnage(operation.qty_wastage, lang, operation.uom || 'MT طن')} ({operation.wastage_percentage}%)
               </span>

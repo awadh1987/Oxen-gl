@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -238,12 +239,26 @@ def delete_tenant_with_safety_guard(
     slug = company.domain_slug or company.slug
     name = company.name
 
-    # Deactivate or delete
-    master = db.query(MasterTenant).filter(MasterTenant.slug == slug).first()
-    if master:
-        db.delete(master)
-    db.delete(company)
-    db.commit()
+    try:
+        # Deactivate or delete
+        master = db.query(MasterTenant).filter(MasterTenant.slug == slug).first()
+        if master:
+            db.delete(master)
+        db.delete(company)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete workspace '{name}' ({slug}): dependent records exist or constraint failed ({err_msg}).",
+        )
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete workspace '{name}' ({slug}): {str(exc)}",
+        )
 
     return {
         "success": True,

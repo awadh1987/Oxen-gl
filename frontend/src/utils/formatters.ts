@@ -25,7 +25,7 @@ export function formatTonnage(weight: number, lang: 'ar' | 'en' = 'ar', uom?: st
 export function formatUOM(val: number, uom: string = 'MT طن', lang: 'ar' | 'en' = 'ar'): string {
   const formatted = formatNumber(val, lang, 2);
   if (!uom || uom === 'MT طن' || uom === 'MT' || uom === 'طن' || uom === 'Tons') {
-    return `${formatted} MT طن`;
+    return `${formatted} ${lang === 'ar' ? 'MT طن' : 'MT'}`;
   }
   if (uom === 'kg') return `${formatted} kg`;
   if (uom === 'truck') return `${formatted} ${lang === 'ar' ? 'شاحنة' : 'truck'}`;

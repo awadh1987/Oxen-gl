@@ -10,7 +10,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Header, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from backend.database import get_db
 from backend.app.domains.inventory.models import (
@@ -185,14 +185,35 @@ def create_material(
     db.add(material)
     db.commit()
     db.refresh(material)
-    return {
-        "id": str(material.id),
-        "code": material.code,
-        "name": material.name,
-        "primary_uom": material.primary_uom,
-        "secondary_uom": material.secondary_uom,
-        "current_moving_avg_cost": float(material.current_moving_avg_cost),
-    }
+    return material
+
+
+@router.get("/materials")
+def list_materials(
+    db: Session = Depends(get_db),
+    x_tenant_id: Optional[str] = Header(None),
+    x_company_id: Optional[str] = Header(None),
+):
+    """Lists catalog materials deduplicated at the database level."""
+    clean_name = func.trim(Material.name)
+    stmt = (
+        select(Material)
+        .distinct(clean_name)
+        .where(Material.is_active.is_(True))
+        .order_by(clean_name, Material.created_at.desc())
+    )
+    if x_tenant_id:
+        try:
+            stmt = stmt.where(Material.tenant_id == uuid.UUID(x_tenant_id))
+        except ValueError:
+            pass
+    if x_company_id:
+        try:
+            stmt = stmt.where(Material.company_id == uuid.UUID(x_company_id))
+        except ValueError:
+            pass
+
+    return db.scalars(stmt).all()
 
 
 @router.post("/landed-cost/allocate")

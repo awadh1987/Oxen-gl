@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import desc, func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
@@ -645,8 +646,22 @@ def purge_tenant(
             pass
 
     # 6. Delete company record
-    db.delete(company)
-    db.commit()
+    try:
+        db.delete(company)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        err_msg = str(exc.orig) if hasattr(exc, "orig") else str(exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete workspace: dependent records exist or constraint failed ({err_msg}).",
+        )
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete workspace: {str(exc)}",
+        )
 
     return {
         "status": "purged",

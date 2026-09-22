@@ -5,10 +5,10 @@ Guarantees strict Double-Entry balancing and audit validation.
 
 import uuid
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Header, status
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field, model_validator
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 
 from backend.database import get_db
@@ -58,9 +58,44 @@ class JournalLineItem(BaseModel):
 
 
 class JournalEntryCreate(BaseModel):
-    description: str
+    description: Optional[str] = None
     entry_date: Optional[str] = None
-    lines: List[JournalLineItem]
+    voucher_number: Optional[str] = None
+    type: Optional[str] = None
+    voucher_type: Optional[str] = None
+    category: Optional[str] = None
+    party_name: Optional[str] = None
+    amount: Optional[float] = None
+    payment_method: Optional[str] = None
+    cost_center_id: Optional[uuid.UUID] = None
+    lines: List[JournalLineItem] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_balanced_lines_if_missing(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            lines = data.get("lines")
+            if not lines and data.get("amount") is not None:
+                amt = float(data["amount"])
+                vtype = (data.get("type") or data.get("voucher_type") or "Receipt").capitalize()
+                party = data.get("party_name") or "Party"
+                desc = data.get("description") or data.get("purpose") or f"{vtype} Voucher - {party}"
+                data["description"] = desc
+                cash_code = "101000"
+                counter_code = "120000" if vtype == "Receipt" else "201000"
+                if vtype == "Receipt":
+                    data["lines"] = [
+                        {"account_code": cash_code, "debit": amt, "credit": 0.0, "description": desc},
+                        {"account_code": counter_code, "debit": 0.0, "credit": amt, "description": desc},
+                    ]
+                else:
+                    data["lines"] = [
+                        {"account_code": counter_code, "debit": amt, "credit": 0.0, "description": desc},
+                        {"account_code": cash_code, "debit": 0.0, "credit": amt, "description": desc},
+                    ]
+            elif not data.get("description") and data.get("lines"):
+                data["description"] = "Journal Entry"
+        return data
 
 
 # ==============================================================================
@@ -269,6 +304,11 @@ def list_journal_entries(
 
 
 @router.post(
+    "/vouchers",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(enforce_abac("WRITE"))],
+)
+@router.post(
     "/vouchers/balanced",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(enforce_abac("WRITE"))],
@@ -292,15 +332,15 @@ def post_balanced_financial_voucher(
     total_debit = sum(Decimal(str(l.debit)) for l in payload.lines)
     total_credit = sum(Decimal(str(l.credit)) for l in payload.lines)
 
-    entry_number = f"JV-{uuid.uuid4().hex[:8].upper()}"
+    entry_number = payload.voucher_number or f"JV-{uuid.uuid4().hex[:8].upper()}"
     entry = FinanceJournalEntry(
         tenant_id=tenant_uuid,
         company_id=company_uuid,
         entry_number=entry_number,
-        description=payload.description,
+        description=payload.description or "Financial Voucher",
         total_debit=total_debit,
         total_credit=total_credit,
-        status="POSTED",
+        status="SUCCESS",
         posted_by=user_uuid,
     )
     db.add(entry)
@@ -311,7 +351,7 @@ def post_balanced_financial_voucher(
             tenant_id=tenant_uuid,
             entry_id=entry.id,
             account_code=line.account_code,
-            description=line.description or payload.description,
+            description=line.description or payload.description or "Voucher line",
             debit=Decimal(str(line.debit)),
             credit=Decimal(str(line.credit)),
         )
@@ -319,47 +359,34 @@ def post_balanced_financial_voucher(
 
     db.commit()
     db.refresh(entry)
-    return {
-        "status": "SUCCESS",
-        "entry_id": str(entry.id),
-        "entry_number": entry.entry_number,
-        "description": entry.description,
-        "total_debit": float(entry.total_debit),
-        "total_credit": float(entry.total_credit),
-        "lines_count": len(payload.lines),
-    }
+    _invalidate_coa_cache(str(tenant_uuid))
+    return entry
 
 
+@router.get("/vouchers")
 @router.get("/vouchers/balanced")
 def list_balanced_financial_vouchers(
     db: Session = Depends(get_db),
     x_tenant_id: Optional[str] = Header(None),
+    x_company_id: Optional[str] = Header(None),
 ):
     """Lists posted balanced financial vouchers from finance_journal_entries."""
-    entries = db.execute(
-        select(FinanceJournalEntry).order_by(FinanceJournalEntry.created_at.desc()).limit(100)
-    ).scalars().all()
+    stmt = (
+        select(FinanceJournalEntry)
+        .options(selectinload(FinanceJournalEntry.lines))
+        .order_by(FinanceJournalEntry.created_at.desc())
+        .limit(100)
+    )
+    if x_tenant_id:
+        try:
+            stmt = stmt.where(FinanceJournalEntry.tenant_id == uuid.UUID(x_tenant_id))
+        except ValueError:
+            pass
+    if x_company_id:
+        try:
+            stmt = stmt.where(FinanceJournalEntry.company_id == uuid.UUID(x_company_id))
+        except ValueError:
+            pass
 
-    return [
-        {
-            "id": str(e.id),
-            "entry_number": e.entry_number,
-            "description": e.description,
-            "entry_date": e.entry_date.isoformat() if e.entry_date else None,
-            "total_debit": float(e.total_debit),
-            "total_credit": float(e.total_credit),
-            "status": e.status,
-            "lines": [
-                {
-                    "id": str(l.id),
-                    "account_code": l.account_code,
-                    "description": l.description,
-                    "debit": float(l.debit),
-                    "credit": float(l.credit),
-                }
-                for l in e.lines
-            ] if hasattr(e, "lines") and e.lines else [],
-        }
-        for e in entries
-    ]
+    return db.execute(stmt).scalars().all()
 

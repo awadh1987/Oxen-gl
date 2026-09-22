@@ -10,9 +10,10 @@ from typing import Optional
 from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, event, func, inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from .database import Base
+from backend.app.domains.inventory.models import Material
 
 
 class TimestampMixin:
@@ -55,6 +56,155 @@ class ResCompany(TimestampMixin, Base):
     )
     sso_config: Mapped[Optional["TenantSSOConfig"]] = relationship(
         "TenantSSOConfig", back_populates="company", uselist=False, cascade="all, delete-orphan"
+    )
+
+    # Multi-Tenant Child Cascades (cascade="all, delete-orphan")
+    users: Mapped[list["ResUser"]] = relationship(
+        "ResUser", cascade="all, delete-orphan", passive_deletes=True
+    )
+    partners: Mapped[list["ResPartner"]] = relationship(
+        "ResPartner", cascade="all, delete-orphan", passive_deletes=True
+    )
+    products: Mapped[list["ProductProduct"]] = relationship(
+        "ProductProduct", cascade="all, delete-orphan", passive_deletes=True
+    )
+    locations: Mapped[list["StockLocation"]] = relationship(
+        "StockLocation", cascade="all, delete-orphan", passive_deletes=True
+    )
+    pickings: Mapped[list["StockPicking"]] = relationship(
+        "StockPicking", cascade="all, delete-orphan", passive_deletes=True
+    )
+    moves: Mapped[list["StockMove"]] = relationship(
+        "StockMove", cascade="all, delete-orphan", passive_deletes=True
+    )
+    quants: Mapped[list["StockQuant"]] = relationship(
+        "StockQuant", cascade="all, delete-orphan", passive_deletes=True
+    )
+    trips: Mapped[list["WeighbridgeTicket"]] = relationship(
+        "WeighbridgeTicket", cascade="all, delete-orphan", passive_deletes=True
+    )
+    attachments: Mapped[list["OperationAttachment"]] = relationship(
+        "OperationAttachment", cascade="all, delete-orphan", passive_deletes=True
+    )
+    transporter_ledger: Mapped[list["TransporterLedger"]] = relationship(
+        "TransporterLedger", cascade="all, delete-orphan", passive_deletes=True
+    )
+    accounts: Mapped[list["AccountAccount"]] = relationship(
+        "AccountAccount", cascade="all, delete-orphan", passive_deletes=True
+    )
+    journals: Mapped[list["AccountJournal"]] = relationship(
+        "AccountJournal", cascade="all, delete-orphan", passive_deletes=True
+    )
+    fiscal_years: Mapped[list["FiscalYear"]] = relationship(
+        "FiscalYear", cascade="all, delete-orphan", passive_deletes=True
+    )
+    cost_centers: Mapped[list["CostCenter"]] = relationship(
+        "CostCenter", cascade="all, delete-orphan", passive_deletes=True
+    )
+    invoices: Mapped[list["CustomerInvoice"]] = relationship(
+        "CustomerInvoice", cascade="all, delete-orphan", passive_deletes=True
+    )
+    account_moves: Mapped[list["AccountMove"]] = relationship(
+        "AccountMove", cascade="all, delete-orphan", passive_deletes=True
+    )
+    account_move_lines: Mapped[list["AccountMoveLine"]] = relationship(
+        "AccountMoveLine", cascade="all, delete-orphan", passive_deletes=True
+    )
+    supplier_settlements: Mapped[list["SupplierSettlement"]] = relationship(
+        "SupplierSettlement", cascade="all, delete-orphan", passive_deletes=True
+    )
+    platform_audit_logs: Mapped[list["PlatformAuditLog"]] = relationship(
+        "PlatformAuditLog", cascade="all, delete-orphan", passive_deletes=True
+    )
+    materials: Mapped[list["Material"]] = relationship(
+        "Material", cascade="all, delete-orphan", passive_deletes=True
+    )
+    vehicles: Mapped[list["Vehicle"]] = relationship(
+        "Vehicle", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    maintenance_orders: Mapped[list["MaintenanceWorkOrder"]] = relationship(
+        "MaintenanceWorkOrder", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    part_requirements: Mapped[list["PartRequirement"]] = relationship(
+        "PartRequirement", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    fuel_transactions: Mapped[list["FuelTransaction"]] = relationship(
+        "FuelTransaction", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    crop_cycles: Mapped[list["SeasonalCropCycle"]] = relationship(
+        "SeasonalCropCycle", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    harvest_batches: Mapped[list["HarvestBatch"]] = relationship(
+        "HarvestBatch", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    farm_gate_weighments: Mapped[list["FarmGateWeighment"]] = relationship(
+        "FarmGateWeighment", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    purchase_orders: Mapped[list["PurchaseOrder"]] = relationship(
+        "PurchaseOrder", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    goods_receipts: Mapped[list["GoodsReceipt"]] = relationship(
+        "GoodsReceipt", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    supplier_invoices: Mapped[list["SupplierInvoice"]] = relationship(
+        "SupplierInvoice", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    tax_profiles: Mapped[list["TaxProfile"]] = relationship(
+        "TaxProfile", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    tax_rules: Mapped[list["TaxRule"]] = relationship(
+        "TaxRule", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    zatca_logs: Mapped[list["ZATCALog"]] = relationship(
+        "ZATCALog", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    security_events: Mapped[list["SecurityEvent"]] = relationship(
+        "SecurityEvent", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    device_registrations: Mapped[list["DeviceRegistration"]] = relationship(
+        "DeviceRegistration", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    sync_queue_events: Mapped[list["SyncQueueEvent"]] = relationship(
+        "SyncQueueEvent", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    warehouses: Mapped[list["Warehouse"]] = relationship(
+        "Warehouse", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    warehouse_zones: Mapped[list["WarehouseZone"]] = relationship(
+        "WarehouseZone", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    stock_items: Mapped[list["StockItem"]] = relationship(
+        "StockItem", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    stock_lots: Mapped[list["StockLot"]] = relationship(
+        "StockLot", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    stock_movements: Mapped[list["StockMovement"]] = relationship(
+        "StockMovement", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    yard_gate_appointments: Mapped[list["YardGateAppointment"]] = relationship(
+        "YardGateAppointment", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    fleet_trips: Mapped[list["FleetTrip"]] = relationship(
+        "FleetTrip", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    delivery_proofs: Mapped[list["DeliveryProof"]] = relationship(
+        "DeliveryProof", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    trip_inspection_logs: Mapped[list["TripInspectionLog"]] = relationship(
+        "TripInspectionLog", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    reporting_ledger_summaries: Mapped[list["ReportingLedgerSummary"]] = relationship(
+        "ReportingLedgerSummary", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    fleet_utilization_facts: Mapped[list["FleetUtilizationFact"]] = relationship(
+        "FleetUtilizationFact", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    ai_model_configs: Mapped[list["AIModelConfig"]] = relationship(
+        "AIModelConfig", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
+    )
+    ai_governance_logs: Mapped[list["AIGovernanceLog"]] = relationship(
+        "AIGovernanceLog", cascade="all, delete-orphan", overlaps="company", passive_deletes=True
     )
 
     def __init__(self, *args, **kwargs):
@@ -127,7 +277,7 @@ class ResUser(TimestampMixin, Base):
     mfa_backup_codes: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     __table_args__ = (
-        CheckConstraint("role IN ('Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest')", name="ck_res_user_role"),
+        CheckConstraint("role IN ('Super_Admin', 'Admin', 'COO', 'CEO', 'Accountant', 'Data_Entry', 'Guest')", name="ck_res_user_role"),
     )
 
     @property
@@ -344,6 +494,7 @@ class WeighbridgeTicket(TimestampMixin, Base):
     gross_weight: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     tare_weight: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
     net_weight: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    uom: Mapped[str] = mapped_column(String(32), default="MT", nullable=False)
     unit_of_measure: Mapped[str] = mapped_column(String(32), default="MT طن", nullable=False)
     weighed_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     weighed_out_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -380,6 +531,21 @@ class WeighbridgeTicket(TimestampMixin, Base):
         CheckConstraint("net_weight = gross_weight - tare_weight", name="ck_ticket_net_weight"),
         Index("ix_weighbridge_tickets_truck_weighed_in", "truck_number", "weighed_in_at"),
     )
+
+
+class OperationAttachment(TimestampMixin, Base):
+    __tablename__ = "operation_attachments"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("res_companies.id"), nullable=True, index=True)
+    ticket_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("weighbridge_tickets.id", ondelete="CASCADE"), nullable=True, index=True)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_size: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    file_type: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    doc_category: Mapped[str] = mapped_column(String(64), default="Other", nullable=False)
+    file_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
+    uploaded_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
 
 class TransporterLedger(TimestampMixin, Base):
@@ -1691,7 +1857,7 @@ class TenantUser(TimestampMixin, Base):
     tfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     __table_args__ = (
-        CheckConstraint("role IN ('admin', 'user', 'guest_user')", name="ck_tenant_user_role"),
+        CheckConstraint("role IN ('admin', 'ceo', 'user', 'guest_user')", name="ck_tenant_user_role"),
     )
 
 

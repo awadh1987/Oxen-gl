@@ -274,15 +274,15 @@ export const OperationsLogView: React.FC = () => {
           <p className="text-lg font-black text-neutral-900">{filteredOperations.length} {isAr ? 'رحلة' : 'trips'}</p>
         </div>
         <div>
-          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي المحمل (MT طن)' : 'Loaded (MT طن)'}</span>
+          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي الكميات المحملة' : 'Total Loaded Qty'}</span>
           <p className="text-lg font-black text-neutral-900">{formatTonnage(currentTotalLoaded, language)}</p>
         </div>
         <div>
-          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي المستلم الصافي (MT طن)' : 'Net Delivered (MT طن)'}</span>
+          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي الكميات المستلمة' : 'Net Delivered Qty'}</span>
           <p className="text-lg font-black text-[#F05627]">{formatTonnage(currentTotalDelivered, language)}</p>
         </div>
         <div>
-          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي الفاقد (MT طن)' : 'Total Wastage Loss (MT طن)'}</span>
+          <span className="text-[11px] font-semibold text-neutral-500">{isAr ? 'إجمالي كمية الفاقد' : 'Total Wastage Loss'}</span>
           <p className="text-lg font-black text-rose-600">{formatTonnage(currentTotalWastage, language)}</p>
         </div>
       </div>
@@ -414,9 +414,9 @@ export const OperationsLogView: React.FC = () => {
                 <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'منشأة الإرسال' : 'Origin / Dispatch Facility'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'العميل المستلم' : 'Destination Client'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'نوع المادة' : 'Material'}</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الوزن المحمل (MT طن)' : 'Loaded (MT طن)'}</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الوزن المستلم (MT طن)' : 'Delivered (MT طن)'}</th>
-                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الفاقد (MT طن / %)' : 'Wastage (MT طن / %)'}</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الكمية المحملة' : 'Loaded Qty'}</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الكمية المستلمة' : 'Delivered Qty'}</th>
+                <th className="py-3.5 px-3 text-center whitespace-nowrap">{isAr ? 'الفاقد / الهدر (%)' : 'Wastage (%)'}</th>
                 {canAccessFinancials && (
                   <>
                     <th className="py-3.5 px-3 whitespace-nowrap">{isAr ? 'المبيعات بدون ضريبة' : 'Sales Excl. VAT'}</th>
@@ -442,6 +442,7 @@ export const OperationsLogView: React.FC = () => {
                   const displayTripId = op.id.startsWith('TRP-')
                     ? op.id
                     : `TRP-${op.id.replace(/[^0-9]/g, '').slice(-4) || '1001'}`;
+                  const rowUom = op.uom ? (op.uom === 'MT طن' ? (isAr ? 'MT طن' : 'MT') : op.uom) : (isAr ? 'MT طن' : 'MT');
 
                   return (
                     <tr key={op.id} className="hover:bg-orange-50/30 transition-colors">
@@ -477,10 +478,10 @@ export const OperationsLogView: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-center font-mono font-semibold text-slate-800">
-                        {op.qty_loaded} MT طن
+                        {op.qty_loaded} {rowUom}
                       </td>
                       <td className="py-3 px-3 text-center font-mono font-bold text-slate-900">
-                        {op.qty_delivered} MT طن
+                        {op.qty_delivered} {rowUom}
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span
@@ -488,7 +489,7 @@ export const OperationsLogView: React.FC = () => {
                             isHighLoss ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'
                           }`}
                         >
-                          {op.qty_wastage} MT طن ({op.wastage_percentage}%)
+                          {op.qty_wastage} {rowUom} ({op.wastage_percentage}%)
                         </span>
                       </td>
                       {canAccessFinancials && (

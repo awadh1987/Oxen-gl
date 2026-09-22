@@ -340,30 +340,36 @@ export const CustomerInvoicingView: React.FC = () => {
     setActionLoading(true);
     setFeedback(null);
     try {
-      if (currentBackendInvoice && currentBackendInvoice.status === 'Draft') {
-        const updated = await erpApi.updateCustomerInvoice(currentCompany.id, currentBackendInvoice.id, {
+      const cycleYearMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+      const existingInvoice = currentBackendInvoice || backendInvoices.find(
+        (inv) =>
+          inv.invoice_number === invoiceNumber ||
+          (inv.partner_id === selectedCustomerId &&
+            inv.issue_date &&
+            inv.issue_date.startsWith(cycleYearMonth))
+      );
+
+      if (existingInvoice) {
+        const updated = await erpApi.updateCustomerInvoice(currentCompany.id, existingInvoice.id, {
           customer_name: selectedCustomer?.customerName || 'Customer',
           customer_tax_number: selectedCustomer?.taxNumber || null,
           partner_id: selectedCustomer?.id || null,
-          subtotal,
-          vat_amount: totalVat,
-          grand_total: grandTotal,
           issue_date: issueDate,
           due_date: dueDate,
         });
         setCurrentBackendInvoice(updated);
-        setInvoiceStatus('Draft');
+        setInvoiceStatus((updated.status as any) || 'Draft');
       } else {
         const created = await erpApi.createCustomerInvoice(currentCompany.id, {
           invoice_number: invoiceNumber,
           customer_name: selectedCustomer?.customerName || 'Customer',
           customer_tax_number: selectedCustomer?.taxNumber || null,
           partner_id: selectedCustomer?.id || null,
-          subtotal,
-          vat_amount: totalVat,
-          grand_total: grandTotal,
           issue_date: issueDate,
           due_date: dueDate,
+          subtotal: 0,
+          vat_amount: 0,
+          grand_total: 0,
         });
         setCurrentBackendInvoice(created);
         setInvoiceStatus('Draft');
@@ -398,24 +404,44 @@ export const CustomerInvoicingView: React.FC = () => {
     setActionLoading(true);
     setFeedback(null);
     try {
-      let targetId = currentBackendInvoice?.id;
-      if (!targetId || currentBackendInvoice?.status !== 'Draft') {
+      const cycleYearMonth = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+      const existingInvoice = currentBackendInvoice || backendInvoices.find(
+        (inv) =>
+          inv.invoice_number === invoiceNumber ||
+          (inv.partner_id === selectedCustomerId &&
+            inv.issue_date &&
+            inv.issue_date.startsWith(cycleYearMonth))
+      );
+
+      let approved: ApiCustomerInvoice;
+      if (existingInvoice) {
+        // If an invoice already exists for this cycle, clicking approve MUST send a PUT or PATCH request
+        // to update the status to 'Approved', it must NEVER send a POST.
+        approved = await erpApi.updateCustomerInvoice(currentCompany.id, existingInvoice.id, {
+          status: 'Approved',
+          customer_name: selectedCustomer?.customerName || 'Customer',
+          customer_tax_number: selectedCustomer?.taxNumber || null,
+          partner_id: selectedCustomer?.id || null,
+          issue_date: issueDate,
+          due_date: dueDate,
+        });
+      } else {
         const created = await erpApi.createCustomerInvoice(currentCompany.id, {
           invoice_number: invoiceNumber,
           customer_name: selectedCustomer?.customerName || 'Customer',
           customer_tax_number: selectedCustomer?.taxNumber || null,
           partner_id: selectedCustomer?.id || null,
-          subtotal,
-          vat_amount: totalVat,
-          grand_total: grandTotal,
           issue_date: issueDate,
           due_date: dueDate,
+          subtotal: 0,
+          vat_amount: 0,
+          grand_total: 0,
         });
-        targetId = created.id;
-        setCurrentBackendInvoice(created);
+        approved = await erpApi.updateCustomerInvoice(currentCompany.id, created.id, {
+          status: 'Approved',
+        });
       }
 
-      const approved = await erpApi.approveCustomerInvoice(currentCompany.id, targetId);
       setCurrentBackendInvoice(approved);
       setInvoiceStatus('Approved');
       setIsSigned(true);
@@ -437,11 +463,11 @@ export const CustomerInvoicingView: React.FC = () => {
         userRole: currentUser.role,
         action: 'APPROVE',
         entityType: 'Invoice',
-        entityId: invoiceNumber,
-        summary: `اعتماد وتوقيع الفاتورة الضريبية رقم (${invoiceNumber}) وإلغاء علامة المسودة المائية`,
+        entityId: approved.invoice_number || invoiceNumber,
+        summary: `اعتماد وتوقيع الفاتورة الضريبية رقم (${approved.invoice_number || invoiceNumber}) وإلغاء علامة المسودة المائية`,
         newData: {
-          invoiceNumber,
-          grandTotal,
+          invoiceNumber: approved.invoice_number || invoiceNumber,
+          grandTotal: approved.grand_total,
           verificationHash: hash,
         },
       });

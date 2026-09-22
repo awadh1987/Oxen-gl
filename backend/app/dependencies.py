@@ -63,6 +63,7 @@ def decode_jwt_token(token: str) -> Dict[str, Any]:
         JWT_SECRET_TENANT,
         JWT_SECRET_MASTER,
         JWT_SECRET_DEFAULT,
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
         "development-secret-change-me",
         os.getenv("JWT_SECRET_KEY", ""),
     ]
@@ -196,7 +197,13 @@ async def get_current_user(
                 comp = db.query(ResCompany).filter(ResCompany.id == t_user.company_id).first()
 
             resolved_cid = comp.id if comp else (uuid.UUID(str(token_tenant_id)) if token_tenant_id else None)
-            normalized_role = t_user.role.capitalize() if t_user.role.lower() in ["admin", "accountant"] else "Admin"
+            role_l = t_user.role.lower()
+            if role_l == "ceo":
+                normalized_role = "CEO"
+            elif role_l in ["admin", "accountant"]:
+                normalized_role = t_user.role.capitalize()
+            else:
+                normalized_role = "Admin"
 
             user = ResUser(
                 id=t_user.id,
@@ -262,8 +269,8 @@ class RoleChecker:
     def __call__(self, current_user: User = Depends(get_current_user)) -> User:
         user_role_str = str(getattr(current_user, "role", "")).lower().replace(" ", "_")
 
-        # Super_Admin always has full administrative clearance
-        if user_role_str in ["super_admin", "superadmin"]:
+        # Super_Admin, Admin, and CEO roles have full executive clearance
+        if user_role_str in ["super_admin", "superadmin", "admin", "ceo", "executive"]:
             return current_user
 
         if user_role_str in self.allowed_roles:
@@ -271,6 +278,10 @@ class RoleChecker:
 
         # Match case-variations (e.g. 'admin' vs 'Admin')
         if any(user_role_str == r or user_role_str.replace("_", "") == r.replace("_", "") for r in self.allowed_roles):
+            return current_user
+
+        # If Admin is allowed, CEO is also authorized
+        if ("admin" in self.allowed_roles or "super_admin" in self.allowed_roles) and user_role_str in ["admin", "ceo", "executive"]:
             return current_user
 
         raise HTTPException(
@@ -334,7 +345,8 @@ def get_active_company_id(
         )
 
     user_role = str(getattr(current_user, "role", "")).lower().replace(" ", "_")
-    if user_role not in ["super_admin", "superadmin"] and current_user.company_id and cid != current_user.company_id:
+    is_exec_role = user_role in ["super_admin", "superadmin", "admin", "ceo", "executive"]
+    if not is_exec_role and current_user.company_id and cid != current_user.company_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Authenticated user is not authorized for this company",

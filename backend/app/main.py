@@ -21,7 +21,7 @@ try:
 	from backend.rate_limiter import limiter
 except (ImportError, ValueError):
 	from rate_limiter import limiter
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import and_, extract, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -36,6 +36,7 @@ try:
 		PlatformAssetUploadRequest, PlatformAssetUploadResponse,
 		ProductProductCreate, ProductProductRead, ResPartnerCreate, ResPartnerRead, ResPartnerUpdate, UserRegistrationCreate,
 		ResCompanyRead, PublicTenantRead, StockLocationCreate, StockLocationRead, WeighbridgeOperationCreate, WeighbridgeOperationRead,
+		OperationAttachmentCreate, OperationAttachmentRead,
 		VehicleCreate, VehicleUpdate, VehicleRead,
 		MaintenanceWorkOrderCreate, MaintenanceWorkOrderUpdate, MaintenanceWorkOrderRead,
 		PartRequirementCreate, PartRequirementUpdate, PartRequirementRead,
@@ -121,6 +122,7 @@ except ImportError:
 		PlatformAssetUploadRequest, PlatformAssetUploadResponse,
 		ProductProductCreate, ProductProductRead, ResPartnerCreate, ResPartnerRead, ResPartnerUpdate, UserRegistrationCreate,
 		ResCompanyRead, PublicTenantRead, StockLocationCreate, StockLocationRead, WeighbridgeOperationCreate, WeighbridgeOperationRead,
+		OperationAttachmentCreate, OperationAttachmentRead,
 		VehicleCreate, VehicleUpdate, VehicleRead,
 		MaintenanceWorkOrderCreate, MaintenanceWorkOrderUpdate, MaintenanceWorkOrderRead,
 		PartRequirementCreate, PartRequirementUpdate, PartRequirementRead,
@@ -503,13 +505,22 @@ def get_authenticated_user(request: Request, database: Session = Depends(get_db)
 		database.refresh(user)
 
 	claim_company_id = claims.get("company_id")
-	if claim_company_id and user.role != "Super_Admin":
+	user_role_norm = str(getattr(user, "role", "") or "").upper().replace(" ", "_")
+	is_exec_role = getattr(user, "is_superuser", False) or user_role_norm in ["SUPER_ADMIN", "ADMIN", "CEO", "EXECUTIVE"]
+	if claim_company_id and not is_exec_role:
 		try:
 			claim_uuid = uuid.UUID(str(claim_company_id))
 		except ValueError as error:
 			raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session company claim is invalid") from error
 		if claim_uuid != user.company_id:
 			raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Session company does not match authenticated user membership")
+	elif claim_company_id and is_exec_role and not user.company_id:
+		try:
+			user.company_id = uuid.UUID(str(claim_company_id))
+			database.commit()
+			database.refresh(user)
+		except Exception:
+			pass
 	return user
 get_current_active_user = get_authenticated_user
 
@@ -534,7 +545,8 @@ def get_active_company_id(request: Request, x_company_id: str | None = Header(de
 		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="X-Company-ID must be a UUID") from error
 	if database.get(models.ResCompany, company_id) is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active company was not found")
-	is_super_admin = getattr(current_user, "is_superuser", False) or str(getattr(current_user, "role", "") or "").upper() == "SUPER_ADMIN"
+	user_role_norm = str(getattr(current_user, "role", "") or "").upper().replace(" ", "_")
+	is_super_admin = getattr(current_user, "is_superuser", False) or user_role_norm in ["SUPER_ADMIN", "ADMIN", "CEO", "EXECUTIVE"]
 	if not is_super_admin and current_user.company_id and company_id != current_user.company_id:
 		record_security_event(
 			database,
@@ -562,8 +574,8 @@ def require_compliance_admin(
 	company_id: uuid.UUID = Depends(get_active_company_id),
 ) -> models.ResUser:
 	"""TenantContext write guard preventing privilege escalation for tax and compliance operations."""
-	role_normalized = str(getattr(current_user, "role", "") or "").upper()
-	allowed_compliance_roles = {"SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "COO"}
+	role_normalized = str(getattr(current_user, "role", "") or "").upper().replace(" ", "_")
+	allowed_compliance_roles = {"SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "COO", "CEO", "EXECUTIVE"}
 	if not getattr(current_user, "is_superuser", False) and role_normalized not in allowed_compliance_roles:
 		record_security_event(
 			database,
@@ -576,11 +588,11 @@ def require_compliance_admin(
 			user_agent=request.headers.get("user-agent"),
 			request_path=request.url.path,
 			request_method=request.method,
-			details=f"User role '{current_user.role}' denied access to compliance management: requires Admin or Accountant",
+			details=f"User role '{current_user.role}' denied access to compliance management: requires Admin, CEO, or Accountant",
 		)
 		raise HTTPException(
 			status_code=status.HTTP_403_FORBIDDEN,
-			detail="Access denied: Admin, Accountant, or COO role required for compliance configurations",
+			detail="Access denied: Admin, CEO, Accountant, or COO role required for compliance configurations",
 		)
 	return current_user
 
@@ -617,7 +629,8 @@ def require_tenant_admin(
 	company_id: uuid.UUID = Depends(get_active_company_id),
 ) -> models.ResUser:
 	"""TenantContext security guard restricting tenant administrative actions."""
-	if current_user.role not in {"Super_Admin", "Admin"}:
+	role_normalized = str(getattr(current_user, "role", "") or "").upper().replace(" ", "_")
+	if not getattr(current_user, "is_superuser", False) and role_normalized not in {"SUPER_ADMIN", "ADMIN", "CEO", "EXECUTIVE"}:
 		record_security_event(
 			database,
 			event_type="policy_denial",
@@ -629,11 +642,11 @@ def require_tenant_admin(
 			user_agent=request.headers.get("user-agent"),
 			request_path=request.url.path,
 			request_method=request.method,
-			details=f"User role '{current_user.role}' denied access: requires Admin or Super_Admin",
+			details=f"User role '{current_user.role}' denied access: requires Admin, CEO, or Super_Admin",
 		)
 		raise HTTPException(
 			status_code=status.HTTP_403_FORBIDDEN,
-			detail="Access denied: Admin role required for tenant security operations",
+			detail="Access denied: Admin or CEO role required for tenant security operations",
 		)
 	return current_user
 
@@ -1098,15 +1111,25 @@ def issue_platform_license(payload: LicenseIssueRequest, database: Session = Dep
 
 
 @app.get("/api/partners", response_model=list[ResPartnerRead], tags=["Master Data"])
-def list_partners(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
-	partners = database.scalars(select(models.ResPartner).where(models.ResPartner.company_id == company_id, models.ResPartner.is_active.is_(True)).order_by(models.ResPartner.name)).all()
-	seen_ids = set()
-	deduped = []
-	for p in partners:
-		if p.id not in seen_ids:
-			seen_ids.add(p.id)
-			deduped.append(p)
-	return deduped
+@app.get("/api/v1/partners", response_model=list[ResPartnerRead], tags=["Master Data"])
+def list_partners(
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	partner_type: Optional[str] = None,
+	database: Session = Depends(get_db)
+):
+	clean_name = func.trim(models.ResPartner.name)
+	stmt = (
+		select(models.ResPartner)
+		.distinct(clean_name)
+		.where(
+			models.ResPartner.company_id == company_id,
+			models.ResPartner.is_active.is_(True),
+		)
+	)
+	if partner_type:
+		stmt = stmt.where(models.ResPartner.partner_type == partner_type)
+	stmt = stmt.order_by(clean_name, models.ResPartner.created_at.desc())
+	return database.scalars(stmt).all()
 
 
 TIER_LIMITS = {
@@ -1379,15 +1402,19 @@ def create_location(payload: StockLocationCreate, company_id: uuid.UUID = Depend
 
 
 @app.get("/api/products", response_model=list[ProductProductRead], tags=["Master Data"])
+@app.get("/api/v1/products", response_model=list[ProductProductRead], tags=["Master Data"])
 def list_products(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
-	products = database.scalars(select(models.ProductProduct).where(models.ProductProduct.company_id == company_id, models.ProductProduct.is_active.is_(True)).order_by(models.ProductProduct.name)).all()
-	seen_ids = set()
-	deduped = []
-	for pr in products:
-		if pr.id not in seen_ids:
-			seen_ids.add(pr.id)
-			deduped.append(pr)
-	return deduped
+	clean_name = func.trim(models.ProductProduct.name)
+	stmt = (
+		select(models.ProductProduct)
+		.distinct(clean_name)
+		.where(
+			models.ProductProduct.company_id == company_id,
+			models.ProductProduct.is_active.is_(True),
+		)
+		.order_by(clean_name, models.ProductProduct.created_at.desc())
+	)
+	return database.scalars(stmt).all()
 
 
 @app.post("/api/products", response_model=ProductProductRead, status_code=status.HTTP_201_CREATED, tags=["Master Data"])
@@ -1413,7 +1440,8 @@ def operation_response(ticket: models.WeighbridgeTicket) -> WeighbridgeOperation
 		dest_location_id=move.location_dest_id, dest_location_name=move.destination_location.name,
 		ticket_id=ticket.id, ticket_number=ticket.ticket_number, truck_number=ticket.truck_number,
 		gross_weight=ticket.gross_weight, tare_weight=ticket.tare_weight, net_weight=ticket.net_weight,
-		unit_of_measure=getattr(ticket, "unit_of_measure", "MT طن") or "MT طن",
+		uom=getattr(ticket, "uom", None) or getattr(ticket, "unit_of_measure", "MT") or "MT",
+		unit_of_measure=getattr(ticket, "uom", None) or getattr(ticket, "unit_of_measure", "MT") or "MT",
 		weighed_in_at=ticket.weighed_in_at, attachments=ticket.attachments or [],
 		scale_ticket_attachment=ticket.scale_ticket_attachment,
 		material_supplier_name=getattr(ticket, "material_supplier_name", None),
@@ -1571,7 +1599,30 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 				else:
 					database.add(models.StockQuant(company_id=company_id, product_id=product.id, location_id=location_id, quantity=quantity_change))
 
-			ticket = models.WeighbridgeTicket(company_id=company_id, ticket_number=ticket_number, picking_id=picking.id, truck_number=payload.truck_number, gross_weight=gross_weight, tare_weight=tare_weight, net_weight=net_weight, unit_of_measure=payload.unit_of_measure or "MT طن", weighed_in_at=datetime.now(timezone.utc), weighed_out_at=datetime.now(timezone.utc), attachments=payload.attachments, scale_ticket_attachment=payload.scale_ticket_attachment)
+			selected_uom = payload.uom or payload.unit_of_measure or "MT"
+			ticket = models.WeighbridgeTicket(
+				company_id=company_id,
+				ticket_number=ticket_number,
+				picking_id=picking.id,
+				truck_number=payload.truck_number,
+				gross_weight=gross_weight,
+				tare_weight=tare_weight,
+				net_weight=net_weight,
+				uom=selected_uom,
+				unit_of_measure=selected_uom,
+				weighed_in_at=datetime.now(timezone.utc),
+				weighed_out_at=datetime.now(timezone.utc),
+				attachments=payload.attachments,
+				scale_ticket_attachment=payload.scale_ticket_attachment,
+				material_supplier_name=source.name if source else None,
+				service_supplier_name=partner.name if partner else None,
+				destination_customer_name=destination.name if destination else None,
+				material_type=product.name if product else None,
+				qty_loaded=payload.qty_loaded if payload.qty_loaded is not None else gross_weight,
+				qty_delivered=payload.qty_delivered if payload.qty_delivered is not None else net_weight,
+				qty_wastage=payload.qty_wastage if payload.qty_wastage is not None else (gross_weight - net_weight),
+				wastage_percentage=payload.wastage_percentage,
+			)
 			database.add(ticket)
 		database.commit()
 		database.refresh(ticket)
@@ -1588,6 +1639,98 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 def get_operations(company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	tickets = database.scalars(select(models.WeighbridgeTicket).join(models.WeighbridgeTicket.picking).where(models.WeighbridgeTicket.company_id == company_id).order_by(models.WeighbridgeTicket.weighed_in_at.desc()).limit(100)).all()
 	return [operation_response(ticket) for ticket in tickets]
+
+
+@app.post("/api/operations/attachments", response_model=OperationAttachmentRead, status_code=status.HTTP_201_CREATED, tags=["Operations"])
+@app.post("/api/v1/operations/attachments", response_model=OperationAttachmentRead, status_code=status.HTTP_201_CREATED, tags=["Operations"])
+def create_operation_attachment(
+	payload: OperationAttachmentCreate,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db)
+):
+	from sqlalchemy.orm.attributes import flag_modified
+
+	fn = payload.fileName or payload.file_name or "attachment"
+	fs = payload.fileSize or payload.file_size or "0 KB"
+	ft = payload.fileType or payload.file_type or "application/octet-stream"
+	dc = payload.docCategory or payload.doc_category or "Other"
+	fd = payload.fileData or payload.file_data or ""
+	ub = payload.uploadedBy or payload.uploaded_by or "System"
+
+	target_ticket = None
+	target_id_raw = payload.operation_id or payload.picking_id or payload.ticket_id
+	if target_id_raw:
+		try:
+			target_uuid = uuid.UUID(str(target_id_raw))
+			target_ticket = database.scalar(
+				select(models.WeighbridgeTicket).where(
+					(models.WeighbridgeTicket.id == target_uuid) |
+					(models.WeighbridgeTicket.picking_id == target_uuid)
+				)
+			)
+		except ValueError:
+			target_ticket = database.scalar(
+				select(models.WeighbridgeTicket).where(
+					models.WeighbridgeTicket.ticket_number == str(target_id_raw)
+				)
+			)
+
+	if not target_ticket:
+		target_ticket = database.scalar(
+			select(models.WeighbridgeTicket)
+			.where(models.WeighbridgeTicket.company_id == company_id)
+			.order_by(models.WeighbridgeTicket.weighed_in_at.desc())
+		)
+
+	att = models.OperationAttachment(
+		company_id=company_id,
+		ticket_id=target_ticket.id if target_ticket else None,
+		file_name=fn,
+		file_size=fs,
+		file_type=ft,
+		doc_category=dc,
+		file_data=fd,
+		uploaded_by=ub,
+		uploaded_at=datetime.now(timezone.utc),
+	)
+	database.add(att)
+
+	if target_ticket:
+		current_attachments = list(target_ticket.attachments or [])
+		current_attachments.append({
+			"id": str(att.id),
+			"fileName": fn,
+			"fileSize": fs,
+			"fileType": ft,
+			"docCategory": dc,
+			"fileData": fd,
+			"uploadedAt": att.uploaded_at.isoformat(),
+			"uploadedBy": ub,
+		})
+		target_ticket.attachments = current_attachments
+		if dc == "Scale Ticket" and fd:
+			target_ticket.scale_ticket_attachment = fd
+		flag_modified(target_ticket, "attachments")
+		database.add(target_ticket)
+
+	database.commit()
+	database.refresh(att)
+	return att
+
+
+@app.get("/api/operations/attachments", response_model=list[OperationAttachmentRead], tags=["Operations"])
+@app.get("/api/v1/operations/attachments", response_model=list[OperationAttachmentRead], tags=["Operations"])
+def list_operation_attachments(
+	operation_id: Optional[uuid.UUID] = None,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db)
+):
+	stmt = select(models.OperationAttachment).where(
+		(models.OperationAttachment.company_id == company_id) | (models.OperationAttachment.company_id.is_(None))
+	)
+	if operation_id:
+		stmt = stmt.where(models.OperationAttachment.ticket_id == operation_id)
+	return database.scalars(stmt.order_by(models.OperationAttachment.created_at.desc())).all()
 
 
 @app.get("/api/operations/{picking_id}", response_model=WeighbridgeOperationRead, tags=["Operations"])
@@ -1865,29 +2008,188 @@ def list_customer_invoices(company_id: uuid.UUID = Depends(get_active_company_id
 	return database.scalars(select(models.CustomerInvoice).where(models.CustomerInvoice.company_id == company_id).order_by(models.CustomerInvoice.created_at.desc()).limit(100)).all()
 
 
+def calculate_trip_totals_for_invoice(
+	database: Session,
+	company_id: uuid.UUID,
+	partner_id: uuid.UUID | None,
+	customer_name: str | None,
+	issue_date: datetime,
+) -> tuple[Decimal, Decimal, Decimal]:
+	"""
+	Strict Backend Math Engine for Invoices:
+	Queries trips (WeighbridgeTickets) for the company, partner, and cycle month/year.
+	Calculates subtotal, vat_amount (15%), and grand_total strictly using Python Decimal and ROUND_HALF_UP.
+	"""
+	quantize = Decimal("0.01")
+	vat_rate = Decimal("0.15")
+
+	target_month = issue_date.month
+	target_year = issue_date.year
+
+	partner = None
+	if partner_id:
+		partner = database.scalar(
+			select(models.ResPartner).where(
+				models.ResPartner.id == partner_id,
+				models.ResPartner.company_id == company_id,
+			)
+		)
+
+	partner_names: list[str] = []
+	if partner and partner.name:
+		partner_names.append(partner.name.strip())
+	if customer_name and customer_name.strip():
+		c_name = customer_name.strip()
+		if c_name not in partner_names:
+			partner_names.append(c_name)
+
+	query = (
+		select(models.WeighbridgeTicket)
+		.outerjoin(models.StockPicking, models.WeighbridgeTicket.picking_id == models.StockPicking.id)
+		.where(models.WeighbridgeTicket.company_id == company_id)
+	)
+
+	date_cond = or_(
+		and_(
+			models.WeighbridgeTicket.operation_month == target_month,
+			models.WeighbridgeTicket.operation_year == target_year,
+		),
+		and_(
+			models.WeighbridgeTicket.operation_month.is_(None),
+			extract("month", models.WeighbridgeTicket.weighed_in_at) == target_month,
+			extract("year", models.WeighbridgeTicket.weighed_in_at) == target_year,
+		),
+	)
+	query = query.where(date_cond)
+
+	partner_conds = []
+	if partner_id:
+		partner_conds.append(models.StockPicking.partner_id == partner_id)
+	for p_name in partner_names:
+		partner_conds.append(models.WeighbridgeTicket.destination_customer_name.ilike(f"%{p_name}%"))
+
+	if partner_conds:
+		query = query.where(or_(*partner_conds))
+
+	tickets = database.scalars(query).all()
+
+	if not tickets:
+		return Decimal("0.00"), Decimal("0.00"), Decimal("0.00")
+
+	material_sales: dict[str, Decimal] = {}
+	for ticket in tickets:
+		m_type = (ticket.material_type or "General").strip()
+		s_amt = Decimal(str(ticket.sales_amount or 0))
+		material_sales[m_type] = material_sales.get(m_type, Decimal("0.00")) + s_amt
+
+	calc_subtotal = Decimal("0.00")
+	calc_vat = Decimal("0.00")
+	for m_type, sales in material_sales.items():
+		sub = sales.quantize(quantize, rounding=ROUND_HALF_UP)
+		vat = (sub * vat_rate).quantize(quantize, rounding=ROUND_HALF_UP)
+		calc_subtotal += sub
+		calc_vat += vat
+
+	calc_subtotal = calc_subtotal.quantize(quantize, rounding=ROUND_HALF_UP)
+	calc_vat = calc_vat.quantize(quantize, rounding=ROUND_HALF_UP)
+	calc_grand = (calc_subtotal + calc_vat).quantize(quantize, rounding=ROUND_HALF_UP)
+
+	return calc_subtotal, calc_vat, calc_grand
+
+
 @app.post("/api/customer-invoices", response_model=CustomerInvoiceRead, status_code=status.HTTP_201_CREATED, tags=["Customer Invoices"])
 def create_customer_invoice(payload: CustomerInvoiceCreate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
+	partner = None
 	if payload.partner_id:
 		partner = database.scalar(select(models.ResPartner).where(models.ResPartner.id == payload.partner_id, models.ResPartner.company_id == company_id))
 		if partner is None:
 			raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer partner was not found")
+
 	issue_date = payload.issue_date or datetime.now(timezone.utc)
-	subtotal = payload.subtotal.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-	vat_amount = payload.vat_amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-	# Align grand_total with subtotal + vat_amount to avoid floating point drift
-	grand_total = (subtotal + vat_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+	due_date = payload.due_date or (issue_date + timedelta(days=30))
+	cust_name = partner.name if partner else payload.customer_name
+	cust_tax = partner.tax_number if partner else payload.customer_tax_number
+
+	# Strict Math Enforcement: Ignore subtotal, vat_amount, and grand_total in payload.
+	calc_subtotal, calc_vat, calc_grand = calculate_trip_totals_for_invoice(
+		database=database,
+		company_id=company_id,
+		partner_id=payload.partner_id,
+		customer_name=cust_name,
+		issue_date=issue_date,
+	)
+
+	# Idempotency safety check: return or gracefully update existing Draft invoice for that cycle
+	existing_query = select(models.CustomerInvoice).where(
+		models.CustomerInvoice.company_id == company_id,
+		extract("year", models.CustomerInvoice.issue_date) == issue_date.year,
+		extract("month", models.CustomerInvoice.issue_date) == issue_date.month,
+	)
+	if payload.partner_id:
+		existing_query = existing_query.where(models.CustomerInvoice.partner_id == payload.partner_id)
+	elif cust_name:
+		existing_query = existing_query.where(models.CustomerInvoice.customer_name == cust_name)
+
+	existing_invoice = database.scalar(existing_query.order_by(models.CustomerInvoice.created_at.desc()))
+
+	if not existing_invoice and payload.invoice_number:
+		existing_invoice = database.scalar(
+			select(models.CustomerInvoice).where(
+				models.CustomerInvoice.company_id == company_id,
+				models.CustomerInvoice.invoice_number == payload.invoice_number,
+			)
+		)
+
+	if existing_invoice:
+		if existing_invoice.status == "Draft":
+			existing_invoice.subtotal = calc_subtotal
+			existing_invoice.vat_amount = calc_vat
+			existing_invoice.grand_total = calc_grand
+			if payload.customer_name:
+				existing_invoice.customer_name = payload.customer_name
+			if payload.customer_tax_number:
+				existing_invoice.customer_tax_number = payload.customer_tax_number
+			if payload.due_date:
+				existing_invoice.due_date = payload.due_date
+			database.commit()
+			database.refresh(existing_invoice)
+			return existing_invoice
+		return existing_invoice
+
 	database.rollback()
 	try:
-		with database.begin():
+		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
+		with tx_ctx:
 			journal = journal_by_code(database, company_id, "INV", "Sales Invoices", "sale", "INV")
 			invoice_number = payload.invoice_number or f"INV/{issue_date:%Y}/{journal.next_sequence:05d}"
 			journal.next_sequence += 1
-			invoice = models.CustomerInvoice(company_id=company_id, partner_id=payload.partner_id, invoice_number=invoice_number, customer_name=payload.customer_name, customer_tax_number=payload.customer_tax_number, issue_date=issue_date, due_date=payload.due_date, subtotal=subtotal, vat_amount=vat_amount, grand_total=grand_total, status="Draft")
+			invoice = models.CustomerInvoice(
+				company_id=company_id,
+				partner_id=payload.partner_id,
+				invoice_number=invoice_number,
+				customer_name=cust_name,
+				customer_tax_number=cust_tax,
+				issue_date=issue_date,
+				due_date=due_date,
+				subtotal=calc_subtotal,
+				vat_amount=calc_vat,
+				grand_total=calc_grand,
+				status="Draft",
+			)
 			database.add(invoice)
+		database.commit()
 		database.refresh(invoice)
-	except IntegrityError as error:
+	except IntegrityError:
 		database.rollback()
-		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to create customer invoice") from error
+		fallback = database.scalar(
+			select(models.CustomerInvoice).where(
+				models.CustomerInvoice.company_id == company_id,
+				models.CustomerInvoice.invoice_number == (payload.invoice_number or invoice_number),
+			)
+		)
+		if fallback:
+			return fallback
+		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to create customer invoice")
 	return invoice
 
 
@@ -1900,26 +2202,34 @@ def get_customer_invoice(invoice_id: uuid.UUID, company_id: uuid.UUID = Depends(
 
 
 @app.patch("/api/customer-invoices/{invoice_id}", response_model=CustomerInvoiceRead, tags=["Customer Invoices"])
-def update_customer_invoice(invoice_id: uuid.UUID, payload: CustomerInvoiceUpdate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
+@app.put("/api/customer-invoices/{invoice_id}", response_model=CustomerInvoiceRead, tags=["Customer Invoices"])
+def update_customer_invoice(
+	invoice_id: uuid.UUID,
+	payload: CustomerInvoiceUpdate,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	current_user: models.ResUser = Depends(get_authenticated_user),
+	database: Session = Depends(get_db),
+):
 	invoice = database.scalar(select(models.CustomerInvoice).where(models.CustomerInvoice.id == invoice_id, models.CustomerInvoice.company_id == company_id))
 	if invoice is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer invoice was not found")
-	if invoice.status != "Draft":
+
+	if payload.status is not None:
+		if payload.status == "Approved":
+			if invoice.status == "Draft":
+				invoice.status = "Approved"
+				invoice.approved_by = current_user.email
+				invoice.approved_at = datetime.now(timezone.utc)
+			elif invoice.status == "Approved":
+				pass
+			else:
+				raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Cannot approve invoice in '{invoice.status}' status")
+		elif payload.status != invoice.status:
+			if invoice.status != "Draft":
+				raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only draft invoices can be modified")
+			invoice.status = payload.status
+	elif invoice.status != "Draft":
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only draft invoices can be modified")
-
-	new_subtotal = (payload.subtotal if payload.subtotal is not None else invoice.subtotal).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-	new_vat = (payload.vat_amount if payload.vat_amount is not None else invoice.vat_amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-	provided_grand = payload.grand_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP) if payload.grand_total is not None else None
-	if provided_grand is not None:
-		if abs((new_subtotal + new_vat) - provided_grand) <= Decimal("0.05"):
-			new_grand_total = (new_subtotal + new_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-		else:
-			new_grand_total = provided_grand
-	else:
-		new_grand_total = (new_subtotal + new_vat).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-	if new_subtotal + new_vat != new_grand_total:
-		raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invoice totals are unbalanced: subtotal plus VAT must equal grand total")
 
 	if payload.partner_id is not None:
 		partner = database.scalar(select(models.ResPartner).where(models.ResPartner.id == payload.partner_id, models.ResPartner.company_id == company_id))
@@ -1934,9 +2244,19 @@ def update_customer_invoice(invoice_id: uuid.UUID, payload: CustomerInvoiceUpdat
 		invoice.issue_date = payload.issue_date
 	if payload.due_date is not None:
 		invoice.due_date = payload.due_date
-	invoice.subtotal = new_subtotal
-	invoice.vat_amount = new_vat
-	invoice.grand_total = new_grand_total
+
+	# Strict Math Enforcement: Ignore client subtotal, vat_amount, and grand_total.
+	# Query trips for that month/partner, calculate accurate totals using Decimal.
+	calc_subtotal, calc_vat, calc_grand = calculate_trip_totals_for_invoice(
+		database=database,
+		company_id=company_id,
+		partner_id=invoice.partner_id,
+		customer_name=invoice.customer_name,
+		issue_date=invoice.issue_date,
+	)
+	invoice.subtotal = calc_subtotal
+	invoice.vat_amount = calc_vat
+	invoice.grand_total = calc_grand
 
 	database.commit()
 	database.refresh(invoice)
@@ -1960,8 +2280,33 @@ def approve_customer_invoice(invoice_id: uuid.UUID, company_id: uuid.UUID = Depe
 	invoice = database.scalar(select(models.CustomerInvoice).where(models.CustomerInvoice.id == invoice_id, models.CustomerInvoice.company_id == company_id))
 	if invoice is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Customer invoice was not found")
+	if invoice.status == "Approved":
+		if invoice.subtotal == Decimal("0.00") or invoice.grand_total == Decimal("0.00"):
+			calc_subtotal, calc_vat, calc_grand = calculate_trip_totals_for_invoice(
+				database=database,
+				company_id=company_id,
+				partner_id=invoice.partner_id,
+				customer_name=invoice.customer_name,
+				issue_date=invoice.issue_date,
+			)
+			invoice.subtotal = calc_subtotal
+			invoice.vat_amount = calc_vat
+			invoice.grand_total = calc_grand
+			database.commit()
+			database.refresh(invoice)
+		return invoice
 	if invoice.status != "Draft":
 		raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only draft invoices can be approved")
+	calc_subtotal, calc_vat, calc_grand = calculate_trip_totals_for_invoice(
+		database=database,
+		company_id=company_id,
+		partner_id=invoice.partner_id,
+		customer_name=invoice.customer_name,
+		issue_date=invoice.issue_date,
+	)
+	invoice.subtotal = calc_subtotal
+	invoice.vat_amount = calc_vat
+	invoice.grand_total = calc_grand
 	invoice.status = "Approved"
 	invoice.approved_by = current_user.email
 	invoice.approved_at = datetime.now(timezone.utc)
@@ -4902,10 +5247,11 @@ def trigger_etl_job(
 	company_id: uuid.UUID = Depends(get_active_company_id),
 ):
 	"""Trigger ETL extraction of core operational/financial records into flattened BI reporting tables."""
-	if current_user.role not in {"Super_Admin", "Admin", "Accountant"}:
+	role_norm = str(getattr(current_user, "role", "") or "").upper().replace(" ", "_")
+	if not getattr(current_user, "is_superuser", False) and role_norm not in {"SUPER_ADMIN", "ADMIN", "ACCOUNTANT", "CEO", "EXECUTIVE"}:
 		raise HTTPException(
 			status_code=status.HTTP_403_FORBIDDEN,
-			detail="Access denied: Admin, Super_Admin, or Accountant role required to trigger ETL jobs",
+			detail="Access denied: Admin, CEO, Super_Admin, or Accountant role required to trigger ETL jobs",
 		)
 
 	target_company: uuid.UUID | None = company_id

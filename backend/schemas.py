@@ -1,7 +1,7 @@
 """Pydantic request and response contracts for the Phase 1 API."""
 
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Literal
 from uuid import UUID
 
@@ -236,29 +236,57 @@ class WeighbridgeOperationCreate(BaseModel):
     source_location_id: UUID | None = None
     dest_location_id: UUID | None = None
     partner_name: str | None = None
+    transporter_name: str | None = None
     product_name: str | None = None
+    material_type: str | None = None
     source_location_name: str | None = None
+    loading_source: str | None = None
     dest_location_name: str | None = None
+    destination_customer: str | None = None
+    destination_customer_name: str | None = None
     truck_number: str | None = Field(default=None, max_length=64)
     plate_number: str | None = Field(default=None, max_length=64)
     gross_weight: Decimal = Field(gt=0, decimal_places=4)
     tare_weight: Decimal = Field(ge=0, decimal_places=4)
     net_weight: Decimal | None = None
+    uom: str | None = None
+    unit_of_measure: str | None = None
+    qty_loaded: Decimal | None = None
+    qty_delivered: Decimal | None = None
+    qty_wastage: Decimal | None = None
+    wastage_percentage: Decimal | None = None
     ticket_number: str | None = None
     driver_name: str | None = None
-    unit_of_measure: str | None = "MT طن"
     company_id: UUID | None = None
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     scale_ticket_attachment: str | None = None
 
     @model_validator(mode="after")
     def validate_weighbridge_operation(self) -> "WeighbridgeOperationCreate":
-        if not self.truck_number and not self.plate_number:
-            raise ValueError("Either truck_number or plate_number must be provided")
         if not self.truck_number and self.plate_number:
             self.truck_number = self.plate_number
         if not self.plate_number and self.truck_number:
             self.plate_number = self.truck_number
+        if not self.truck_number:
+            raise ValueError("Either truck_number or plate_number must be provided")
+
+        if not self.partner_name and self.transporter_name:
+            self.partner_name = self.transporter_name
+        if not self.product_name and self.material_type:
+            self.product_name = self.material_type
+        if not self.source_location_name and self.loading_source:
+            self.source_location_name = self.loading_source
+        if not self.dest_location_name and (self.destination_customer or self.destination_customer_name):
+            self.dest_location_name = self.destination_customer or self.destination_customer_name
+
+        if not self.uom and self.unit_of_measure:
+            self.uom = self.unit_of_measure
+        elif not self.unit_of_measure and self.uom:
+            self.unit_of_measure = self.uom
+        if not self.uom:
+            self.uom = "MT"
+            self.unit_of_measure = "MT"
+
         if self.gross_weight <= self.tare_weight:
             raise ValueError("gross_weight must be greater than tare_weight")
         if self.source_location_id and self.dest_location_id and self.source_location_id == self.dest_location_id:
@@ -285,7 +313,8 @@ class WeighbridgeOperationRead(ORMReadModel):
     gross_weight: Decimal
     tare_weight: Decimal
     net_weight: Decimal
-    unit_of_measure: str = "MT طن"
+    uom: str = "MT"
+    unit_of_measure: str = "MT"
     weighed_in_at: datetime
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     scale_ticket_attachment: str | None = None
@@ -309,6 +338,55 @@ class WeighbridgeOperationRead(ORMReadModel):
     operation_year: int | None = None
     notes: str | None = None
     raw_legacy_data: dict[str, Any] | None = Field(default_factory=dict)
+
+
+class OperationAttachmentBase(BaseModel):
+    file_name: str | None = None
+    fileName: str | None = None
+    file_size: str | None = None
+    fileSize: str | None = None
+    file_type: str | None = None
+    fileType: str | None = None
+    doc_category: str | None = "Other"
+    docCategory: str | None = "Other"
+    file_data: str | None = None
+    fileData: str | None = None
+    uploaded_by: str | None = None
+    uploadedBy: str | None = None
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class OperationAttachmentCreate(BaseModel):
+    operation_id: UUID | str | None = None
+    ticket_id: UUID | str | None = None
+    picking_id: UUID | str | None = None
+    file_name: str | None = None
+    fileName: str | None = None
+    file_size: str | None = None
+    fileSize: str | None = None
+    file_type: str | None = None
+    fileType: str | None = None
+    doc_category: str | None = None
+    docCategory: str | None = None
+    file_data: str | None = None
+    fileData: str | None = None
+    uploaded_by: str | None = None
+    uploadedBy: str | None = None
+    uploaded_at: str | None = None
+    uploadedAt: str | None = None
+    attachments: list[dict[str, Any]] | None = None
+
+
+class OperationAttachmentRead(OperationAttachmentBase):
+    id: UUID | str
+    company_id: UUID | str | None = None
+    ticket_id: UUID | str | None = None
+    uploaded_at: datetime | str | None = None
+    uploadedAt: datetime | str | None = None
+    created_at: datetime | str | None = None
+    updated_at: datetime | str | None = None
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class AccountAccountCreate(BaseModel):
@@ -433,15 +511,15 @@ class AccountMoveRead(ORMReadModel):
 
 
 class CustomerInvoiceCreate(BaseModel):
-    partner_id: UUID | None = None
     invoice_number: str | None = Field(default=None, max_length=64)
+    partner_id: UUID | None = None
     customer_name: str = Field(min_length=1, max_length=255)
     customer_tax_number: str | None = Field(default=None, max_length=64)
     issue_date: datetime | None = None
     due_date: datetime | None = None
-    subtotal: Decimal = Field(ge=0)
-    vat_amount: Decimal = Field(ge=0)
-    grand_total: Decimal = Field(ge=0)
+    subtotal: Decimal = Field(default=Decimal("0.00"), ge=0)
+    vat_amount: Decimal = Field(default=Decimal("0.00"), ge=0)
+    grand_total: Decimal = Field(default=Decimal("0.00"), ge=0)
 
     @model_validator(mode="after")
     def totals_must_balance(self) -> "CustomerInvoiceCreate":
@@ -462,6 +540,7 @@ class CustomerInvoiceUpdate(BaseModel):
     subtotal: Decimal | None = Field(default=None, ge=0)
     vat_amount: Decimal | None = Field(default=None, ge=0)
     grand_total: Decimal | None = Field(default=None, ge=0)
+    status: Literal["Draft", "Approved", "Issued", "Cancelled"] | None = None
 
     @model_validator(mode="after")
     def totals_must_balance(self) -> "CustomerInvoiceUpdate":
