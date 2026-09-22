@@ -52,3 +52,41 @@ async def test_flt_03_telemetry_ingestion_performance(db_session):
     assert "speed" in json.loads(cached_pos)
 
 
+@pytest.mark.asyncio
+async def test_flt_04_fleet_registration_endpoint(async_client):
+    """FLT-04: Fleet radar registration persists vehicle and activates live telemetry."""
+    t_id = str(uuid.uuid4())
+    reg_payload = {
+        "plate_number": "5541-أ ب ج",
+        "vehicle_id": "V-1005",
+        "carrier_id": str(uuid.uuid4()),
+        "imei": "864201048123456",
+        "driver_name_ar": "سلطان العتيبي",
+        "driver_name_en": "Sultan Al-Otaibi",
+        "destination_ar": "مشروع بوابة الدرعية",
+        "destination_en": "Diriyah Gate Project",
+        "min_temp": 0.0,
+        "max_temp": 4.2,
+        "initial_lat": 24.7136,
+        "initial_lng": 46.6753,
+        "speed": 62.5,
+        "cargo_temp": 2.4,
+        "ambient_humidity": 42.0,
+        "device_battery_voltage": 12.6,
+        "tenant_id": t_id,
+    }
+    res = await async_client.post(
+        "/api/v1/logistics/fleet/register",
+        json=reg_payload,
+        headers={"X-Tenant-ID": t_id},
+    )
+    assert res.status_code == status.HTTP_201_CREATED
+    data = res.json()
+    assert data["status"] == "SUCCESS"
+    assert data["vehicle_id"] == "V-1005"
+    assert data["plate_number"] == "5541-أ ب ج"
+    assert data["imei"] == "864201048123456"
+    assert "lat" in data
+    assert "lng" in data
+
+

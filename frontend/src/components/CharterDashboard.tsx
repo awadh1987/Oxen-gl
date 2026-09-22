@@ -12,12 +12,14 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ProjectCharterItem } from './planningTypes';
+import { erpApi } from '../services/api';
 
 interface CharterDashboardProps {
   charters: ProjectCharterItem[];
   selectedCharterId: string;
   onSelectCharter: (id: string) => void;
-  onCharterCreated: () => void;
+  onCharterCreated: (newCharter?: any) => void;
+  onOpenProvisionModal?: () => void;
 }
 
 export const CharterDashboard: React.FC<CharterDashboardProps> = ({
@@ -25,6 +27,7 @@ export const CharterDashboard: React.FC<CharterDashboardProps> = ({
   selectedCharterId,
   onSelectCharter,
   onCharterCreated,
+  onOpenProvisionModal,
 }) => {
   const { t } = useTranslation();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -58,35 +61,42 @@ export const CharterDashboard: React.FC<CharterDashboardProps> = ({
     setFormError('');
 
     try {
-      const res = await fetch('/api/tenant/planning/charters', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_name: projectName.trim(),
-          manager_name: managerName.trim(),
-          start_date: startDate,
-          end_date: endDate,
-          total_budget: parseFloat(totalBudget) || 0,
-          scope_of_work_text: scopeText,
-          smart_goals: [
-            { id: 'g1', goal: 'Initial milestone phase deployment', target_date: endDate, status: 'PENDING' }
-          ],
-          kpis_json: {
-            on_time_delivery_target_pct: 99.0,
-            cost_efficiency_index: 1.05
-          }
-        }),
-      });
+      const payload = {
+        project_name: projectName.trim(),
+        manager_name: managerName.trim(),
+        start_date: startDate,
+        end_date: endDate,
+        total_budget: parseFloat(totalBudget) || 0,
+        scope_of_work_text: scopeText,
+        smart_goals: [
+          { id: 'g1', goal: 'Initial milestone phase deployment', target_date: endDate, status: 'PENDING' }
+        ],
+        kpis_json: {
+          on_time_delivery_target_pct: 99.0,
+          cost_efficiency_index: 1.05
+        }
+      };
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to create charter');
+      let newCharter: any = null;
+      try {
+        newCharter = await erpApi.createProjectCharter(payload);
+      } catch {
+        const res = await fetch('/api/tenant/planning/charters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to create charter');
+        }
+        newCharter = await res.json();
       }
 
       setShowCreateModal(false);
       setProjectName('');
       setScopeText('');
-      onCharterCreated();
+      onCharterCreated(newCharter);
     } catch (err: any) {
       setFormError(err.message || 'Error provisioning charter');
     } finally {
@@ -103,8 +113,8 @@ export const CharterDashboard: React.FC<CharterDashboardProps> = ({
           {t('planning.emptyDesc')}
         </p>
         <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-blue-600/20 inline-flex items-center gap-2"
+          onClick={() => (onOpenProvisionModal ? onOpenProvisionModal() : setShowCreateModal(true))}
+          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl text-sm transition-all shadow-lg shadow-blue-600/20 inline-flex items-center gap-2 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> {t('planning.provisionBtn')}
         </button>
@@ -172,10 +182,11 @@ export const CharterDashboard: React.FC<CharterDashboardProps> = ({
           )}
 
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/25 flex items-center gap-2"
+            onClick={() => (onOpenProvisionModal ? onOpenProvisionModal() : setShowCreateModal(true))}
+            className="px-4 py-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-blue-600/25 flex items-center gap-2 cursor-pointer"
+            id="charter-dashboard-top-provision-btn"
           >
-            <Plus className="w-4 h-4" /> Provision Charter
+            <Plus className="w-4 h-4" /> {t('planning.provisionBtn', 'Provision Charter')}
           </button>
         </div>
       </div>

@@ -18,7 +18,9 @@ import {
   BatteryCharging,
   Eye,
   Maximize2,
+  Plus,
 } from 'lucide-react';
+import { RegisterGpsTruckModal } from '../components/RegisterGpsTruckModal';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -207,6 +209,45 @@ export const FleetMapView: React.FC = () => {
   const [metrics, setMetrics] = useState({ total: 4, safe: 3, breached: 1, avgTemp: 3.3 });
   const [leafletReady, setLeafletReady] = useState<boolean>(false);
 
+  const [vehicles, setVehicles] = useState<Record<string, TelemetryVehicleState>>(INITIAL_VEHICLES);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+
+  const handleTruckRegistered = (newTruck: TelemetryVehicleState) => {
+    vehiclesRef.current[newTruck.vehicleId] = newTruck;
+    setVehicles((prev) => ({ ...prev, [newTruck.vehicleId]: newTruck }));
+    setSelectedVehicleId(newTruck.vehicleId);
+
+    // Dynamic marker addition into Leaflet
+    const L = (window as any).L;
+    if (L && leafletMapRef.current) {
+      try {
+        const html = buildBeaconHtml(newTruck, true, isAr);
+        const icon = L.divIcon({ className: '', html, iconAnchor: [8, 8] });
+        if (leafletMarkersRef.current[newTruck.vehicleId]) {
+          leafletMarkersRef.current[newTruck.vehicleId].setLatLng([newTruck.lat, newTruck.lng]).setIcon(icon);
+        } else {
+          leafletMarkersRef.current[newTruck.vehicleId] = L.marker([newTruck.lat, newTruck.lng], { icon, interactive: true })
+            .addTo(leafletMapRef.current)
+            .on('click', () => setSelectedVehicleId(newTruck.vehicleId));
+        }
+        leafletMapRef.current.panTo([newTruck.lat, newTruck.lng], { animate: true, duration: 0.8 });
+      } catch (e) {
+        console.warn('Leaflet marker registration error:', e);
+      }
+    }
+
+    // Dynamic metrics recalculation
+    const all = Object.values({ ...vehiclesRef.current, [newTruck.vehicleId]: newTruck });
+    const safe = all.filter((v) => v.tempCelsius <= SLA_THRESHOLD).length;
+    const avg = all.reduce((sum, v) => sum + v.tempCelsius, 0) / (all.length || 1);
+    setMetrics({
+      total: all.length,
+      safe,
+      breached: all.length - safe,
+      avgTemp: parseFloat(avg.toFixed(1)),
+    });
+  };
+
   // URL sync
   useEffect(() => {
     const handler = () => {
@@ -239,9 +280,14 @@ export const FleetMapView: React.FC = () => {
         try {
           const p = JSON.parse(event.data);
           if (p.vehicle_id) {
-            vehiclesRef.current[p.vehicle_id] = {
+            const updated: TelemetryVehicleState = {
               ...(vehiclesRef.current[p.vehicle_id] || {}),
               vehicleId: p.vehicle_id,
+              plateNumber: p.plate_number ?? vehiclesRef.current[p.vehicle_id]?.plateNumber,
+              driverNameAr: p.driver_name_ar ?? vehiclesRef.current[p.vehicle_id]?.driverNameAr,
+              driverNameEn: p.driver_name_en ?? vehiclesRef.current[p.vehicle_id]?.driverNameEn,
+              destinationAr: p.destination_ar ?? vehiclesRef.current[p.vehicle_id]?.destinationAr,
+              destinationEn: p.destination_en ?? vehiclesRef.current[p.vehicle_id]?.destinationEn,
               lat: p.lat ?? p.latitude ?? 24.71,
               lng: p.lng ?? p.longitude ?? 46.67,
               speedKph: p.speed ?? p.speed_kph ?? 0,
@@ -250,6 +296,8 @@ export const FleetMapView: React.FC = () => {
               batteryVoltage: p.device_battery_voltage ?? p.voltage ?? 12.4,
               lastUpdated: Date.now(),
             };
+            vehiclesRef.current[p.vehicle_id] = updated;
+            setVehicles((prev) => ({ ...prev, [p.vehicle_id]: updated }));
           }
         } catch { /* ignore */ }
       };
@@ -474,7 +522,7 @@ export const FleetMapView: React.FC = () => {
     return () => { if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current); };
   }, [mapMode, selectedVehicleId]);
 
-  const selectedVehicle = vehiclesRef.current[selectedVehicleId] || INITIAL_VEHICLES['V-1002'];
+  const selectedVehicle = vehicles[selectedVehicleId] || vehiclesRef.current[selectedVehicleId] || INITIAL_VEHICLES['V-1002'];
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-4 sm:p-6 space-y-6" id="fleet-radar-view">
@@ -500,6 +548,16 @@ export const FleetMapView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => setIsRegisterModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold transition shadow-md shadow-emerald-950/40 cursor-pointer"
+            id="register-gps-truck-btn"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{isAr ? '+ تسجيل شاحنة برادار التتبع' : '+ Register GPS Truck'}</span>
+          </button>
+
           <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs">
             <button type="button" onClick={() => setMapMode('hybrid')}
               className={`px-2.5 py-1 rounded-lg font-bold transition ${mapMode === 'hybrid' ? 'bg-orange-600 text-white' : 'text-slate-400 hover:text-white'}`}>
@@ -705,7 +763,7 @@ export const FleetMapView: React.FC = () => {
             <h4 className="text-xs font-bold text-slate-300 mb-2">
               {isAr ? 'قائمة الشاحنات الميدانية:' : 'Fleet Units in Range:'}
             </h4>
-            {Object.values(vehiclesRef.current).map((v) => (
+            {Object.values(vehicles).map((v) => (
               <button key={v.vehicleId} type="button" onClick={() => setSelectedVehicleId(v.vehicleId)}
                 className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-xs transition ${
                   selectedVehicleId === v.vehicleId
@@ -722,6 +780,13 @@ export const FleetMapView: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Register GPS Truck Modal */}
+      <RegisterGpsTruckModal
+        isOpen={isRegisterModalOpen}
+        onClose={() => setIsRegisterModalOpen(false)}
+        onTruckRegistered={handleTruckRegistered}
+      />
     </div>
   );
 };

@@ -639,9 +639,53 @@ export const erpApi = {
   getVehicles: (companyId: string) => request<any[]>('/api/fleet/vehicles', companyId),
   createVehicle: (companyId: string, payload: any) => request<any>('/api/fleet/vehicles', companyId, { method: 'POST', body: JSON.stringify(payload) }),
   getMaintenanceOrders: (companyId: string) => request<any[]>('/api/fleet/maintenance-orders', companyId),
-  createMaintenanceOrder: (companyId: string, payload: any) => request<any>('/api/fleet/maintenance-orders', companyId, { method: 'POST', body: JSON.stringify(payload) }),
   getFuelTransactions: (companyId: string) => request<any[]>('/api/fleet/fuel-transactions', companyId),
   createFuelTransaction: (companyId: string, payload: any) => request<any>('/api/fleet/fuel-transactions', companyId, { method: 'POST', body: JSON.stringify(payload) }),
+
+  // Phase 5: GPS Fleet Radar Registration
+  registerFleetTruck: (payload: {
+    plate_number: string;
+    vehicle_id?: string;
+    carrier_id?: string;
+    carrier_name?: string;
+    imei?: string;
+    driver_name_ar?: string;
+    driver_name_en?: string;
+    destination_ar?: string;
+    destination_en?: string;
+    min_temp?: number;
+    max_temp?: number;
+    initial_lat?: number;
+    initial_lng?: number;
+    speed?: number;
+    cargo_temp?: number;
+    ambient_humidity?: number;
+    device_battery_voltage?: number;
+    vehicle_type?: string;
+    tenant_id?: string;
+  }, companyId?: string) => request<any>('/api/v1/logistics/fleet/register', companyId, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
+
+  // Phase 5: Planning Department Charters
+  getProjectCharters: (companyId?: string) => request<any[]>('/api/tenant/planning/charters', companyId),
+  getProjectCharterDetails: (charterId: string, companyId?: string) => request<any>(`/api/tenant/planning/charters/${charterId}`, companyId),
+  createProjectCharter: (payload: {
+    project_name: string;
+    manager_name?: string;
+    manager_id?: string;
+    total_budget?: number;
+    start_date?: string;
+    end_date?: string;
+    scope_of_work_text?: string;
+    smart_goals?: any[];
+    kpis_json?: Record<string, any>;
+    status?: string;
+  }, companyId?: string) => request<any>('/api/tenant/planning/charters', companyId, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  }),
   
   // Phase 5: Multi-Tenant Real-Time Analytics
   getTenantAnalyticsSummary: (companyId: string) => request<any>('/api/analytics/tenant-summary', companyId),

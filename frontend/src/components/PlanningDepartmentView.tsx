@@ -5,12 +5,15 @@ import {
   BarChart3,
   RefreshCw,
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  Plus
 } from 'lucide-react';
 import { CharterDashboard } from './CharterDashboard';
 import { ExecutionMatrixTable } from './ExecutionMatrixTable';
 import { HazardWarningModule } from './HazardWarningModule';
+import { ProvisionCharterSlideOver } from './ProvisionCharterSlideOver';
 import { useTranslation } from 'react-i18next';
+import { erpApi } from '../services/api';
 import {
   ProjectCharterItem,
   ExecutionTaskItem,
@@ -29,17 +32,24 @@ export const PlanningDepartmentView: React.FC = () => {
   // Active view tab
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'MATRIX' | 'HAZARDS'>('OVERVIEW');
 
-  // Hazard slide-over modal state
+  // Slide-over modal states
   const [hazardModalOpen, setHazardModalOpen] = useState(false);
   const [targetTaskForHazard, setTargetTaskForHazard] = useState<ExecutionTaskItem | null>(null);
+  const [provisionSlideOverOpen, setProvisionSlideOverOpen] = useState(false);
 
   const fetchCharters = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/tenant/planning/charters');
-      if (!res.ok) throw new Error('Failed to fetch project charters');
-      const data = await res.json();
-      const charterList: ProjectCharterItem[] = Array.isArray(data) ? data : (data.charters || []);
+      setError('');
+      let data: any = null;
+      try {
+        data = await erpApi.getProjectCharters();
+      } catch {
+        const res = await fetch('/api/tenant/planning/charters');
+        if (!res.ok) throw new Error('Failed to fetch project charters');
+        data = await res.json();
+      }
+      const charterList: ProjectCharterItem[] = Array.isArray(data) ? data : (data?.charters || []);
       setCharters(charterList);
 
       if (charterList && charterList.length > 0) {
@@ -57,14 +67,19 @@ export const PlanningDepartmentView: React.FC = () => {
 
   const fetchCharterDetails = async (charterId: string) => {
     try {
-      const res = await fetch(`/api/tenant/planning/charters/${charterId}`);
-      if (!res.ok) throw new Error('Failed to fetch charter details');
-      const data = await res.json();
-      setCurrentTasks(data.tasks || []);
+      let data: any = null;
+      try {
+        data = await erpApi.getProjectCharterDetails(charterId);
+      } catch {
+        const res = await fetch(`/api/tenant/planning/charters/${charterId}`);
+        if (!res.ok) throw new Error('Failed to fetch charter details');
+        data = await res.json();
+      }
+      setCurrentTasks(data?.tasks || []);
 
       // Extract all hazards across tasks
       const hazards: StrategicHazardItem[] = [];
-      (data.tasks || []).forEach((t: any) => {
+      (data?.tasks || []).forEach((t: any) => {
         if (t.hazards && Array.isArray(t.hazards)) {
           hazards.push(...t.hazards);
         }
@@ -129,6 +144,15 @@ export const PlanningDepartmentView: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setProvisionSlideOverOpen(true)}
+            className="px-4 py-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-600/25 flex items-center gap-2 cursor-pointer"
+            id="provision-charter-header-btn"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('planning.provisionBtn', 'إضافة ميثاق جديد +')}</span>
+          </button>
+
+          <button
             onClick={() => handleOpenHazardModal()}
             className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/10 flex items-center gap-2"
           >
@@ -179,7 +203,7 @@ export const PlanningDepartmentView: React.FC = () => {
 
       {error && (
         <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <AlertCircle className="w-5 h-5 shrink-0" />
           {error}
         </div>
       )}
@@ -190,7 +214,13 @@ export const PlanningDepartmentView: React.FC = () => {
           charters={charters}
           selectedCharterId={selectedCharterId}
           onSelectCharter={handleSelectCharter}
-          onCharterCreated={handleDataRefresh}
+          onCharterCreated={(newCharter) => {
+            if (newCharter?.id) {
+              setSelectedCharterId(newCharter.id);
+            }
+            handleDataRefresh();
+          }}
+          onOpenProvisionModal={() => setProvisionSlideOverOpen(true)}
         />
       )}
 
@@ -245,6 +275,18 @@ export const PlanningDepartmentView: React.FC = () => {
         targetTask={targetTaskForHazard}
         hazards={allHazards}
         onHazardCreatedOrUpdated={handleDataRefresh}
+      />
+
+      {/* Slide-over Provision Charter Module */}
+      <ProvisionCharterSlideOver
+        isOpen={provisionSlideOverOpen}
+        onClose={() => setProvisionSlideOverOpen(false)}
+        onCharterCreated={(newCharter) => {
+          if (newCharter?.id) {
+            setSelectedCharterId(newCharter.id);
+          }
+          handleDataRefresh();
+        }}
       />
     </div>
   );
