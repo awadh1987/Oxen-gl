@@ -444,7 +444,7 @@ export const TransporterPerformanceView: React.FC = () => {
         isOpen={voucherModalState.isOpen}
         onClose={() => setVoucherModalState({ isOpen: false })}
         initialType="Payment"
-        initialCategory="Transporter_Payout"
+        initialCategory="Transporter_Payment"
         initialPartyType="Transporter"
         initialPartyId={voucherModalState.partnerId}
         initialPartyName={voucherModalState.partnerName}

@@ -88,6 +88,7 @@ export const OperationsLogView: React.FC = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
   // Dynamic Month Tabs Generation
   const availableMonths = useMemo(() => {
     const currentMonth = new Date().getMonth() + 1;

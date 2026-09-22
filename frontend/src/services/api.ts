@@ -683,6 +683,7 @@ export const erpApi = {
   getVehicles: (companyId: string) => request<any[]>('/api/fleet/vehicles', companyId),
   createVehicle: (companyId: string, payload: any) => request<any>('/api/fleet/vehicles', companyId, { method: 'POST', body: JSON.stringify(payload) }),
   getMaintenanceOrders: (companyId: string) => request<any[]>('/api/fleet/maintenance-orders', companyId),
+  createMaintenanceOrder: (companyId: string, payload: any) => request<any>('/api/fleet/maintenance-orders', companyId, { method: 'POST', body: JSON.stringify(payload) }),
   getFuelTransactions: (companyId: string) => request<any[]>('/api/fleet/fuel-transactions', companyId),
   createFuelTransaction: (companyId: string, payload: any) => request<any>('/api/fleet/fuel-transactions', companyId, { method: 'POST', body: JSON.stringify(payload) }),
 

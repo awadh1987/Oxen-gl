@@ -46,7 +46,7 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
     addOperation,
     updateOperation,
     language,
-    currentMonth,
+    currentUser,
     canAccessFinancials,
     showToast,
   } = useApp();

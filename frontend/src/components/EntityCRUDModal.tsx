@@ -19,6 +19,8 @@ import {
   Users,
   CheckCircle,
   Save,
+  Layers,
+  Shield,
 } from 'lucide-react';
 
 export type CRUDModalType = 'customer' | 'crusher' | 'transporter' | 'material' | 'user';

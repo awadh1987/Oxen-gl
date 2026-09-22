@@ -1180,8 +1180,8 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                               <td className="p-2.5 text-center font-mono">{formatNumber(op.qty_loaded, language, 2)}</td>
                               <td className="p-2.5 text-center font-mono">{formatNumber(op.qty_delivered, language, 2)}</td>
                               <td className="p-2.5 text-center font-mono font-bold text-rose-600">{formatNumber(op.qty_wastage, language, 2)}</td>
-                              <td className="p-2.5 text-center font-mono">{formatCurrency(op.freight_fee, language)}</td>
-                              <td className="p-2.5 text-center font-mono text-rose-700">{formatCurrency(op.penalty_fee, language)}</td>
+                              <td className="p-2.5 text-center font-mono">{formatCurrency(op.freight_fee || 0, language)}</td>
+                              <td className="p-2.5 text-center font-mono text-rose-700">{formatCurrency(op.penalty_fee || 0, language)}</td>
                             </tr>
                           ))}
                         </tbody>

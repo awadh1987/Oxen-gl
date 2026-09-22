@@ -109,6 +109,7 @@ export interface Transporter {
   capacityTons?: number;
   ratePerTon?: number;
   taxNumber?: string;
+  trucksCount?: number;
   is_deleted?: boolean;
   deleted_at?: string;
   deleted_by?: string;
@@ -161,6 +162,9 @@ export interface OperationRecord {
   net_profit: number; // Computed: sales_amount - purchases_cost
   transporter_cost_amount?: number;
   crusher_cost_amount?: number;
+  driver_name?: string;
+  freight_fee?: number;
+  penalty_fee?: number;
   operation_month: number; // 1-12
   operation_year: number;
   notes?: string;
@@ -446,6 +450,7 @@ export type VoucherType = 'Payment' | 'Receipt'; // سند صرف | سند قب�
 export type VoucherCategory =
   | 'Crusher_Settlement'
   | 'Transporter_Payment'
+  | 'Transporter_Payout'
   | 'Customer_Collection'
   | 'Operational_Expense'
   | 'General';
