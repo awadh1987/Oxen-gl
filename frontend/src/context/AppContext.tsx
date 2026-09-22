@@ -163,6 +163,7 @@ interface AppContextType {
   crusherPayments: CrusherPaymentEntry[];
   // Operations Actions
   refreshOperations: () => Promise<void>;
+  refreshPartners: () => Promise<void>;
   addOperation: (op: Omit<OperationRecord, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateOperation: (id: string, op: Partial<OperationRecord>) => { success: boolean; requiresApproval?: boolean };
   deleteOperation: (id: string) => boolean;
@@ -545,35 +546,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
 
   const mapApiOperation = (operation: ApiOperation): OperationRecord => {
-    const loadedWeight = Number(operation.gross_weight);
-    const deliveredWeight = Number(operation.net_weight);
-    const wastageWeight = Number((loadedWeight - deliveredWeight).toFixed(4));
+    const loadedWeight = operation.qty_loaded != null ? Number(operation.qty_loaded) : Number(operation.gross_weight);
+    const deliveredWeight = operation.qty_delivered != null ? Number(operation.qty_delivered) : Number(operation.net_weight);
+    const wastageWeight = operation.qty_wastage != null ? Number(operation.qty_wastage) : Number((loadedWeight - deliveredWeight).toFixed(4));
     const weighedAt = operation.weighed_in_at;
     const operationDate = weighedAt.slice(0, 10);
-    const operationMonth = new Date(weighedAt).getMonth() + 1;
-    const operationYear = new Date(weighedAt).getFullYear();
+    const operationMonth = operation.operation_month ?? (new Date(weighedAt).getMonth() + 1);
+    const operationYear = operation.operation_year ?? new Date(weighedAt).getFullYear();
+
+    const wastagePct = operation.wastage_percentage != null
+      ? Number(operation.wastage_percentage)
+      : (loadedWeight > 0 ? Number(((wastageWeight / loadedWeight) * 100).toFixed(4)) : 0);
 
     return {
       id: operation.picking_id,
       loading_date: operationDate,
       truck_no: operation.truck_number,
-      transporter_name: operation.partner_name || 'Unknown Transporter',
-      loading_source: operation.source_location_name,
-      loading_invoice_no: operation.picking_reference,
-      destination_customer: operation.dest_location_name,
-      receipt_invoice_no: operation.ticket_number,
-      material_type: operation.product_name,
+      transporter_name: operation.service_supplier_name || operation.partner_name || 'Unknown Transporter',
+      loading_source: operation.material_supplier_name || operation.source_location_name,
+      loading_invoice_no: operation.loading_invoice_no || operation.picking_reference,
+      destination_customer: operation.destination_customer_name || operation.dest_location_name,
+      receipt_invoice_no: operation.receipt_invoice_no || operation.ticket_number,
+      material_type: operation.material_type || operation.product_name,
       qty_loaded: loadedWeight,
       qty_delivered: deliveredWeight,
       qty_wastage: wastageWeight,
-      wastage_percentage: loadedWeight > 0 ? Number(((wastageWeight / loadedWeight) * 100).toFixed(4)) : 0,
+      wastage_percentage: wastagePct,
       scale_ticket_no: operation.ticket_number,
-      sales_amount: 0,
-      vat_amount: 0,
-      total_sales: 0,
-      purchases_cost: 0,
-      crusher_payment: 0,
-      net_profit: 0,
+      sales_amount: Number(operation.sales_amount || 0),
+      vat_amount: Number(operation.vat_amount || 0),
+      total_sales: Number(operation.total_sales || 0),
+      purchases_cost: Number(operation.purchases_cost || 0),
+      crusher_payment: Number(operation.crusher_payment || 0),
+      net_profit: Number(operation.net_profit || 0),
       operation_month: operationMonth,
       operation_year: operationYear,
       created_at: weighedAt,
@@ -1302,6 +1307,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (err) {
       console.warn('[OperationsSync] Failed to refresh operations from backend:', err);
+    }
+  };
+
+  const refreshPartners = async (): Promise<void> => {
+    if (!currentCompany || !navigator.onLine) return;
+    try {
+      const partners = await erpApi.getPartners(currentCompany.id);
+      if (!partners || !Array.isArray(partners)) return;
+
+      const apiCustomers: Customer[] = partners
+        .filter((p) => p.partner_type === 'customer')
+        .map((p) => ({
+          id: p.id,
+          customerName: p.name,
+          customerNameEn: p.name,
+          taxNumber: p.tax_number || '',
+          crNumber: p.commercial_registration || '',
+          contactPerson: '',
+          phone: p.phone || '',
+          email: p.email || '',
+          address: '',
+          openingBalance: 0,
+          creditLimit: 0,
+          is_deleted: false,
+        }));
+
+      const apiCrushers: Crusher[] = partners
+        .filter((p) => ['supplier', 'raw_materials_supplier', 'quarry'].includes(p.partner_type))
+        .map((p) => ({
+          id: p.id,
+          crusherName: p.name,
+          crusherNameEn: p.name,
+          location: '',
+          bankDetails: '',
+          taxNumber: p.tax_number || '',
+          openingBalance: 0,
+          phone: p.phone || '',
+          is_deleted: false,
+        }));
+
+      const apiTransporters: Transporter[] = partners
+        .filter((p) => ['transporter', 'service_supplier', 'logistics'].includes(p.partner_type))
+        .map((p) => ({
+          id: p.id,
+          transporterName: p.name,
+          transporterNameEn: p.name,
+          driverName: '',
+          phone: p.phone || '',
+          truckDetails: '',
+          is_deleted: false,
+        }));
+
+      setCustomers(Array.from(new Map(apiCustomers.map((c) => [c.id, c])).values()));
+      setCrushers(Array.from(new Map(apiCrushers.map((c) => [c.id, c])).values()));
+      setTransporters(Array.from(new Map(apiTransporters.map((t) => [t.id, t])).values()));
+    } catch (err) {
+      console.warn('[PartnersSync] Failed to refresh partners from backend:', err);
     }
   };
 
@@ -2754,6 +2816,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         operations,
         crusherPayments,
         refreshOperations,
+        refreshPartners,
         addOperation,
         updateOperation,
         deleteOperation,

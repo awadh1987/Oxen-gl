@@ -28,6 +28,7 @@ import {
   BookOpen,
   ExternalLink,
   Archive,
+  Upload,
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatNumber, formatTonnage, getMonthName, generateZatcaQR, roundHalala, calculateVatBreakdown } from '../utils/formatters';
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
@@ -38,6 +39,7 @@ import { MultiAttachmentModal } from '../components/MultiAttachmentModal';
 import { InvoiceExportShareModal } from '../components/InvoiceExportShareModal';
 import { ExportPrintModal } from '../components/ExportPrintModal';
 import { OfficialLetterheadHeader } from '../components/OfficialLetterheadHeader';
+import { BulkImportModal } from '../components/BulkImportModal';
 import { OfficialLetterheadFooter } from '../components/OfficialLetterheadFooter';
 
 export const CustomerInvoicingView: React.FC = () => {
@@ -84,6 +86,7 @@ export const CustomerInvoicingView: React.FC = () => {
   const [isAttachmentModalOpen, setIsAttachmentModalOpen] = useState(false);
   const [isExportShareModalOpen, setIsExportShareModalOpen] = useState(false);
   const [isExportPrintModalOpen, setIsExportPrintModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [invoiceAttachments, setInvoiceAttachments] = useState<DocumentAttachment[]>([]);
 
   // Deep-link URL parameter synchronization
@@ -595,6 +598,17 @@ Myon Economic Contracting Co. Ltd.`;
             <span>
               {isAr ? 'المرفقات وتذاكر الميزان' : 'Attachments'} ({invoiceAttachments.length})
             </span>
+          </button>
+
+          {/* Universal Bulk Import Button (REM-P7) */}
+          <button
+            id="bulk-import-invoicing-btn"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3 py-2 text-xs font-bold text-emerald-900 shadow-xs hover:bg-emerald-100 transition-colors"
+            title={isAr ? 'استيراد فواتير وعمليات وقاعدة البيانات الشاملة (CSV / Excel)' : 'Bulk Import (CSV/Excel)'}
+          >
+            <Upload className="h-3.5 w-3.5 text-emerald-700" />
+            <span>{isAr ? 'استيراد بيانات / Bulk Import (CSV/Excel)' : 'Bulk Import (CSV/Excel)'}</span>
           </button>
 
           {/* JSON Data Snapshot */}
@@ -1167,6 +1181,13 @@ Myon Economic Contracting Co. Ltd.`;
         initialCustomerId={selectedCustomerId}
         initialMonth={selectedMonth}
         initialYear={selectedYear}
+      />
+
+      {/* Universal Bulk Import Modal (REM-P7) */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        defaultCategory="operations"
       />
     </div>
   );

@@ -12,7 +12,7 @@ from os import getenv
 from typing import Any, Generator, Optional
 
 from backend.schemas import AccountMoveLineCreate
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, Response, UploadFile, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from passlib.context import CryptContext
@@ -103,6 +103,13 @@ try:
 	from backend.app.api.v1.ai import router as ai_router
 	from backend.app.api.v1.planning import router as planning_router
 	from backend.app.api.v1.auth import router as recovery_auth_router
+	from backend.app.services.bulk_import_service import (
+		BulkImportService,
+		parse_raw_rows_from_excel,
+		parse_raw_rows_from_csv,
+		stream_raw_rows_from_excel,
+		stream_raw_rows_from_csv,
+	)
 except ImportError:
 	from .database import SessionLocal
 	from . import models  # type: ignore[no-redef]
@@ -180,6 +187,7 @@ except ImportError:
 	from backend.app.api.v1.ai import router as ai_router  # type: ignore[no-redef]
 	from backend.app.api.v1.planning import router as planning_router  # type: ignore[no-redef]
 	from backend.app.api.v1.auth import router as recovery_auth_router  # type: ignore[no-redef]
+	from backend.app.services.bulk_import_service import BulkImportService, parse_raw_rows_from_excel, parse_raw_rows_from_csv  # type: ignore[no-redef]
 
 
 app = FastAPI(
@@ -1408,6 +1416,26 @@ def operation_response(ticket: models.WeighbridgeTicket) -> WeighbridgeOperation
 		unit_of_measure=getattr(ticket, "unit_of_measure", "MT طن") or "MT طن",
 		weighed_in_at=ticket.weighed_in_at, attachments=ticket.attachments or [],
 		scale_ticket_attachment=ticket.scale_ticket_attachment,
+		material_supplier_name=getattr(ticket, "material_supplier_name", None),
+		service_supplier_name=getattr(ticket, "service_supplier_name", None),
+		destination_customer_name=getattr(ticket, "destination_customer_name", None),
+		loading_invoice_no=getattr(ticket, "loading_invoice_no", None),
+		receipt_invoice_no=getattr(ticket, "receipt_invoice_no", None),
+		material_type=getattr(ticket, "material_type", None),
+		qty_loaded=getattr(ticket, "qty_loaded", None),
+		qty_delivered=getattr(ticket, "qty_delivered", None),
+		qty_wastage=getattr(ticket, "qty_wastage", None),
+		wastage_percentage=getattr(ticket, "wastage_percentage", None),
+		sales_amount=getattr(ticket, "sales_amount", None),
+		vat_amount=getattr(ticket, "vat_amount", None),
+		total_sales=getattr(ticket, "total_sales", None),
+		purchases_cost=getattr(ticket, "purchases_cost", None),
+		crusher_payment=getattr(ticket, "crusher_payment", None),
+		net_profit=getattr(ticket, "net_profit", None),
+		operation_month=getattr(ticket, "operation_month", None),
+		operation_year=getattr(ticket, "operation_year", None),
+		notes=getattr(ticket, "notes", None),
+		raw_legacy_data=getattr(ticket, "raw_legacy_data", {}) or {},
 	)
 
 
@@ -1580,6 +1608,113 @@ def delete_operation_by_picking_id(picking_id: uuid.UUID, company_id: uuid.UUID 
 	database.delete(picking)
 	database.commit()
 	return None
+
+
+# ==============================================================================
+# Phase 7: Universal Bulk Import Engine Endpoints
+# ==============================================================================
+
+@app.post("/api/operations/bulk-import", tags=["Operations"])
+@app.post("/api/v1/operations/bulk-import", tags=["Operations"])
+@app.post("/api/v1/procurement/bulk-import", tags=["Operations"])
+@app.post("/api/v1/logistics/bulk-import", tags=["Operations"])
+@app.post("/api/v1/invoicing/bulk-import", tags=["Operations"])
+@app.post("/api/v1/accounting/bulk-import", tags=["Operations"])
+@app.post("/api/v1/finance/bulk-import", tags=["Operations"])
+@app.post("/api/v1/hrms/bulk-import", tags=["Operations"])
+async def bulk_import_operations(
+	request: Request,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db)
+):
+	"""
+	Universal bulk import engine for operations and legacy "قاعدة البيانات الشاملة".
+	Accepts multipart file upload (.xlsx, .xls, .csv) OR JSON payload {"records": [...]}.
+	Streams data for optimal memory efficiency and maps legacy columns ('الناقل', 'الكسارة', 'العميل', etc.)
+	into universal entities (service_suppliers, material_suppliers, customers) while persisting extended superset records.
+	"""
+	content_type = request.headers.get("content-type", "").lower()
+	raw_rows = None
+
+	if "multipart/form-data" in content_type:
+		form = await request.form()
+		uploaded_file = form.get("file")
+		if uploaded_file and hasattr(uploaded_file, "read"):
+			content = await uploaded_file.read()
+			filename = (getattr(uploaded_file, "filename", "") or "").lower()
+			if filename.endswith(".xlsx") or filename.endswith(".xls"):
+				raw_rows = stream_raw_rows_from_excel(content)
+			else:
+				raw_rows = stream_raw_rows_from_csv(content)
+		elif form.get("records") or form.get("rows"):
+			raw_text = str(form.get("records") or form.get("rows"))
+			raw_rows = json.loads(raw_text)
+	else:
+		try:
+			body = await request.json()
+			if isinstance(body, list):
+				raw_rows = body
+			elif isinstance(body, dict):
+				raw_rows = body.get("records") or body.get("rows") or body.get("items") or [body]
+		except Exception as parse_err:
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON payload: {str(parse_err)}")
+
+	if raw_rows is None:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No rows or file provided for bulk import")
+
+	service = BulkImportService(database, company_id)
+	result = service.import_operations(raw_rows)
+	return result
+
+
+@app.post("/api/partners/bulk-import", tags=["Master Data"])
+@app.post("/api/v1/partners/bulk-import", tags=["Master Data"])
+@app.post("/api/v1/master/partners/bulk-import", tags=["Master Data"])
+@app.post("/api/v1/customers/bulk-import", tags=["Master Data"])
+@app.post("/api/v1/crushers/bulk-import", tags=["Master Data"])
+@app.post("/api/v1/transporters/bulk-import", tags=["Master Data"])
+async def bulk_import_partners(
+	request: Request,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db)
+):
+	"""
+	Universal bulk import engine for Master Data Partners (Clients, Material Suppliers, Service Suppliers).
+	Accepts multipart file upload (.xlsx, .xls, .csv) OR JSON payload.
+	Streams data for optimal memory efficiency.
+	"""
+	content_type = request.headers.get("content-type", "").lower()
+	raw_rows = None
+
+	if "multipart/form-data" in content_type:
+		form = await request.form()
+		uploaded_file = form.get("file")
+		if uploaded_file and hasattr(uploaded_file, "read"):
+			content = await uploaded_file.read()
+			filename = (getattr(uploaded_file, "filename", "") or "").lower()
+			if filename.endswith(".xlsx") or filename.endswith(".xls"):
+				raw_rows = stream_raw_rows_from_excel(content)
+			else:
+				raw_rows = stream_raw_rows_from_csv(content)
+		elif form.get("records") or form.get("rows"):
+			raw_text = str(form.get("records") or form.get("rows"))
+			raw_rows = json.loads(raw_text)
+	else:
+		try:
+			body = await request.json()
+			if isinstance(body, list):
+				raw_rows = body
+			elif isinstance(body, dict):
+				raw_rows = body.get("records") or body.get("rows") or body.get("items") or [body]
+		except Exception as parse_err:
+			raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid JSON payload: {str(parse_err)}")
+
+	if raw_rows is None:
+		raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No rows or file provided for bulk import")
+
+	service = BulkImportService(database, company_id)
+	result = service.import_partners(raw_rows)
+	return result
 
 
 @app.get("/api/accounting/accounts", response_model=list[AccountAccountRead], tags=["Accounting"])

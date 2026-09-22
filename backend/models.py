@@ -351,6 +351,28 @@ class WeighbridgeTicket(TimestampMixin, Base):
     attachments: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
     scale_ticket_attachment: Mapped[Optional[str]] = mapped_column(Text)
 
+    # Legacy Superset Fields (REM-P7) for absorbing "قاعدة البيانات الشاملة"
+    material_supplier_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    service_supplier_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    destination_customer_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    loading_invoice_no: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    receipt_invoice_no: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    material_type: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    qty_loaded: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    qty_delivered: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    qty_wastage: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    wastage_percentage: Mapped[Optional[Decimal]] = mapped_column(Numeric(7, 4), nullable=True)
+    sales_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    vat_amount: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    total_sales: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    purchases_cost: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    crusher_payment: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    net_profit: Mapped[Optional[Decimal]] = mapped_column(Numeric(18, 4), nullable=True)
+    operation_month: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    operation_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_legacy_data: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True, default=dict)
+
     picking: Mapped[StockPicking] = relationship(back_populates="weighbridge_tickets")
 
     __table_args__ = (

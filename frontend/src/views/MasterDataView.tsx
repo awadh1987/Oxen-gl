@@ -32,10 +32,12 @@ import {
   Clock,
   Briefcase,
   AlertCircle,
+  Upload,
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { EntityCRUDModal, CRUDModalType } from '../components/EntityCRUDModal';
 import { CsvImportModal, CsvImportEntityType } from '../components/CsvImportModal';
+import { BulkImportModal } from '../components/BulkImportModal';
 
 export const MasterDataView: React.FC = () => {
   const {
@@ -82,6 +84,7 @@ export const MasterDataView: React.FC = () => {
   // CSV Batch Modal State
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [csvDefaultType, setCsvDefaultType] = useState<CsvImportEntityType>('customers');
+  const [isUniversalBulkImportOpen, setIsUniversalBulkImportOpen] = useState(false);
 
   // Slide-over Drawer State for Direct Backend Partners
   const [isPartnerDrawerOpen, setIsPartnerDrawerOpen] = useState(false);
@@ -593,6 +596,18 @@ export const MasterDataView: React.FC = () => {
             title={isAr ? 'تحديث السجلات' : 'Refresh Records'}
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-orange-600' : ''}`} />
+          </button>
+
+          {/* Universal Bulk Import Button (REM-P7) */}
+          <button
+            id="bulk-import-master-btn"
+            type="button"
+            onClick={() => setIsUniversalBulkImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3.5 py-2 text-xs font-bold text-emerald-900 shadow-2xs hover:bg-emerald-100 transition-colors"
+            title={isAr ? 'استيراد بيانات الشركاء وقاعدة البيانات الشاملة (CSV / Excel)' : 'Bulk Import (CSV/Excel)'}
+          >
+            <Upload className="h-4 w-4 text-emerald-700" />
+            <span>{isAr ? 'استيراد بيانات / Bulk Import (CSV/Excel)' : 'Bulk Import (CSV/Excel)'}</span>
           </button>
 
           {/* Batch CSV Import */}
@@ -1432,6 +1447,14 @@ export const MasterDataView: React.FC = () => {
         isOpen={isCsvModalOpen}
         onClose={() => setIsCsvModalOpen(false)}
         defaultEntityType={csvDefaultType}
+      />
+
+      {/* 9. Universal Bulk Import Modal (REM-P7) */}
+      <BulkImportModal
+        isOpen={isUniversalBulkImportOpen}
+        onClose={() => setIsUniversalBulkImportOpen(false)}
+        defaultCategory="partners"
+        onImportSuccess={handleRefreshRecords}
       />
     </div>
   );

@@ -26,7 +26,8 @@ import { DailyOperationsModal } from '../components/DailyOperationsModal';
 import { ScaleTicketViewerModal } from '../components/ScaleTicketViewerModal';
 import { MultiAttachmentModal } from '../components/MultiAttachmentModal';
 import { ExportPrintModal } from '../components/ExportPrintModal';
-import { Paperclip } from 'lucide-react';
+import { BulkImportModal } from '../components/BulkImportModal';
+import { Paperclip, Upload } from 'lucide-react';
 
 export const OperationsLogView: React.FC = () => {
   const {
@@ -83,6 +84,7 @@ export const OperationsLogView: React.FC = () => {
   const [previewTicketOperation, setPreviewTicketOperation] = useState<OperationRecord | null>(null);
   const [attachmentViewingOp, setAttachmentViewingOp] = useState<OperationRecord | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -226,6 +228,17 @@ export const OperationsLogView: React.FC = () => {
           >
             <Printer className="h-4 w-4 text-[#F05627]" />
             <span>{isAr ? 'معاينة وطباعة (Print)' : 'Export & Print'}</span>
+          </button>
+
+          {/* Universal Bulk Import Button (REM-P7) */}
+          <button
+            id="bulk-import-operations-btn"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3.5 py-2 text-xs font-bold text-emerald-900 shadow-xs hover:bg-emerald-100 transition-colors"
+            title={isAr ? 'استيراد عمليات وقاعدة البيانات الشاملة من ملف Excel أو CSV' : 'Bulk Import Operations & Comprehensive Log from Excel/CSV'}
+          >
+            <Upload className="h-4 w-4 text-emerald-700" />
+            <span>{isAr ? 'استيراد بيانات / Bulk Import (CSV/Excel)' : 'Bulk Import (CSV/Excel)'}</span>
           </button>
 
           <button
@@ -612,6 +625,13 @@ export const OperationsLogView: React.FC = () => {
         onClose={() => setIsPrintModalOpen(false)}
         initialDocType="daily-operations"
         initialOrientation="landscape"
+      />
+
+      {/* Universal Bulk Import Engine Modal (REM-P7) */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        defaultCategory="operations"
       />
     </div>
   );

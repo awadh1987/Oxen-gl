@@ -27,7 +27,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Network,
+  Upload,
 } from 'lucide-react';
+import { BulkImportModal } from '../components/BulkImportModal';
 
 export const FinancialVouchersView: React.FC = () => {
   const {
@@ -52,6 +54,7 @@ export const FinancialVouchersView: React.FC = () => {
 
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [selectedVoucherForView, setSelectedVoucherForView] = useState<FinancialVoucher | null>(null);
   const [createModalPrefill, setCreateModalPrefill] = useState<{
     type?: VoucherType;
@@ -343,6 +346,17 @@ export const FinancialVouchersView: React.FC = () => {
               <span>{isAr ? 'دليل الحسابات' : 'Chart of Accounts'}</span>
             </button>
           )}
+
+          {/* Universal Bulk Import Button (REM-P7) */}
+          <button
+            id="bulk-import-vouchers-btn"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3.5 py-2 text-xs font-bold text-emerald-900 shadow-xs hover:bg-emerald-100 transition-colors"
+            title={isAr ? 'استيراد سندات وحسابات وقاعدة البيانات الشاملة (CSV / Excel)' : 'Bulk Import (CSV/Excel)'}
+          >
+            <Upload className="h-3.5 w-3.5 text-emerald-700" />
+            <span>{isAr ? 'استيراد بيانات / Bulk Import (CSV/Excel)' : 'Bulk Import (CSV/Excel)'}</span>
+          </button>
 
           {canAccessFinancials && activeTab === 'vouchers' && (
             <button
@@ -763,6 +777,13 @@ export const FinancialVouchersView: React.FC = () => {
         voucher={selectedVoucherForView}
         isOpen={!!selectedVoucherForView}
         onClose={() => setSelectedVoucherForView(null)}
+      />
+
+      {/* Universal Bulk Import Modal (REM-P7) */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        defaultCategory="operations"
       />
     </div>
   );

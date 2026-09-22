@@ -12,9 +12,11 @@ import {
   DollarSign,
   ArrowUpDown,
   Filter,
+  Upload,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/formatters';
+import { BulkImportModal } from '../components/BulkImportModal';
 
 interface MockPO {
   id: string;
@@ -35,6 +37,7 @@ export const ProcurementView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'orders' | 'matching' | 'vendors'>('orders');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
 
   const [purchaseOrders] = useState<MockPO[]>([
     {
@@ -107,13 +110,27 @@ export const ProcurementView: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-500/20 hover:bg-orange-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          <span>{isAr ? 'أمر شراء جديد' : 'New Purchase Order'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Universal Bulk Import Button (REM-P7) */}
+          <button
+            id="bulk-import-procurement-btn"
+            type="button"
+            onClick={() => setIsBulkImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3.5 py-2.5 text-xs font-bold text-emerald-900 shadow-2xs hover:bg-emerald-100 transition-colors"
+            title={isAr ? 'استيراد أوامر الشراء وقاعدة البيانات الشاملة (CSV / Excel)' : 'Bulk Import (CSV/Excel)'}
+          >
+            <Upload className="h-4 w-4 text-emerald-700" />
+            <span>{isAr ? 'استيراد بيانات / Bulk Import (CSV/Excel)' : 'Bulk Import (CSV/Excel)'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-500/20 hover:bg-orange-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            <span>{isAr ? 'أمر شراء جديد' : 'New Purchase Order'}</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Cards Ribbon */}
@@ -267,6 +284,13 @@ export const ProcurementView: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Universal Bulk Import Modal (REM-P7) */}
+      <BulkImportModal
+        isOpen={isBulkImportOpen}
+        onClose={() => setIsBulkImportOpen(false)}
+        defaultCategory="operations"
+      />
     </div>
   );
 };

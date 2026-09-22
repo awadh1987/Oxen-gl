@@ -289,6 +289,26 @@ class WeighbridgeOperationRead(ORMReadModel):
     weighed_in_at: datetime
     attachments: list[dict[str, Any]] = Field(default_factory=list)
     scale_ticket_attachment: str | None = None
+    material_supplier_name: str | None = None
+    service_supplier_name: str | None = None
+    destination_customer_name: str | None = None
+    loading_invoice_no: str | None = None
+    receipt_invoice_no: str | None = None
+    material_type: str | None = None
+    qty_loaded: Decimal | None = None
+    qty_delivered: Decimal | None = None
+    qty_wastage: Decimal | None = None
+    wastage_percentage: Decimal | None = None
+    sales_amount: Decimal | None = None
+    vat_amount: Decimal | None = None
+    total_sales: Decimal | None = None
+    purchases_cost: Decimal | None = None
+    crusher_payment: Decimal | None = None
+    net_profit: Decimal | None = None
+    operation_month: int | None = None
+    operation_year: int | None = None
+    notes: str | None = None
+    raw_legacy_data: dict[str, Any] | None = Field(default_factory=dict)
 
 
 class AccountAccountCreate(BaseModel):

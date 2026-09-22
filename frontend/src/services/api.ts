@@ -18,6 +18,26 @@ export interface ApiOperation {
   weighed_in_at: string;
   attachments?: any[];
   scale_ticket_attachment?: string;
+  material_supplier_name?: string | null;
+  service_supplier_name?: string | null;
+  destination_customer_name?: string | null;
+  loading_invoice_no?: string | null;
+  receipt_invoice_no?: string | null;
+  material_type?: string | null;
+  qty_loaded?: number | null;
+  qty_delivered?: number | null;
+  qty_wastage?: number | null;
+  wastage_percentage?: number | null;
+  sales_amount?: number | null;
+  vat_amount?: number | null;
+  total_sales?: number | null;
+  purchases_cost?: number | null;
+  crusher_payment?: number | null;
+  net_profit?: number | null;
+  operation_month?: number | null;
+  operation_year?: number | null;
+  notes?: string | null;
+  raw_legacy_data?: Record<string, any>;
 }
 
 export interface ApiCompany {
@@ -422,6 +442,10 @@ async function request<T>(path: string, companyId?: string, options?: RequestIni
     ...((options?.headers as Record<string, string>) || {}),
   };
 
+  if (options?.body instanceof FormData) {
+    delete headers['Content-Type'];
+  }
+
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers,
@@ -618,6 +642,26 @@ export const erpApi = {
   createPartner: (companyId: string, payload: PartnerPayload) => request<Partner>('/api/partners', companyId, { method: 'POST', body: JSON.stringify(payload) }),
   updatePartner: (companyId: string, partnerId: string, payload: Partial<PartnerPayload>) => request<Partner>(`/api/partners/${partnerId}`, companyId, { method: 'PATCH', body: JSON.stringify(payload) }),
   archivePartner: (companyId: string, partnerId: string) => request<void>(`/api/partners/${partnerId}`, companyId, { method: 'DELETE' }),
+  
+  // Phase 7: Universal Bulk Import Engine
+  bulkImportOperations: (payload: FormData | any, companyId?: string) =>
+    request<{ success: boolean; imported_count: number; skipped_count: number; errors: string[]; imported_ticket_ids: string[] }>(
+      '/api/v1/operations/bulk-import',
+      companyId,
+      {
+        method: 'POST',
+        body: payload instanceof FormData ? payload : JSON.stringify(payload),
+      }
+    ),
+  bulkImportPartners: (payload: FormData | any, companyId?: string) =>
+    request<{ success: boolean; imported_count: number; updated_count: number; errors: string[] }>(
+      '/api/v1/partners/bulk-import',
+      companyId,
+      {
+        method: 'POST',
+        body: payload instanceof FormData ? payload : JSON.stringify(payload),
+      }
+    ),
   
   // Phase 5: SaaS Subscription & Billing
   getSubscriptionPlans: () => request<any[]>('/api/master/subscriptions/plans'),
