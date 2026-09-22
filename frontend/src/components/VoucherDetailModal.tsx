@@ -51,7 +51,11 @@ export const VoucherDetailModal: React.FC<VoucherDetailModalProps> = ({
   if (!isOpen || !voucher) return null;
 
   const handlePrint = () => {
+    document.body.classList.add('printing-voucher-modal');
     window.print();
+    setTimeout(() => {
+      document.body.classList.remove('printing-voucher-modal');
+    }, 1000);
   };
 
   const handleApprove = () => {

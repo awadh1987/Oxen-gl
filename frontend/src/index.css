@@ -163,11 +163,18 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
   aspect-ratio: 297 / 210;
 }
 
-/* Custom Print Styles for Official Saudi Tax Invoices, Scale Tickets & Letterheads */
+/* Custom Print Styles for Official Saudi Tax Invoices, Scale Tickets, Vouchers & Reports */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 12mm 15mm 15mm 15mm;
+    margin: 10mm 12mm 12mm 12mm;
+  }
+
+  *,
+  *::before,
+  *::after {
+    text-shadow: none !important;
+    box-shadow: none !important;
   }
 
   body {
@@ -177,6 +184,7 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     print-color-adjust: exact !important;
   }
 
+  /* Global UI Elements to Hide during printing */
   header,
   aside,
   nav,
@@ -190,17 +198,74 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
   .no-print,
   button,
   input,
-  select {
+  select,
+  [role="tablist"],
+  .tab-control,
+  .pagination-controls,
+  .search-filter-bar {
     display: none !important;
   }
 
-  /* Export Print Modal Container adjustments */
+  /* ----------------------------------------------------
+     MODAL PRINT ISOLATION: Single Voucher Detail Modal
+     ---------------------------------------------------- */
+  body.printing-voucher-modal #root > *:not(main),
+  body.printing-voucher-modal main > *:not(#financial-vouchers-view),
+  body.printing-voucher-modal #financial-vouchers-view > *:not(#voucher-detail-modal-backdrop),
+  body:has(#voucher-detail-modal-backdrop) #financial-vouchers-view > *:not(#voucher-detail-modal-backdrop) {
+    display: none !important;
+  }
+
+  #voucher-detail-modal-backdrop {
+    position: static !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    inset: auto !important;
+  }
+
+  #voucher-detail-modal-backdrop > div {
+    position: static !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    height: auto !important;
+    max-height: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Hide close button and modal action footer inside Voucher Modal */
+  #voucher-detail-modal-backdrop button,
+  #voucher-detail-modal-backdrop [role="toolbar"],
+  #voucher-detail-modal-backdrop .modal-footer-actions {
+    display: none !important;
+  }
+
+  /* ----------------------------------------------------
+     MODAL PRINT ISOLATION: Universal Export & Print Studio
+     ---------------------------------------------------- */
+  body.printing-export-modal #root > *:not(main),
+  body.printing-export-modal main > *:not(#export-print-modal-backdrop),
+  body:has(#export-print-modal-backdrop) main > *:not(#export-print-modal-backdrop) {
+    display: none !important;
+  }
+
   #export-print-modal-backdrop {
     position: static !important;
     background: transparent !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     overflow: visible !important;
+    inset: auto !important;
   }
 
   #export-print-modal-backdrop > div {
@@ -209,6 +274,8 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     background: transparent !important;
     height: auto !important;
     max-height: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
     overflow: visible !important;
   }
 
@@ -228,24 +295,112 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     transform: none !important;
   }
 
-  /* Page break rules for merged multi-page documents */
+  /* ----------------------------------------------------
+     GLOBAL VIEW PRINT STANDARDIZATION
+     Stripping dark-mode backgrounds, cards, tables
+     ---------------------------------------------------- */
+  #crusher-ledger-view,
+  #financial-vouchers-view,
+  #transporter-performance-view,
+  #operations-log-view,
+  .app-view-container {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Override dark mode cards and tables across ledger/voucher/operations */
+  #crusher-ledger-view *,
+  #financial-vouchers-view *,
+  #transporter-performance-view *,
+  #operations-log-view * {
+    background-color: transparent !important;
+    color: #0f172a !important;
+  }
+
+  /* White document container */
+  #crusher-ledger-view .bg-\[\#141726\],
+  #financial-vouchers-view .bg-\[\#141726\],
+  #transporter-performance-view .bg-\[\#141726\],
+  #operations-log-view .bg-\[\#141726\],
+  .bg-\[\#141726\] {
+    background-color: #ffffff !important;
+    border-color: #cbd5e1 !important;
+  }
+
+  /* Standardized Print Tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
+  }
+
+  thead tr,
+  th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 8px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  tbody tr {
+    background-color: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  tbody tr:nth-child(even) {
+    background-color: #f8fafc !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  td {
+    border: 1px solid #e2e8f0 !important;
+    color: #0f172a !important;
+    padding: 5px 8px !important;
+  }
+
+  /* ----------------------------------------------------
+     PAGINATION & SINGLE-PAGE CONSTRAINTS
+     ---------------------------------------------------- */
   .page-break-before {
     page-break-before: always !important;
     break-before: page !important;
   }
+
   .page-break-after {
     page-break-after: always !important;
     break-after: page !important;
   }
+
   .avoid-page-break {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
 
-  /* Official Containers */
-  #customer-tax-invoice-printable,
-  #public-tax-invoice-container,
+  /* Single Voucher & Scale Ticket Guaranteed 1-Page Fit */
   .printable-ticket-page {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 270mm !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+  }
+
+  #customer-tax-invoice-printable,
+  #public-tax-invoice-container {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
@@ -257,14 +412,14 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
   .official-letterhead-print {
     display: block !important;
     border-bottom: 2px solid #0f172a !important;
-    padding-bottom: 12px !important;
-    margin-bottom: 16px !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 12px !important;
   }
 
   .official-footer-print {
     display: block !important;
     border-top: 1.5px solid #cbd5e1 !important;
-    padding-top: 10px !important;
-    margin-top: 24px !important;
+    padding-top: 8px !important;
+    margin-top: 16px !important;
   }
 }

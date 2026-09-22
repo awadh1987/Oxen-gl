@@ -158,8 +158,10 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
       setProgressPercent(10);
       setProgressMessage(isAr ? 'جاري تهيئة محرك دمج المستندات...' : 'Initializing PDF engine...');
 
-      const ticketItems = getTicketDomElements();
-      const ticketEls = ticketItems.map((item) => item.element);
+      const ticketItems = getTicketDomElements() || [];
+      const ticketEls = (ticketItems || [])
+        .map((item) => item?.element)
+        .filter((el): el is HTMLElement => Boolean(el));
 
       const mergedPdfBlob = await generateSingleMergedInvoicePdf(
         invoiceEl,
@@ -198,7 +200,9 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
       setProgressPercent(10);
       setProgressMessage(isAr ? 'جاري تجهيز أرشيف ZIP...' : 'Preparing ZIP archive...');
 
-      const ticketItems = getTicketDomElements();
+      const ticketItems = (getTicketDomElements() || []).filter(
+        (item) => item && item.element && item.trip
+      );
 
       const zipBlob = await generateInvoiceZipArchive(
         invoiceEl,
@@ -228,8 +232,15 @@ export const InvoiceExportShareModal: React.FC<InvoiceExportShareModalProps> = (
   const handleShareViaWhatsApp = async () => {
     const filename = `${invoice.invoiceNumber}_Official_Merged_Tax_Invoice.pdf`;
 
-    // 1. Download the merged PDF in background
-    await handleDownloadMergedPdf();
+    // 1. Await PDF Blob generation BEFORE showing success toast or opening links
+    const generatedBlob = bundleFormat === 'merged-pdf'
+      ? await handleDownloadMergedPdf()
+      : await handleDownloadZipArchive();
+
+    // If PDF/ZIP generation failed or returned null, abort immediately
+    if (!generatedBlob) {
+      return;
+    }
 
     // 2. Prepare pre-filled WhatsApp text with the secure read-only URL
     const phoneClean = customerPhone?.replace(/[^0-9]/g, '') || '966501234567';
@@ -255,10 +266,10 @@ ${brandConfig.bankNameAr} | IBAN: ${brandConfig.iban}
     const textEncoded = encodeURIComponent(messageAr);
     const waUrl = `https://wa.me/${phoneClean}?text=${textEncoded}`;
 
-    // 3. Open WhatsApp in new tab
+    // 3. Open WhatsApp in new tab only after PDF is successfully generated
     window.open(waUrl, '_blank', 'noopener,noreferrer');
 
-    // 4. Show Drag-and-Drop Guidance Toast
+    // 4. Show Drag-and-Drop Guidance Toast only after successful generation
     setToastDetails({ channel: 'whatsapp', filename });
     setShowDragDropToast(true);
   };
@@ -267,8 +278,15 @@ ${brandConfig.bankNameAr} | IBAN: ${brandConfig.iban}
   const handleShareViaEmail = async () => {
     const filename = `${invoice.invoiceNumber}_Official_Merged_Tax_Invoice.pdf`;
 
-    // 1. Download the merged PDF in background
-    await handleDownloadMergedPdf();
+    // 1. Await PDF Blob generation BEFORE showing success toast or opening mail client
+    const generatedBlob = bundleFormat === 'merged-pdf'
+      ? await handleDownloadMergedPdf()
+      : await handleDownloadZipArchive();
+
+    // If PDF/ZIP generation failed or returned null, abort immediately
+    if (!generatedBlob) {
+      return;
+    }
 
     // 2. Prepare email body
     const emailTo = customerEmail || 'billing@customer.com';
@@ -307,7 +325,7 @@ IBAN: ${brandConfig.iban}
 
     window.location.href = mailtoUrl;
 
-    // 3. Show Drag-and-Drop Guidance Toast
+    // 3. Show Drag-and-Drop Guidance Toast only after successful generation
     setToastDetails({ channel: 'email', filename });
     setShowDragDropToast(true);
   };

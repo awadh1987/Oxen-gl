@@ -163,10 +163,14 @@ export async function generateScaleTicketPdfFromElement(
  */
 export async function generateSingleMergedInvoicePdf(
   invoiceElement: HTMLElement,
-  ticketElements: HTMLElement[],
+  ticketElements: HTMLElement[] = [],
   invoice: CustomerInvoice,
   onProgress?: MergedPdfProgressCallback
 ): Promise<Blob> {
+  if (!invoiceElement) {
+    throw new Error('Invoice container element is null or undefined.');
+  }
+
   onProgress?.(10, 'جاري تهيئة محرك دمج المستندات الرسمي...');
   const mergedPdfDoc = await PDFDocument.create();
 
@@ -196,32 +200,38 @@ export async function generateSingleMergedInvoicePdf(
   });
 
   // Step 2: Render Supporting Documents & Scale Tickets as subsequent pages
-  const totalTickets = ticketElements.length;
-  for (let i = 0; i < totalTickets; i++) {
-    const progressPercent = Math.round(30 + ((i + 1) / totalTickets) * 60);
-    onProgress?.(
-      progressPercent,
-      `جاري دمج تذكرة الميزان والإثبات الداعم (${i + 1} من ${totalTickets})...`
-    );
+  const validTicketElements = Array.isArray(ticketElements) ? ticketElements.filter(Boolean) : [];
+  const totalTickets = validTicketElements.length;
 
-    const ticketEl = ticketElements[i];
-    if (!ticketEl) continue;
+  if (totalTickets === 0) {
+    onProgress?.(85, 'لا توجد مرفقات إضافية محددة للدمج. جاري إنهاء ملف الفاتورة...');
+  } else {
+    for (let i = 0; i < totalTickets; i++) {
+      const progressPercent = Math.round(30 + ((i + 1) / totalTickets) * 60);
+      onProgress?.(
+        progressPercent,
+        `جاري دمج تذكرة الميزان والإثبات الداعم (${i + 1} من ${totalTickets})...`
+      );
 
-    try {
-      const ticketPng = await captureElementToPng(ticketEl, 2);
-      const ticketBytes = await fetch(ticketPng).then((res) => res.arrayBuffer());
-      const embeddedTicketImg = await mergedPdfDoc.embedPng(ticketBytes);
+      const ticketEl = validTicketElements[i];
+      if (!ticketEl) continue;
 
-      const ticketDims = embeddedTicketImg.scaleToFit(a4Width - 40, a4Height - 40);
-      const ticketPage = mergedPdfDoc.addPage([a4Width, a4Height]);
-      ticketPage.drawImage(embeddedTicketImg, {
-        x: (a4Width - ticketDims.width) / 2,
-        y: a4Height - ticketDims.height - 20,
-        width: ticketDims.width,
-        height: ticketDims.height,
-      });
-    } catch (err) {
-      console.warn(`Could not render ticket page ${i + 1}:`, err);
+      try {
+        const ticketPng = await captureElementToPng(ticketEl, 2);
+        const ticketBytes = await fetch(ticketPng).then((res) => res.arrayBuffer());
+        const embeddedTicketImg = await mergedPdfDoc.embedPng(ticketBytes);
+
+        const ticketDims = embeddedTicketImg.scaleToFit(a4Width - 40, a4Height - 40);
+        const ticketPage = mergedPdfDoc.addPage([a4Width, a4Height]);
+        ticketPage.drawImage(embeddedTicketImg, {
+          x: (a4Width - ticketDims.width) / 2,
+          y: a4Height - ticketDims.height - 20,
+          width: ticketDims.width,
+          height: ticketDims.height,
+        });
+      } catch (err) {
+        console.warn(`Could not render ticket page ${i + 1}:`, err);
+      }
     }
   }
 
@@ -239,10 +249,14 @@ export async function generateSingleMergedInvoicePdf(
  */
 export async function generateInvoiceZipArchive(
   invoiceElement: HTMLElement,
-  ticketElements: { element: HTMLElement; trip: OperationRecord }[],
+  ticketElements: { element: HTMLElement; trip: OperationRecord }[] = [],
   invoice: CustomerInvoice,
   onProgress?: MergedPdfProgressCallback
 ): Promise<Blob> {
+  if (!invoiceElement) {
+    throw new Error('Invoice container element is null or undefined.');
+  }
+
   onProgress?.(10, 'جاري إنشاء حزمة الأرشيف المضغوط (ZIP)...');
   const zip = new JSZip();
 
@@ -254,28 +268,34 @@ export async function generateInvoiceZipArchive(
   );
   zip.file(`${invoice.invoiceNumber}_Official_Tax_Invoice.pdf`, invoicePdfBytes);
 
-  // 2. Add Supporting Scale Tickets in a sub-folder
-  const supportingFolder = zip.folder('Supporting_Scale_Tickets_and_Waybills');
-  const total = ticketElements.length;
+  // 2. Add Supporting Scale Tickets in a sub-folder if any
+  const validItems = Array.isArray(ticketElements)
+    ? ticketElements.filter((item) => item && item.element && item.trip)
+    : [];
+  const total = validItems.length;
 
-  for (let i = 0; i < total; i++) {
-    const progressPercent = Math.round(30 + ((i + 1) / total) * 60);
-    const item = ticketElements[i];
-    onProgress?.(
-      progressPercent,
-      `جاري توليد ملف PDF لتذكرة الميزان ${item.trip.scale_ticket_no} (${i + 1}/${total})...`
-    );
+  if (total > 0) {
+    const supportingFolder = zip.folder('Supporting_Scale_Tickets_and_Waybills');
 
-    try {
-      const ticketPdfBytes = await generateScaleTicketPdfFromElement(item.element);
-      const cleanTicketNo = item.trip.scale_ticket_no.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const cleanTruck = item.trip.truck_no.replace(/[^a-zA-Z0-9_-]/g, '_');
-      supportingFolder?.file(
-        `${cleanTicketNo}_Truck_${cleanTruck}_${item.trip.loading_date}.pdf`,
-        ticketPdfBytes
+    for (let i = 0; i < total; i++) {
+      const progressPercent = Math.round(30 + ((i + 1) / total) * 60);
+      const item = validItems[i];
+      onProgress?.(
+        progressPercent,
+        `جاري توليد ملف PDF لتذكرة الميزان ${item.trip.scale_ticket_no} (${i + 1}/${total})...`
       );
-    } catch (err) {
-      console.warn(`Failed to add ticket ${item.trip.scale_ticket_no} to zip:`, err);
+
+      try {
+        const ticketPdfBytes = await generateScaleTicketPdfFromElement(item.element);
+        const cleanTicketNo = (item.trip.scale_ticket_no || `ticket_${i + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const cleanTruck = (item.trip.truck_no || 'truck').replace(/[^a-zA-Z0-9_-]/g, '_');
+        supportingFolder?.file(
+          `${cleanTicketNo}_Truck_${cleanTruck}_${item.trip.loading_date || 'date'}.pdf`,
+          ticketPdfBytes
+        );
+      } catch (err) {
+        console.warn(`Failed to add ticket ${item.trip?.scale_ticket_no} to zip:`, err);
+      }
     }
   }
 

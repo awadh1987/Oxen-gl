@@ -253,6 +253,19 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
     };
   }, [filteredOperations]);
 
+  // Voucher Metrics for financial-vouchers docType
+  const voucherMetrics = useMemo(() => {
+    const totalCount = vouchers.length;
+    const paymentTotal = vouchers
+      .filter((v) => v.type === 'Payment')
+      .reduce((acc, v) => acc + v.amount, 0);
+    const receiptTotal = vouchers
+      .filter((v) => v.type === 'Receipt')
+      .reduce((acc, v) => acc + v.amount, 0);
+    const netFlow = receiptTotal - paymentTotal;
+    return { totalCount, paymentTotal, receiptTotal, netFlow };
+  }, [vouchers]);
+
   // Dynamic Metadata
   const docRefNumber = useMemo(() => {
     const prefixMap: Record<ExportDocType, string> = {
@@ -312,8 +325,15 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
       }
     `;
     document.head.appendChild(style);
+    document.body.classList.add('printing-export-modal');
 
     window.print();
+
+    setTimeout(() => {
+      document.body.classList.remove('printing-export-modal');
+      const s = document.getElementById('dynamic-print-page-style');
+      if (s?.parentNode) s.parentNode.removeChild(s);
+    }, 1000);
   };
 
   const handleDownloadPdf = async () => {
@@ -1121,6 +1141,99 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                   </div>
                 )}
 
+                {/* Tabular Layout for Transporter Shrinkage */}
+                {docType === 'transporter-shrinkage' && (
+                  <div className="my-5 space-y-4">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <h4 className="text-xs font-bold text-slate-900">
+                        {isAr ? 'كشف حساب وفاقد الناقل:' : 'Transporter Statement & Transit Loss:'}{' '}
+                        <strong className="text-orange-950">{selectedTransporter?.transporterName}</strong>
+                      </h4>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        {isAr ? 'جهة النقل:' : 'Carrier:'} {selectedTransporter?.transporterName} | {isAr ? 'الأسطول:' : 'Fleet:'}{' '}
+                        {selectedTransporter?.trucksCount || 0} {isAr ? 'شاحنة' : 'trucks'}
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto rounded-xl border border-slate-300">
+                      <table className="w-full text-right text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-900 text-white font-bold">
+                            <th className="p-2.5 text-center">#</th>
+                            <th className="p-2.5">{isAr ? 'التاريخ' : 'Date'}</th>
+                            <th className="p-2.5">{isAr ? 'الشاحنة' : 'Truck'}</th>
+                            <th className="p-2.5">{isAr ? 'السائق' : 'Driver'}</th>
+                            <th className="p-2.5 text-center">{isAr ? 'المحمّل' : 'Loaded'}</th>
+                            <th className="p-2.5 text-center">{isAr ? 'المسلّم' : 'Delivered'}</th>
+                            <th className="p-2.5 text-center">{isAr ? 'الفاقد' : 'Loss'}</th>
+                            <th className="p-2.5 text-center">{isAr ? 'النولون' : 'Freight'}</th>
+                            <th className="p-2.5 text-center">{isAr ? 'الخصم' : 'Deduction'}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {filteredOperations.map((op, idx) => (
+                            <tr key={op.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
+                              <td className="p-2.5 font-mono">{op.loading_date}</td>
+                              <td className="p-2.5 font-mono font-bold text-slate-800">{op.truck_no}</td>
+                              <td className="p-2.5">{op.driver_name || '-'}</td>
+                              <td className="p-2.5 text-center font-mono">{formatNumber(op.qty_loaded, language, 2)}</td>
+                              <td className="p-2.5 text-center font-mono">{formatNumber(op.qty_delivered, language, 2)}</td>
+                              <td className="p-2.5 text-center font-mono font-bold text-rose-600">{formatNumber(op.qty_wastage, language, 2)}</td>
+                              <td className="p-2.5 text-center font-mono">{formatCurrency(op.freight_fee, language)}</td>
+                              <td className="p-2.5 text-center font-mono text-rose-700">{formatCurrency(op.penalty_fee, language)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabular Layout for Financial Vouchers */}
+                {docType === 'financial-vouchers' && (
+                  <div className="my-5 space-y-4">
+                    <div className="overflow-x-auto rounded-xl border border-slate-300">
+                      <table className="w-full text-right text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-900 text-white font-bold">
+                            <th className="p-2.5 text-center">#</th>
+                            <th className="p-2.5">{isAr ? 'رقم السند' : 'Voucher #'}</th>
+                            <th className="p-2.5">{isAr ? 'التاريخ' : 'Date'}</th>
+                            <th className="p-2.5">{isAr ? 'النوع' : 'Type'}</th>
+                            <th className="p-2.5">{isAr ? 'المستفيد / الدافع' : 'Party'}</th>
+                            <th className="p-2.5">{isAr ? 'البيان والغرض' : 'Purpose'}</th>
+                            <th className="p-2.5 text-center">{isAr ? 'المبلغ (SAR)' : 'Amount (SAR)'}</th>
+                            <th className="p-2.5 text-center">{isAr ? 'الحالة' : 'Status'}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {vouchers.map((v, idx) => (
+                            <tr key={v.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
+                              <td className="p-2.5 font-mono font-bold text-slate-800">{v.voucherNumber}</td>
+                              <td className="p-2.5 font-mono">{v.date}</td>
+                              <td className="p-2.5 font-bold">
+                                <span className={`px-2 py-0.5 rounded text-[10px] ${v.type === 'Payment' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                  {v.type === 'Payment' ? (isAr ? 'صرف' : 'Payment') : (isAr ? 'قبض' : 'Receipt')}
+                                </span>
+                              </td>
+                              <td className="p-2.5 font-bold">{v.partyName}</td>
+                              <td className="p-2.5 max-w-[200px] truncate">{v.purpose}</td>
+                              <td className="p-2.5 text-center font-mono font-bold text-slate-900">{formatCurrency(v.amount, language)}</td>
+                              <td className="p-2.5 text-center">
+                                <span className={`px-2 py-0.5 rounded text-[10px] ${v.status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                  {v.status === 'Approved' ? (isAr ? 'معتمد' : 'Approved') : (isAr ? 'بانتظار الاعتماد' : 'Pending')}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 {/* 5. Financial Totals & Tafqeet Block */}
                 <div className="my-6 border-t-2 border-slate-900 pt-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
@@ -1137,28 +1250,57 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
 
                     {/* Financial Summary Breakdown */}
                     <div className="space-y-1.5 text-xs text-right sm:pr-4">
-                      <div className="flex justify-between py-1 border-b border-slate-200">
-                        <span className="text-slate-600 font-medium">
-                          {isAr ? 'المجموع بدون ضريبة (Subtotal Excl. VAT):' : 'Subtotal Excl. VAT:'}
-                        </span>
-                        <span className="font-mono font-bold text-slate-900">
-                          {formatCurrency(summaryMetrics.totalSales, language)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-1 border-b border-slate-200">
-                        <span className="text-slate-600 font-medium">
-                          {isAr ? 'ضريبة القيمة المضافة (VAT 15%):' : 'Value Added Tax (15%):'}
-                        </span>
-                        <span className="font-mono font-bold text-slate-900">
-                          {formatCurrency(summaryMetrics.totalVat, language)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-1.5 font-black text-sm bg-slate-900 text-white rounded-lg px-3">
-                        <span>{isAr ? 'الإجمالي النهائي المستحق (Grand Total):' : 'Grand Total (SAR):'}</span>
-                        <span className="font-mono text-emerald-300">
-                          {formatCurrency(summaryMetrics.grandTotal, language)}
-                        </span>
-                      </div>
+                      {docType === 'financial-vouchers' ? (
+                        <>
+                          <div className="flex justify-between py-1 border-b border-slate-200">
+                            <span className="text-slate-600 font-medium">
+                              {isAr ? 'إجمالي سندات القبض (Receipts):' : 'Total Receipts:'}
+                            </span>
+                            <span className="font-mono font-bold text-emerald-700">
+                              {formatCurrency(voucherMetrics.receiptTotal, language)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200">
+                            <span className="text-slate-600 font-medium">
+                              {isAr ? 'إجمالي سندات الصرف (Payments):' : 'Total Payments:'}
+                            </span>
+                            <span className="font-mono font-bold text-rose-700">
+                              {formatCurrency(voucherMetrics.paymentTotal, language)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-1.5 font-black text-sm bg-slate-900 text-white rounded-lg px-3">
+                            <span>{isAr ? 'صافي حركة السيولة (Net Flow):' : 'Net Flow (SAR):'}</span>
+                            <span className={`font-mono ${voucherMetrics.netFlow >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                              {formatCurrency(voucherMetrics.netFlow, language)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between py-1 border-b border-slate-200">
+                            <span className="text-slate-600 font-medium">
+                              {isAr ? 'المجموع بدون ضريبة (Subtotal Excl. VAT):' : 'Subtotal Excl. VAT:'}
+                            </span>
+                            <span className="font-mono font-bold text-slate-900">
+                              {formatCurrency(summaryMetrics.totalSales, language)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-1 border-b border-slate-200">
+                            <span className="text-slate-600 font-medium">
+                              {isAr ? 'ضريبة القيمة المضافة (VAT 15%):' : 'Value Added Tax (15%):'}
+                            </span>
+                            <span className="font-mono font-bold text-slate-900">
+                              {formatCurrency(summaryMetrics.totalVat, language)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between py-1.5 font-black text-sm bg-slate-900 text-white rounded-lg px-3">
+                            <span>{isAr ? 'الإجمالي النهائي المستحق (Grand Total):' : 'Grand Total (SAR):'}</span>
+                            <span className="font-mono text-emerald-300">
+                              {formatCurrency(summaryMetrics.grandTotal, language)}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
