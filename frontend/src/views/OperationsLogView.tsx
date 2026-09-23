@@ -27,7 +27,8 @@ import { ScaleTicketViewerModal } from '../components/ScaleTicketViewerModal';
 import { MultiAttachmentModal } from '../components/MultiAttachmentModal';
 import { ExportPrintModal } from '../components/ExportPrintModal';
 import { BulkImportModal } from '../components/BulkImportModal';
-import { Paperclip, Upload } from 'lucide-react';
+import { ImportSystemResourceModal } from '../components/ImportSystemResourceModal';
+import { Paperclip, Upload, Database } from 'lucide-react';
 
 export const OperationsLogView: React.FC = () => {
   const {
@@ -85,6 +86,7 @@ export const OperationsLogView: React.FC = () => {
   const [attachmentViewingOp, setAttachmentViewingOp] = useState<OperationRecord | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isLegacyImportOpen, setIsLegacyImportOpen] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -240,6 +242,17 @@ export const OperationsLogView: React.FC = () => {
           >
             <Upload className="h-4 w-4 text-emerald-700" />
             <span>{isAr ? 'استيراد بيانات / Bulk Import (CSV/Excel)' : 'Bulk Import (CSV/Excel)'}</span>
+          </button>
+
+          {/* Legacy System Resource Bridge Button (Sprint 7) */}
+          <button
+            id="import-system-resource-btn"
+            onClick={() => setIsLegacyImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-orange-300 bg-orange-50/90 px-3.5 py-2 text-xs font-bold text-orange-950 shadow-xs hover:bg-orange-100 hover:border-orange-400 transition-colors"
+            title={isAr ? 'استيراد وامتصاص ملف قاعدة البيانات التاريخية System Resource.xlsx' : 'Import Legacy System Resource Excel (.xlsx)'}
+          >
+            <Database className="h-4 w-4 text-[#F05627]" />
+            <span>{isAr ? 'جسر البيانات التاريخية (System Resource)' : 'Import System Resource (.xlsx)'}</span>
           </button>
 
           <button
@@ -634,6 +647,12 @@ export const OperationsLogView: React.FC = () => {
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
         defaultCategory="operations"
+      />
+
+      {/* Legacy System Resource Data Bridge Modal (Sprint 7) */}
+      <ImportSystemResourceModal
+        isOpen={isLegacyImportOpen}
+        onClose={() => setIsLegacyImportOpen(false)}
       />
     </div>
   );

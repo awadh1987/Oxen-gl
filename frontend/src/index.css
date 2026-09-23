@@ -207,12 +207,39 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
   }
 
   /* ----------------------------------------------------
+     PRINT ISOLATION: Primary Tax Invoice
+     ---------------------------------------------------- */
+  body.printing-invoice #root > *:not(main),
+  body.printing-invoice aside,
+  body.printing-invoice nav,
+  body.printing-invoice header,
+  body.printing-invoice .no-print {
+    display: none !important;
+  }
+
+  body.printing-invoice #customer-tax-invoice-printable {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  /* ----------------------------------------------------
      MODAL PRINT ISOLATION: Single Voucher Detail Modal
      ---------------------------------------------------- */
   body.printing-voucher-modal #root > *:not(main),
-  body.printing-voucher-modal main > *:not(#financial-vouchers-view),
-  body.printing-voucher-modal #financial-vouchers-view > *:not(#voucher-detail-modal-backdrop),
-  body:has(#voucher-detail-modal-backdrop) #financial-vouchers-view > *:not(#voucher-detail-modal-backdrop) {
+  body.printing-voucher-modal aside,
+  body.printing-voucher-modal nav,
+  body.printing-voucher-modal header,
+  body.printing-voucher-modal .no-print {
+    display: none !important;
+  }
+
+  body.printing-voucher-modal #financial-vouchers-view > *:not(#voucher-detail-modal-backdrop) {
     display: none !important;
   }
 
@@ -225,6 +252,7 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     max-width: 100% !important;
     overflow: visible !important;
     inset: auto !important;
+    z-index: auto !important;
   }
 
   #voucher-detail-modal-backdrop > div {
@@ -252,8 +280,14 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
      MODAL PRINT ISOLATION: Universal Export & Print Studio
      ---------------------------------------------------- */
   body.printing-export-modal #root > *:not(main),
-  body.printing-export-modal main > *:not(#export-print-modal-backdrop),
-  body:has(#export-print-modal-backdrop) main > *:not(#export-print-modal-backdrop) {
+  body.printing-export-modal aside,
+  body.printing-export-modal nav,
+  body.printing-export-modal header,
+  body.printing-export-modal .no-print {
+    display: none !important;
+  }
+
+  body.printing-export-modal #customer-invoicing-view > *:not(#export-print-modal-backdrop) {
     display: none !important;
   }
 
@@ -266,6 +300,7 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     max-width: 100% !important;
     overflow: visible !important;
     inset: auto !important;
+    z-index: auto !important;
   }
 
   #export-print-modal-backdrop > div {
@@ -277,18 +312,27 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     width: 100% !important;
     max-width: 100% !important;
     overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
+  #export-print-modal-backdrop button,
+  #export-print-modal-backdrop select,
+  #export-print-modal-backdrop input,
+  #export-print-modal-backdrop textarea,
+  #export-print-modal-backdrop [role="toolbar"],
   #export-print-modal-backdrop > div > div:first-child,
   #export-print-modal-backdrop > div > div > div:first-child {
     display: none !important;
   }
 
   #export-print-preview-content {
+    display: block !important;
+    visibility: visible !important;
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     width: 100% !important;
     max-width: 100% !important;
     background: #ffffff !important;
@@ -401,6 +445,8 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
 
   #customer-tax-invoice-printable,
   #public-tax-invoice-container {
+    display: block !important;
+    visibility: visible !important;
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;

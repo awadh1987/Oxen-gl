@@ -365,6 +365,8 @@ app.include_router(tenant_control.router, prefix="/api/tenant/control")
 app.include_router(tenant_control.router, prefix="/api/v1/tenant/control")
 app.include_router(master_platform.router, prefix="/api/master/platform")
 app.include_router(master_platform.router, prefix="/api/v1/master/platform")
+from backend.app.api.v1 import system as system_api
+app.include_router(system_api.router)
 
 def get_db() -> Generator[Session, None, None]:
 	database = SessionLocal()

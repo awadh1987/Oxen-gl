@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useApp } from '../context/AppContext';
 import {
   Printer,
@@ -37,7 +38,7 @@ import {
 } from '../utils/formatters';
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
 import { exportOperationsToExcel, exportInvoiceToExcel } from '../utils/excelExporter';
-import { generateSingleMergedInvoicePdf, captureElementToPng, downloadBlob } from '../utils/pdfGenerator';
+import { generateSingleMergedInvoicePdf, captureElementToPng, captureElementWithStaging, downloadBlob } from '../utils/pdfGenerator';
 import { OfficialLetterheadHeader } from './OfficialLetterheadHeader';
 import { OfficialLetterheadFooter } from './OfficialLetterheadFooter';
 import { BrandLogo } from './BrandLogo';
@@ -340,7 +341,8 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
     if (!printPreviewRef.current) return;
     try {
       setIsExportingPdf(true);
-      const pngDataUrl = await captureElementToPng(printPreviewRef.current, 2);
+      const targetWidth = orientation === 'landscape' ? 1100 : 850;
+      const pngDataUrl = await captureElementWithStaging(printPreviewRef.current, 2, targetWidth);
       const pdfDoc = await PDFDocument.create();
 
       // A4 dimensions
@@ -928,11 +930,11 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
 
                       {showZatcaQR && (
                         <div className="mt-3 flex items-center gap-2 rounded-lg bg-white p-2 border border-slate-200 shadow-xs">
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(
-                              zatcaQrBase64
-                            )}`}
-                            alt="ZATCA QR"
+                          <QRCodeSVG
+                            value={zatcaQrBase64}
+                            size={64}
+                            level="M"
+                            includeMargin={false}
                             className="h-16 w-16"
                           />
                           <div className="text-[10px] text-slate-500 leading-tight">

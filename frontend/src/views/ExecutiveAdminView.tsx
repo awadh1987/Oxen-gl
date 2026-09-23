@@ -28,9 +28,11 @@ import {
   Signature,
   FileText,
   RefreshCw,
+  Database,
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatNumber, formatTonnage } from '../utils/formatters';
 import { UserRole, EditApprovalRequest, UserApprovalRequest, BrandConfig } from '../types';
+import { ImportSystemResourceModal } from '../components/ImportSystemResourceModal';
 
 export const ExecutiveAdminView: React.FC = () => {
   const {
@@ -92,6 +94,7 @@ export const ExecutiveAdminView: React.FC = () => {
   const [brandForm, setBrandForm] = useState<BrandConfig>(brandConfig);
   const [brandSavedToast, setBrandSavedToast] = useState(false);
   const [brandingSubSection, setBrandingSubSection] = useState<'general' | 'logo' | 'homepage' | 'contact' | 'bank'>('general');
+  const [isLegacyImportOpen, setIsLegacyImportOpen] = useState(false);
 
   React.useEffect(() => {
     setBrandForm(brandConfig);
@@ -265,6 +268,17 @@ export const ExecutiveAdminView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Legacy System Resource Bridge Button (Sprint 7) */}
+          <button
+            id="admin-import-system-resource-btn"
+            onClick={() => setIsLegacyImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-2xl bg-orange-500/20 hover:bg-orange-500/30 px-3.5 py-2 border border-orange-400/40 text-orange-200 text-xs font-bold transition-all shadow-xs"
+            title={isAr ? 'استيراد وامتصاص ملف قاعدة البيانات التاريخية System Resource.xlsx' : 'Import Legacy System Resource Excel (.xlsx)'}
+          >
+            <Database className="h-4 w-4 text-orange-400" />
+            <span>{isAr ? 'جسر البيانات التاريخية (System Resource)' : 'Import System Resource (.xlsx)'}</span>
+          </button>
+
           {pendingEditsCount + pendingUsersCount > 0 && (
             <div className="flex items-center gap-2 rounded-2xl bg-amber-500/20 px-3.5 py-2 border border-amber-400/30 text-amber-200 text-xs font-bold">
               <Clock className="h-4 w-4 text-amber-400 animate-spin" />
@@ -2146,6 +2160,12 @@ export const ExecutiveAdminView: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Legacy System Resource Data Bridge Modal (Sprint 7) */}
+      <ImportSystemResourceModal
+        isOpen={isLegacyImportOpen}
+        onClose={() => setIsLegacyImportOpen(false)}
+      />
     </div>
   );
 };

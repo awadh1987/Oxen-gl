@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   UserCheck,
@@ -15,21 +15,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/formatters';
 import { BulkImportModal } from '../components/BulkImportModal';
-
-interface EmployeeRecord {
-  id: string;
-  employeeNumber: string;
-  nameAr: string;
-  nameEn: string;
-  roleAr: string;
-  roleEn: string;
-  departmentAr: string;
-  departmentEn: string;
-  baseSalary: number;
-  attendanceRate: number;
-  status: 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED';
-  iqamaOrNationalId: string;
-}
+import { AddEmployeeModal, EmployeeRecord } from '../components/AddEmployeeModal';
+import { erpApi } from '../services/api';
 
 export const HRMSView: React.FC = () => {
   const { language, themeMode } = useApp();
@@ -39,8 +26,9 @@ export const HRMSView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'employees' | 'payroll' | 'attendance'>('employees');
   const [searchTerm, setSearchTerm] = useState('');
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
 
-  const [employees] = useState<EmployeeRecord[]>([
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([
     {
       id: 'emp-01',
       employeeNumber: 'EMP-0412',
@@ -84,6 +72,34 @@ export const HRMSView: React.FC = () => {
       iqamaOrNationalId: '1073829105',
     },
   ]);
+
+  useEffect(() => {
+    erpApi.getEmployees().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setEmployees((prev) => {
+          const existingIds = new Set(prev.map((e) => e.id));
+          const existingCodes = new Set(prev.map((e) => e.employeeNumber));
+          const formatted = data
+            .filter((d: any) => !existingIds.has(d.id) && !existingCodes.has(d.employeeNumber || d.employee_code))
+            .map((d: any) => ({
+              id: d.id,
+              employeeNumber: d.employeeNumber || d.employee_code || 'EMP-0000',
+              nameAr: d.nameAr || d.name || 'موظف',
+              nameEn: d.nameEn || d.name || 'Employee',
+              roleAr: d.roleAr || 'موظف',
+              roleEn: d.roleEn || 'Employee',
+              departmentAr: d.departmentAr || d.department || 'العمليات اللوجستية',
+              departmentEn: d.departmentEn || d.department || 'Logistics',
+              baseSalary: d.baseSalary || d.base_salary || 10000,
+              attendanceRate: d.attendanceRate ?? 100,
+              status: (d.status === 'TERMINATED' ? 'TERMINATED' : d.status === 'LEAVE' ? 'ON_LEAVE' : 'ACTIVE') as 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED',
+              iqamaOrNationalId: d.iqamaOrNationalId || '1092837461',
+            }));
+          return [...formatted, ...prev];
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   const filteredEmployees = employees.filter(
     (emp) =>
@@ -135,7 +151,9 @@ export const HRMSView: React.FC = () => {
           </button>
 
           <button
+            id="add-employee-btn"
             type="button"
+            onClick={() => setIsAddEmployeeOpen(true)}
             className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-500/20 hover:bg-orange-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
@@ -302,6 +320,15 @@ export const HRMSView: React.FC = () => {
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
         defaultCategory="partners"
+      />
+
+      {/* Add Employee Modal with Direct Backend Persistence & Optimistic Update */}
+      <AddEmployeeModal
+        isOpen={isAddEmployeeOpen}
+        onClose={() => setIsAddEmployeeOpen(false)}
+        onEmployeeAdded={(newEmployee) => {
+          setEmployees((prev) => [newEmployee, ...prev]);
+        }}
       />
     </div>
   );

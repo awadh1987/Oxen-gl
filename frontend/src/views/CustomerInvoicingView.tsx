@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useApp } from '../context/AppContext';
 import { CustomerInvoice, InvoiceItem, OperationRecord, DocumentAttachment } from '../types';
 import { erpApi, ApiCustomerInvoice } from '../services/api';
@@ -293,7 +294,11 @@ export const CustomerInvoicingView: React.FC = () => {
   };
 
   const handlePrint = () => {
+    document.body.classList.add('printing-invoice');
     window.print();
+    setTimeout(() => {
+      document.body.classList.remove('printing-invoice');
+    }, 1000);
   };
 
   const handleExcelExport = () => {
@@ -562,7 +567,7 @@ Myon Economic Contracting Co. Ltd.`;
   return (
     <div className="space-y-6" id="customer-invoicing-view">
       {/* 1. Header & Quick Actions */}
-      <div className="flex flex-col justify-between gap-4 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center">
+      <div className="flex flex-col justify-between gap-4 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:flex-row sm:items-center no-print">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-black text-slate-900">
@@ -671,7 +676,7 @@ Myon Economic Contracting Co. Ltd.`;
       {/* Dynamic Alert & Feedback Banner */}
       {feedback && (
         <div
-          className={`flex items-center justify-between rounded-2xl p-4 text-xs font-bold transition-all ${
+          className={`flex items-center justify-between rounded-2xl p-4 text-xs font-bold transition-all no-print ${
             feedback.type === 'error'
               ? 'border border-rose-200 bg-rose-50 text-rose-900'
               : feedback.type === 'warning'
@@ -700,7 +705,7 @@ Myon Economic Contracting Co. Ltd.`;
 
       {/* Financial Engine Balance Alert (BR-001) */}
       {isUnbalanced && (
-        <div className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/90 p-4 text-xs font-bold text-rose-950 shadow-sm">
+        <div className="flex items-center gap-3 rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/90 p-4 text-xs font-bold text-rose-950 shadow-sm no-print">
           <AlertTriangle className="h-6 w-6 shrink-0 text-rose-600" />
           <div className="flex-1">
             <h4 className="font-black text-rose-900">
@@ -717,7 +722,7 @@ Myon Economic Contracting Co. Ltd.`;
 
       {/* 2. State-Machine Approval Workflow & Submission Banner */}
       <div
-        className={`rounded-3xl border p-5 transition-all ${
+        className={`rounded-3xl border p-5 transition-all no-print ${
           currentBackendInvoice?.status === 'Issued' || invoiceStatus === 'Paid'
             ? 'border-blue-200 bg-blue-50/70 text-blue-950'
             : invoiceStatus === 'Approved'
@@ -866,7 +871,7 @@ Myon Economic Contracting Co. Ltd.`;
       </div>
 
       {/* 3. Invoice Generator Controls Bar */}
-      <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs">
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs no-print">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <div>
             <label className="mb-1 block text-xs font-bold text-slate-700">
@@ -1053,11 +1058,11 @@ Myon Economic Contracting Co. Ltd.`;
           {/* ZATCA QR Code & Bank Accounts */}
           <div className="flex gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex flex-col items-center justify-center rounded-xl bg-white p-2 border border-slate-300">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(
-                  zatcaQrBase64
-                )}`}
-                alt="ZATCA Phase 1 QR"
+              <QRCodeSVG
+                value={zatcaQrBase64}
+                size={80}
+                level="M"
+                includeMargin={false}
                 className="h-20 w-20 object-contain rounded"
               />
               <span className="mt-1 text-[9px] font-mono text-slate-500 font-bold">ZATCA e-Invoice QR</span>

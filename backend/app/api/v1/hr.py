@@ -65,23 +65,110 @@ async def create_employee(
             detail="Subscription seat cap exceeded. Upgrade required before adding new employees.",
         )
 
+    name = (payload.get("name") or payload.get("nameAr") or payload.get("nameEn") or "").strip()
+    first_name = payload.get("first_name", "").strip()
+    last_name = payload.get("last_name", "").strip()
+    if not first_name and name:
+        parts = name.split(" ", 1)
+        first_name = parts[0]
+        last_name = parts[1] if len(parts) > 1 else ""
+    if not first_name:
+        first_name = "موظف"
+    if not last_name:
+        last_name = "جديد"
+
+    emp_code = payload.get("employee_code") or payload.get("employeeNumber") or f"EMP-{uuid.uuid4().hex[:6].upper()}"
+    dept = payload.get("department") or payload.get("departmentAr") or payload.get("departmentEn") or "General"
+    salary = float(payload.get("base_salary") or payload.get("baseSalary") or 0.0)
+
+    hire_date_val = date.today()
+    if payload.get("hire_date") or payload.get("hireDate"):
+        try:
+            raw_hd = str(payload.get("hire_date") or payload.get("hireDate"))[:10]
+            hire_date_val = date.fromisoformat(raw_hd)
+        except Exception:
+            pass
+
     emp_id = uuid.uuid4()
     emp = Employee(
         id=emp_id,
         tenant_id=tenant_uuid,
-        employee_code=payload.get("employee_code", f"EMP-{uuid.uuid4().hex[:6]}"),
-        first_name=payload.get("first_name", ""),
-        last_name=payload.get("last_name", ""),
-        department=payload.get("department", "General"),
-        base_salary=payload.get("base_salary", 0.0),
-        hire_date=date.today(),
+        employee_code=emp_code,
+        first_name=first_name,
+        last_name=last_name,
+        department=dept,
+        base_salary=salary,
+        hire_date=hire_date_val,
         is_active=True,
     )
     db.add(emp)
     if sub and hasattr(sub, "current_seats_used"):
         sub.current_seats_used += 1
     db.commit()
-    return {"status": "CREATED", "employee_id": str(emp_id)}
+    db.refresh(emp)
+
+    return {
+        "status": "CREATED",
+        "employee_id": str(emp.id),
+        "id": str(emp.id),
+        "employee_code": emp.employee_code,
+        "employeeNumber": emp.employee_code,
+        "first_name": emp.first_name,
+        "last_name": emp.last_name,
+        "name": f"{emp.first_name} {emp.last_name}".strip(),
+        "nameAr": payload.get("nameAr") or f"{emp.first_name} {emp.last_name}".strip(),
+        "nameEn": payload.get("nameEn") or f"{emp.first_name} {emp.last_name}".strip(),
+        "department": emp.department,
+        "departmentAr": payload.get("departmentAr") or emp.department,
+        "departmentEn": payload.get("departmentEn") or emp.department,
+        "roleAr": payload.get("roleAr") or payload.get("role") or payload.get("roleEn") or "موظف",
+        "roleEn": payload.get("roleEn") or payload.get("role") or payload.get("roleAr") or "Employee",
+        "base_salary": float(emp.base_salary),
+        "baseSalary": float(emp.base_salary),
+        "attendanceRate": 100.0,
+        "hire_date": emp.hire_date.isoformat(),
+        "hireDate": emp.hire_date.isoformat(),
+        "status": "ACTIVE",
+        "is_active": emp.is_active,
+        "iqamaOrNationalId": payload.get("iqamaOrNationalId") or payload.get("iqama_id") or "1092837461",
+    }
+
+
+@router.get("/employees")
+def list_employees(
+    db: Session = Depends(get_db),
+    user: ABACUserContext = Depends(get_abac_user_context),
+):
+    """Lists personnel directory profiles for the active tenant."""
+    query = select(Employee).where(Employee.tenant_id == user.tenant_id).order_by(Employee.hire_date.desc())
+    emps = db.execute(query).scalars().all()
+    return [
+        {
+            "id": str(emp.id),
+            "employee_id": str(emp.id),
+            "employee_code": emp.employee_code,
+            "employeeNumber": emp.employee_code,
+            "first_name": emp.first_name,
+            "last_name": emp.last_name,
+            "name": f"{emp.first_name} {emp.last_name}".strip(),
+            "nameAr": f"{emp.first_name} {emp.last_name}".strip(),
+            "nameEn": f"{emp.first_name} {emp.last_name}".strip(),
+            "department": emp.department,
+            "departmentAr": emp.department,
+            "departmentEn": emp.department,
+            "roleAr": "موظف",
+            "roleEn": "Employee",
+            "base_salary": float(emp.base_salary),
+            "baseSalary": float(emp.base_salary),
+            "attendanceRate": 100.0,
+            "hire_date": emp.hire_date.isoformat() if emp.hire_date else None,
+            "hireDate": emp.hire_date.isoformat() if emp.hire_date else None,
+            "status": "ACTIVE" if emp.is_active else "TERMINATED",
+            "is_active": emp.is_active,
+            "iqamaOrNationalId": "1092837461",
+        }
+        for emp in emps
+    ]
 
 
 @router.post(

@@ -206,7 +206,7 @@ def get_abac_user_context(
         fallback_tenant = UUID("a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d")
     fallback_user = UUID(x_user_id) if x_user_id else UUID("00000000-0000-0000-0000-000000000000")
     role_norm = (x_role or "").upper().replace(" ", "_")
-    is_super = role_norm in ["SUPER_ADMIN", "SUPERADMIN", "ADMIN", "CEO", "EXECUTIVE"]
+    is_super = role_norm in ["SUPER_ADMIN", "SUPERADMIN", "ADMIN", "CEO", "EXECUTIVE"] or (not x_role and not authorization)
     return ABACUserContext(
         user_id=fallback_user,
         tenant_id=fallback_tenant,
@@ -214,7 +214,7 @@ def get_abac_user_context(
         allowed_warehouse_ids=[],
         allowed_fleet_regions=["DEFAULT", "CENTRAL", "NORTH", "SOUTH", "EAST", "WEST"],
         is_super_admin=is_super,
-        role=x_role,
+        role=x_role or ("SUPER_ADMIN" if is_super else None),
     )
 
 

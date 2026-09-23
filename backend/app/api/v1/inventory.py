@@ -5,6 +5,7 @@ and Landed Cost Allocations with ABAC Security Guardrails.
 """
 
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Header, status
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 
 from backend.database import get_db
+from backend.models import PurchaseOrder, ResPartner, ResCompany
 from backend.app.domains.inventory.models import (
     Material,
     StockBalance,
@@ -279,3 +281,189 @@ def allocate_landed_costs(
             for i in apportioned_items
         ],
     }
+
+
+@router.post("/purchase-orders", status_code=status.HTTP_201_CREATED)
+def create_purchase_order(
+    payload: dict,
+    db: Session = Depends(get_db),
+    x_company_id: Optional[str] = Header(None),
+    x_tenant_id: Optional[str] = Header(None),
+):
+    """
+    Creates and strictly persists a new Purchase Order in PostgreSQL.
+    Enforces db.add(), db.commit(), db.refresh().
+    """
+    # 1. Resolve Company / Tenant UUID
+    comp_raw = payload.get("company_id") or x_company_id or x_tenant_id
+    comp_uuid = None
+    if comp_raw:
+        try:
+            comp_uuid = uuid.UUID(str(comp_raw))
+        except Exception:
+            pass
+
+    if not comp_uuid:
+        first_comp = db.execute(select(ResCompany)).scalars().first()
+        comp_uuid = first_comp.id if first_comp else uuid.UUID("a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d")
+    else:
+        existing_comp = db.execute(select(ResCompany).where(ResCompany.id == comp_uuid)).scalar_one_or_none()
+        if not existing_comp:
+            first_comp = db.execute(select(ResCompany)).scalars().first()
+            if first_comp:
+                comp_uuid = first_comp.id
+
+    # 2. Resolve or create Partner / Vendor
+    partner_id_raw = payload.get("partner_id")
+    partner = None
+    if partner_id_raw:
+        try:
+            partner = db.execute(select(ResPartner).where(ResPartner.id == uuid.UUID(str(partner_id_raw)))).scalar_one_or_none()
+        except Exception:
+            partner = None
+
+    vendor_name = (payload.get("vendor_name") or payload.get("vendorName") or "").strip()
+    if not partner and vendor_name:
+        partner = db.execute(select(ResPartner).where(ResPartner.name == vendor_name)).scalars().first()
+        if not partner:
+            partner = ResPartner(
+                id=uuid.uuid4(),
+                company_id=comp_uuid,
+                name=vendor_name,
+                partner_type="raw_materials_supplier",
+            )
+            db.add(partner)
+            db.flush()
+
+    if not partner:
+        partner = db.execute(select(ResPartner).where(ResPartner.company_id == comp_uuid)).scalars().first()
+        if not partner:
+            partner = ResPartner(
+                id=uuid.uuid4(),
+                company_id=comp_uuid,
+                name=vendor_name or "المورد العام / General Vendor",
+                partner_type="raw_materials_supplier",
+            )
+            db.add(partner)
+            db.flush()
+
+    # 3. Monetary calculations & amounts
+    total_val = Decimal(str(payload.get("total_amount") or payload.get("totalAmount") or 0))
+    subtotal_val = Decimal(str(payload.get("subtotal") or 0))
+    tax_val = Decimal(str(payload.get("tax_amount") or payload.get("taxAmount") or 0))
+
+    if total_val > 0 and subtotal_val == 0:
+        subtotal_val = round(total_val / Decimal("1.15"), 4)
+        tax_val = total_val - subtotal_val
+    elif subtotal_val > 0 and total_val == 0:
+        if tax_val == 0:
+            tax_val = round(subtotal_val * Decimal("0.15"), 4)
+        total_val = subtotal_val + tax_val
+
+    # 4. PO Number & dates
+    po_num = payload.get("po_number") or payload.get("poNumber") or f"PO-{datetime.now(timezone.utc).strftime('%Y%m')}-{uuid.uuid4().hex[:4].upper()}"
+    status_raw = str(payload.get("status", "draft")).lower()
+    valid_statuses = {"draft", "confirmed", "received", "billed", "cancelled"}
+    if status_raw in ["pending", "active"]:
+        po_status = "draft"
+    elif status_raw in ["approved", "matched"]:
+        po_status = "confirmed"
+    elif status_raw in valid_statuses:
+        po_status = status_raw
+    else:
+        po_status = "draft"
+
+    delivery_dt = None
+    delivery_raw = payload.get("delivery_date") or payload.get("deliveryDate")
+    if delivery_raw:
+        try:
+            delivery_dt = datetime.fromisoformat(str(delivery_raw).replace("Z", "+00:00"))
+        except Exception:
+            pass
+
+    notes_str = payload.get("notes") or payload.get("category") or ""
+    category_str = payload.get("category") or "General Supplies"
+
+    # 5. Strict DB Persistence (db.add, db.commit, db.refresh)
+    new_po = PurchaseOrder(
+        id=uuid.uuid4(),
+        company_id=comp_uuid,
+        po_number=po_num,
+        partner_id=partner.id,
+        order_date=datetime.now(timezone.utc),
+        expected_delivery_date=delivery_dt,
+        status=po_status,
+        currency=payload.get("currency", "SAR"),
+        subtotal=subtotal_val,
+        tax_amount=tax_val,
+        total_amount=total_val,
+        notes=notes_str,
+    )
+    db.add(new_po)
+    db.commit()
+    db.refresh(new_po)
+
+    return {
+        "status": "CREATED",
+        "id": str(new_po.id),
+        "po_id": str(new_po.id),
+        "po_number": new_po.po_number,
+        "poNumber": new_po.po_number,
+        "partner_id": str(new_po.partner_id),
+        "vendor_name": partner.name,
+        "vendorName": partner.name,
+        "category": category_str,
+        "subtotal": float(new_po.subtotal),
+        "tax_amount": float(new_po.tax_amount),
+        "total_amount": float(new_po.total_amount),
+        "totalAmount": float(new_po.total_amount),
+        "currency": new_po.currency,
+        "po_status": new_po.status,
+        "status": "PENDING" if new_po.status in ["draft", "confirmed"] else new_po.status.upper(),
+        "issueDate": new_po.order_date.strftime("%Y-%m-%d"),
+        "deliveryDate": new_po.expected_delivery_date.strftime("%Y-%m-%d") if new_po.expected_delivery_date else new_po.order_date.strftime("%Y-%m-%d"),
+        "notes": new_po.notes,
+    }
+
+
+@router.get("/purchase-orders")
+def list_purchase_orders(
+    db: Session = Depends(get_db),
+    x_company_id: Optional[str] = Header(None),
+    x_tenant_id: Optional[str] = Header(None),
+):
+    """Lists persisted purchase orders with partner details."""
+    query = select(PurchaseOrder).order_by(PurchaseOrder.order_date.desc())
+    if x_company_id or x_tenant_id:
+        try:
+            cid = uuid.UUID(x_company_id or x_tenant_id)
+            query = query.where(PurchaseOrder.company_id == cid)
+        except Exception:
+            pass
+
+    orders = db.execute(query).scalars().all()
+    results = []
+    for po in orders:
+        partner_name = po.partner.name if po.partner else "Vendor"
+        results.append({
+            "id": str(po.id),
+            "po_id": str(po.id),
+            "po_number": po.po_number,
+            "poNumber": po.po_number,
+            "partner_id": str(po.partner_id),
+            "vendor_name": partner_name,
+            "vendorName": partner_name,
+            "category": "General Supplies",
+            "subtotal": float(po.subtotal),
+            "tax_amount": float(po.tax_amount),
+            "total_amount": float(po.total_amount),
+            "totalAmount": float(po.total_amount),
+            "currency": po.currency,
+            "po_status": po.status,
+            "status": "PENDING" if po.status in ["draft", "confirmed"] else po.status.upper(),
+            "issueDate": po.order_date.strftime("%Y-%m-%d") if po.order_date else "",
+            "deliveryDate": po.expected_delivery_date.strftime("%Y-%m-%d") if po.expected_delivery_date else (po.order_date.strftime("%Y-%m-%d") if po.order_date else ""),
+            "notes": po.notes,
+        })
+    return results
+

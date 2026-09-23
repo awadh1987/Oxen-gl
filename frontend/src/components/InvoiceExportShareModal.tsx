@@ -664,7 +664,7 @@ IBAN: ${brandConfig.iban}
         {/* Hidden Printable Supporting Tickets Container for High-Resolution PDF Capture */}
         <div
           ref={ticketsContainerRef}
-          className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none w-[900px]"
+          className="absolute -left-[9999px] top-0 pointer-events-none w-[900px]"
           aria-hidden="true"
         >
           {activeTrips.map((trip, idx) => (

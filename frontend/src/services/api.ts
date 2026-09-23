@@ -839,6 +839,47 @@ export const erpApi = {
       method: 'PUT',
       body: JSON.stringify({ status, review_notes: reviewNotes }),
     }),
+
+  // HR Personnel Core
+  getEmployees: (companyId?: string) =>
+    request<any[]>('/api/v1/hr/employees', companyId),
+  createEmployee: (payload: any, companyId?: string) =>
+    request<any>('/api/v1/hr/employees', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // Procurement & Inventory Purchase Orders
+  getPurchaseOrders: (companyId?: string) =>
+    request<any[]>('/api/v1/inventory/purchase-orders', companyId),
+  createPurchaseOrder: (payload: any, companyId?: string) =>
+    request<any>('/api/v1/inventory/purchase-orders', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // Legacy System Resource Excel Import
+  importLegacySystemResource: (file: File, companyId?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<{
+      success: boolean;
+      filename: string;
+      imported_count: number;
+      updated_count: number;
+      skipped_count: number;
+      records_processed: number;
+      entities_created: {
+        tickets: number;
+        partners: number;
+        materials: number;
+      };
+      errors: string[];
+    }>('/api/v1/system/import-legacy', companyId, {
+      method: 'POST',
+      body: formData,
+    });
+  },
 };
 
 export interface ApiCustomsManifest {

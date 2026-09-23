@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShoppingCart,
   Boxes,
@@ -17,6 +17,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/formatters';
 import { BulkImportModal } from '../components/BulkImportModal';
+import { NewPurchaseOrderModal, PurchaseOrderRecord } from '../components/NewPurchaseOrderModal';
+import { erpApi } from '../services/api';
 
 interface MockPO {
   id: string;
@@ -38,8 +40,9 @@ export const ProcurementView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'orders' | 'matching' | 'vendors'>('orders');
   const [searchTerm, setSearchTerm] = useState('');
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
+  const [isNewPoOpen, setIsNewPoOpen] = useState(false);
 
-  const [purchaseOrders] = useState<MockPO[]>([
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderRecord[]>([
     {
       id: 'po-101',
       poNumber: 'PO-2026-0089',
@@ -74,6 +77,31 @@ export const ProcurementView: React.FC = () => {
       deliveryDate: '2026-09-25',
     },
   ]);
+
+  useEffect(() => {
+    erpApi.getPurchaseOrders().then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        setPurchaseOrders((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const existingNos = new Set(prev.map((p) => p.poNumber));
+          const formatted: PurchaseOrderRecord[] = data
+            .filter((d: any) => !existingIds.has(d.id) && !existingNos.has(d.poNumber || d.po_number))
+            .map((d: any) => ({
+              id: d.id,
+              poNumber: d.poNumber || d.po_number || 'PO-2026-0000',
+              vendorName: d.vendorName || d.vendor_name || 'Vendor',
+              category: d.category || 'General Supplies',
+              totalAmount: d.totalAmount || d.total_amount || 0,
+              currency: d.currency || 'SAR',
+              status: (d.status === 'MATCHED' ? 'MATCHED' : d.status === 'APPROVED' ? 'APPROVED' : 'PENDING') as 'MATCHED' | 'APPROVED' | 'PENDING',
+              issueDate: d.issueDate || '',
+              deliveryDate: d.deliveryDate || '',
+            }));
+          return [...formatted, ...prev];
+        });
+      }
+    }).catch(() => {});
+  }, []);
 
   const filteredOrders = purchaseOrders.filter(
     (po) =>
@@ -124,7 +152,9 @@ export const ProcurementView: React.FC = () => {
           </button>
 
           <button
+            id="new-po-btn"
             type="button"
+            onClick={() => setIsNewPoOpen(true)}
             className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-500/20 hover:bg-orange-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
@@ -290,6 +320,15 @@ export const ProcurementView: React.FC = () => {
         isOpen={isBulkImportOpen}
         onClose={() => setIsBulkImportOpen(false)}
         defaultCategory="operations"
+      />
+
+      {/* New Purchase Order Modal with Direct Backend Persistence & Optimistic Update */}
+      <NewPurchaseOrderModal
+        isOpen={isNewPoOpen}
+        onClose={() => setIsNewPoOpen(false)}
+        onPurchaseOrderCreated={(newPo) => {
+          setPurchaseOrders((prev) => [newPo, ...prev]);
+        }}
       />
     </div>
   );
