@@ -372,16 +372,146 @@ export function getAuthTier(): 'master' | 'tenant' | null {
   return null;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function isValidUUID(val: any): val is string {
+  return typeof val === 'string' && UUID_REGEX.test(val.trim());
+}
+
+/**
+ * Safely decodes JWT claims from a token string without external dependencies.
+ */
+export function decodeJwtClaims(token: string | null): Record<string, any> | null {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const jsonStr = decodeURIComponent(
+      atob(padded)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extracts and strictly validates the active company UUID from:
+ * 1. Explicit argument (if valid UUID)
+ * 2. LocalStorage direct keys (tenant_id, company_id, oxengl_tenant_id)
+ * 3. Decoded active JWT claims (company_id, tenant_id)
+ * 4. Stored user objects (oxengl_user, meayon_user)
+ * 5. Stored company object (oxengl_current_company)
+ *
+ * Guarantees that non-UUID slugs (e.g. 'default', 'saudi-aggregate') are NEVER returned.
+ */
+export function getActiveCompanyId(explicitId?: string): string | null {
+  // 1. Explicit parameter if valid UUID
+  if (isValidUUID(explicitId)) {
+    return explicitId.trim();
+  }
+
+  if (typeof window === 'undefined') return null;
+
+  // 2. Direct localStorage storage keys
+  const directKeys = [
+    OXENGL_TENANT_ID_KEY,
+    'tenant_id',
+    'company_id',
+    'oxengl_tenant_uuid',
+    'active_company_id',
+  ];
+  for (const key of directKeys) {
+    const val = localStorage.getItem(key);
+    if (isValidUUID(val)) {
+      return val.trim();
+    }
+  }
+
+  // 3. Decoded JWT claims from active session token
+  const token = getAuthToken();
+  if (token) {
+    const claims = decodeJwtClaims(token);
+    if (claims) {
+      const candidates = [
+        claims.company_id,
+        claims.tenant_id,
+        claims.companyId,
+        claims.tenantId,
+      ];
+      for (const cand of candidates) {
+        if (isValidUUID(cand)) {
+          // Cache validated UUID in localStorage for subsequent synchronous access
+          try {
+            localStorage.setItem(OXENGL_TENANT_ID_KEY, cand.trim());
+            localStorage.setItem('tenant_id', cand.trim());
+            localStorage.setItem('company_id', cand.trim());
+          } catch {}
+          return cand.trim();
+        }
+      }
+    }
+  }
+
+  // 4. Stored user objects in localStorage
+  const userKeys = ['oxengl_user', 'meayon_user', 'currentUser'];
+  for (const key of userKeys) {
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      try {
+        const u = JSON.parse(raw);
+        const candidates = [
+          u?.company_id,
+          u?.companyId,
+          u?.tenant_id,
+          u?.tenantId,
+          u?.company?.id,
+        ];
+        for (const cand of candidates) {
+          if (isValidUUID(cand)) {
+            return cand.trim();
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // 5. Stored company object in localStorage
+  const rawCompany = localStorage.getItem('oxengl_current_company');
+  if (rawCompany) {
+    try {
+      const c = JSON.parse(rawCompany);
+      const candidates = [c?.id, c?.company_id, c?.tenant_id, c?.uuid];
+      for (const cand of candidates) {
+        if (isValidUUID(cand)) {
+          return cand.trim();
+        }
+      }
+    } catch {}
+  }
+
+  return null;
+}
+
 export function getTenantSlug(): string | null {
   if (typeof window === 'undefined') return null;
   const subdomain = getSubdomain();
   if (subdomain) return subdomain;
-  return localStorage.getItem(OXENGL_TENANT_SLUG_KEY) || localStorage.getItem('tenant_slug');
+  const stored = localStorage.getItem(OXENGL_TENANT_SLUG_KEY) || localStorage.getItem('tenant_slug');
+  if (stored) return stored;
+  const token = getAuthToken();
+  const claims = decodeJwtClaims(token);
+  return claims?.tenant_slug || claims?.domain_slug || null;
 }
 
 export function getTenantId(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(OXENGL_TENANT_ID_KEY) || localStorage.getItem('tenant_id') || localStorage.getItem('company_id');
+  return getActiveCompanyId();
 }
 
 export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantSlug?: string | null, tenantId?: string | null): void {
@@ -399,10 +529,23 @@ export function setAuthSession(token: string, tier: 'master' | 'tenant', tenantS
     localStorage.removeItem(OXENGL_TENANT_SLUG_KEY);
     localStorage.removeItem('tenant_slug');
   }
-  if (tenantId) {
-    localStorage.setItem(OXENGL_TENANT_ID_KEY, tenantId);
-    localStorage.setItem('tenant_id', tenantId);
-    localStorage.setItem('company_id', tenantId);
+
+  // Resolve valid UUID for tenantId, falling back to JWT claims if tenantId is a slug or missing
+  let validTenantId: string | null = null;
+  if (isValidUUID(tenantId)) {
+    validTenantId = tenantId.trim();
+  } else {
+    const claims = decodeJwtClaims(token);
+    const candidate = claims?.company_id || claims?.tenant_id || claims?.companyId || claims?.tenantId;
+    if (isValidUUID(candidate)) {
+      validTenantId = candidate.trim();
+    }
+  }
+
+  if (validTenantId) {
+    localStorage.setItem(OXENGL_TENANT_ID_KEY, validTenantId);
+    localStorage.setItem('tenant_id', validTenantId);
+    localStorage.setItem('company_id', validTenantId);
   } else {
     localStorage.removeItem(OXENGL_TENANT_ID_KEY);
     localStorage.removeItem('tenant_id');
@@ -435,13 +578,13 @@ const apiBaseUrl = typeof window === 'undefined' ? '' : window.location.origin;
 async function request<T>(path: string, companyId?: string, options?: RequestInit): Promise<T> {
   const token = getAuthToken();
   const activeTenantSlug = getTenantSlug();
-  const activeTenantId = companyId || getTenantId();
+  const activeCompanyId = getActiveCompanyId(companyId);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(activeTenantSlug ? { 'X-Tenant-Slug': activeTenantSlug } : {}),
-    ...(activeTenantId ? { 'X-Company-ID': activeTenantId, 'X-Tenant-ID': activeTenantId } : {}),
+    ...(activeCompanyId ? { 'X-Company-ID': activeCompanyId, 'X-Tenant-ID': activeCompanyId } : {}),
     ...((options?.headers as Record<string, string>) || {}),
   };
 

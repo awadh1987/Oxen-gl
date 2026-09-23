@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { redirectToTenantSubdomain } from '../utils/subdomain';
+import { useNavigate } from '../hooks/useNavigate';
 
 interface TenantLoginViewProps {
   onLoginSuccess?: () => void;
@@ -33,6 +34,7 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({
 }) => {
   const { language, setLanguage, loginTenant } = useApp();
   const isAr = language === 'ar';
+  const navigate = useNavigate();
 
   const [step, setStep] = useState<1 | 2>(forcedSlug ? 2 : 1);
   const [tenantSlug, setTenantSlug] = useState(forcedSlug || '');
@@ -49,9 +51,10 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const navigateTo = (path: string) => {
-    if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', path);
-      window.dispatchEvent(new PopStateEvent('popstate'));
+    if (onNavigate) {
+      onNavigate(path);
+    } else {
+      navigate(path);
     }
   };
 

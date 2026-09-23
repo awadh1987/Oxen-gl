@@ -1433,13 +1433,19 @@ def create_product(payload: ProductProductCreate, company_id: uuid.UUID = Depend
 
 
 def operation_response(ticket: models.WeighbridgeTicket) -> WeighbridgeOperationRead:
-	move = ticket.picking.moves[0]
+	moves = ticket.picking.moves if ticket.picking and ticket.picking.moves else []
+	move = moves[0] if moves else None
 	return WeighbridgeOperationRead(
-		picking_id=ticket.picking.id, picking_reference=ticket.picking.reference,
-		partner_id=ticket.picking.partner_id, partner_name=ticket.picking.partner.name if ticket.picking.partner else None,
-		product_id=move.product_id, product_name=move.product.name,
-		source_location_id=move.location_id, source_location_name=move.source_location.name,
-		dest_location_id=move.location_dest_id, dest_location_name=move.destination_location.name,
+		picking_id=ticket.picking.id if ticket.picking else None,
+		picking_reference=ticket.picking.reference if ticket.picking else None,
+		partner_id=ticket.picking.partner_id if ticket.picking else None,
+		partner_name=ticket.picking.partner.name if (ticket.picking and ticket.picking.partner) else None,
+		product_id=move.product_id if move else None,
+		product_name=move.product.name if (move and move.product) else None,
+		source_location_id=move.location_id if move else None,
+		source_location_name=move.source_location.name if (move and move.source_location) else None,
+		dest_location_id=move.location_dest_id if move else None,
+		dest_location_name=move.destination_location.name if (move and move.destination_location) else None,
 		ticket_id=ticket.id, ticket_number=ticket.ticket_number, truck_number=ticket.truck_number,
 		gross_weight=ticket.gross_weight, tare_weight=ticket.tare_weight, net_weight=ticket.net_weight,
 		uom=getattr(ticket, "uom", None) or getattr(ticket, "unit_of_measure", "MT") or "MT",
@@ -2430,10 +2436,10 @@ def list_vehicles(company_id: uuid.UUID = Depends(get_active_company_id), databa
 	vehicles = database.scalars(select(models.Vehicle).where(models.Vehicle.company_id == company_id).order_by(models.Vehicle.created_at.desc())).all()
 	if not vehicles:
 		default_vehicles = [
-			models.Vehicle(company_id=company_id, name="Mercedes Actros 3340", license_plate="7842-KAD", model="Actros 3340", vin="WDB9340331L000101", vehicle_type="truck", status="active", odometer_km=128450),
-			models.Vehicle(company_id=company_id, name="Volvo FMX 460", license_plate="5120-RBD", model="FMX 460", vin="YV2R4B0C1KA000202", vehicle_type="truck", status="active", odometer_km=94200),
-			models.Vehicle(company_id=company_id, name="MAN TGS 33.400", license_plate="3981-SAD", model="TGS 33.400", vin="WMA36SZZ3GP000303", vehicle_type="truck", status="active", odometer_km=162100),
-			models.Vehicle(company_id=company_id, name="Mercedes Actros 4048", license_plate="9012-HAD", model="Actros 4048", vin="WDB9340331L000404", vehicle_type="truck", status="active", odometer_km=78300),
+			models.Vehicle(company_id=company_id, name="Mercedes Actros 3340", license_plate="7842-KAD", model="Actros 3340", vin_chassis="WDB9340331L000101", vehicle_type="truck", status="active", current_odometer=128450),
+			models.Vehicle(company_id=company_id, name="Volvo FMX 460", license_plate="5120-RBD", model="FMX 460", vin_chassis="YV2R4B0C1KA000202", vehicle_type="truck", status="active", current_odometer=94200),
+			models.Vehicle(company_id=company_id, name="MAN TGS 33.400", license_plate="3981-SAD", model="TGS 33.400", vin_chassis="WMA36SZZ3GP000303", vehicle_type="truck", status="active", current_odometer=162100),
+			models.Vehicle(company_id=company_id, name="Mercedes Actros 4048", license_plate="9012-HAD", model="Actros 4048", vin_chassis="WDB9340331L000404", vehicle_type="truck", status="active", current_odometer=78300),
 		]
 		try:
 			database.add_all(default_vehicles)

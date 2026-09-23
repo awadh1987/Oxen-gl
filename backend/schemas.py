@@ -297,16 +297,16 @@ class WeighbridgeOperationCreate(BaseModel):
 
 
 class WeighbridgeOperationRead(ORMReadModel):
-    picking_id: UUID
-    picking_reference: str
-    partner_id: UUID | None
-    partner_name: str | None
-    product_id: UUID
-    product_name: str
-    source_location_id: UUID
-    source_location_name: str
-    dest_location_id: UUID
-    dest_location_name: str
+    picking_id: UUID | None = None
+    picking_reference: str | None = None
+    partner_id: UUID | None = None
+    partner_name: str | None = None
+    product_id: UUID | None = None
+    product_name: str | None = None
+    source_location_id: UUID | None = None
+    source_location_name: str | None = None
+    dest_location_id: UUID | None = None
+    dest_location_name: str | None = None
     ticket_id: UUID
     ticket_number: str
     truck_number: str

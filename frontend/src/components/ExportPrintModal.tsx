@@ -86,6 +86,24 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
   } = useApp();
   const isAr = language === 'ar';
 
+  // Defensive array and object defaults to prevent crashes on API 500 or null responses
+  const safeOperations = useMemo(() => (Array.isArray(accessibleOperations) ? accessibleOperations : []), [accessibleOperations]);
+  const safeCustomers = useMemo(() => (Array.isArray(customers) ? customers : []), [customers]);
+  const safeCrushers = useMemo(() => (Array.isArray(crushers) ? crushers : []), [crushers]);
+  const safeTransporters = useMemo(() => (Array.isArray(transporters) ? transporters : []), [transporters]);
+  const safeVouchers = useMemo(() => (Array.isArray(vouchers) ? vouchers : []), [vouchers]);
+  const safeBrandConfig = useMemo(() => brandConfig || {
+    companyNameAr: 'شركة أوكسن للخدمات اللوجستية',
+    companyNameEn: 'Oxen General Logistics',
+    taxNumber: '300000000000003',
+    commercialRegistration: '1010000000',
+    ceoNameAr: 'الرئيس التنفيذي',
+    ceoTitleAr: 'المدير التنفيذي',
+    bankNameAr: 'مصرف الراجحي',
+    bankAccountNumber: '123456789012345',
+    bankIban: 'SA0000000000000000000000',
+  }, [brandConfig]);
+
   // Document Configuration State
   const [docType, setDocType] = useState<ExportDocType>(initialDocType);
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>(
@@ -95,13 +113,13 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
 
   // Filters State
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
-    initialCustomerId || customers[0]?.id || ''
+    initialCustomerId || safeCustomers[0]?.id || ''
   );
   const [selectedCrusherId, setSelectedCrusherId] = useState<string>(
-    initialCrusherId || crushers[0]?.id || ''
+    initialCrusherId || safeCrushers[0]?.id || ''
   );
   const [selectedTransporterId, setSelectedTransporterId] = useState<string>(
-    initialTransporterId || transporters[0]?.id || ''
+    initialTransporterId || safeTransporters[0]?.id || ''
   );
   const [selectedMonth, setSelectedMonth] = useState<number>(initialMonth);
   const [selectedYear, setSelectedYear] = useState<number>(initialYear);
@@ -149,21 +167,22 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
 
   // Selected Entities
   const selectedCustomer = useMemo(
-    () => customers.find((c) => c.id === selectedCustomerId) || customers[0],
-    [customers, selectedCustomerId]
+    () => safeCustomers.find((c) => c?.id === selectedCustomerId) || safeCustomers[0] || null,
+    [safeCustomers, selectedCustomerId]
   );
   const selectedCrusher = useMemo(
-    () => crushers.find((c) => c.id === selectedCrusherId) || crushers[0],
-    [crushers, selectedCrusherId]
+    () => safeCrushers.find((c) => c?.id === selectedCrusherId) || safeCrushers[0] || null,
+    [safeCrushers, selectedCrusherId]
   );
   const selectedTransporter = useMemo(
-    () => transporters.find((t) => t.id === selectedTransporterId) || transporters[0],
-    [transporters, selectedTransporterId]
+    () => safeTransporters.find((t) => t?.id === selectedTransporterId) || safeTransporters[0] || null,
+    [safeTransporters, selectedTransporterId]
   );
 
   // Filtered Operations based on context and active document type
   const filteredOperations = useMemo(() => {
-    return accessibleOperations.filter((op) => {
+    return safeOperations.filter((op) => {
+      if (!op) return false;
       // Date filter
       if (dateFilterMode === 'month') {
         if (op.operation_month !== selectedMonth || op.operation_year !== selectedYear) return false;
@@ -173,39 +192,43 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
 
       // Entity filters based on active document type
       if (docType === 'vat-invoice' && selectedCustomer) {
+        const dest = op.destination_customer || (op as any).destination_customer_name || '';
         const matchName =
-          op.destination_customer.includes(selectedCustomer.customerName) ||
-          (selectedCustomer.customerNameEn && op.destination_customer.includes(selectedCustomer.customerNameEn));
+          (selectedCustomer.customerName && dest.includes(selectedCustomer.customerName)) ||
+          (selectedCustomer.customerNameEn && dest.includes(selectedCustomer.customerNameEn));
         if (!matchName) return false;
       } else if (docType === 'crusher-statement' && selectedCrusher) {
+        const src = op.loading_source || (op as any).material_supplier_name || '';
         const matchCrusher =
-          op.loading_source.includes(selectedCrusher.crusherName) ||
-          (selectedCrusher.crusherNameEn && op.loading_source.includes(selectedCrusher.crusherNameEn));
+          (selectedCrusher.crusherName && src.includes(selectedCrusher.crusherName)) ||
+          (selectedCrusher.crusherNameEn && src.includes(selectedCrusher.crusherNameEn));
         if (!matchCrusher) return false;
       } else if (docType === 'transporter-shrinkage' && selectedTransporter) {
+        const trans = op.transporter_name || (op as any).service_supplier_name || '';
         const matchTrans =
-          op.transporter_name.includes(selectedTransporter.transporterName) ||
-          (selectedTransporter.transporterNameEn && op.transporter_name.includes(selectedTransporter.transporterNameEn));
+          (selectedTransporter.transporterName && trans.includes(selectedTransporter.transporterName)) ||
+          (selectedTransporter.transporterNameEn && trans.includes(selectedTransporter.transporterNameEn));
         if (!matchTrans) return false;
       }
 
       return true;
     });
-  }, [accessibleOperations, dateFilterMode, selectedMonth, selectedYear, docType, selectedCustomer, selectedCrusher, selectedTransporter]);
+  }, [safeOperations, dateFilterMode, selectedMonth, selectedYear, docType, selectedCustomer, selectedCrusher, selectedTransporter]);
 
   // Aggregated Invoicing Items (for VAT Invoice mode)
   const invoiceItems = useMemo(() => {
     const map: Record<string, { trips: number; loaded: number; delivered: number; wastage: number; sales: number }> = {};
 
     filteredOperations.forEach((op) => {
-      if (!map[op.material_type]) {
-        map[op.material_type] = { trips: 0, loaded: 0, delivered: 0, wastage: 0, sales: 0 };
+      const matType = op?.material_type || (op as any)?.product_name || (isAr ? 'مواد عامة' : 'General Material');
+      if (!map[matType]) {
+        map[matType] = { trips: 0, loaded: 0, delivered: 0, wastage: 0, sales: 0 };
       }
-      map[op.material_type].trips += 1;
-      map[op.material_type].loaded += op.qty_loaded;
-      map[op.material_type].delivered += op.qty_delivered;
-      map[op.material_type].wastage += op.qty_wastage;
-      map[op.material_type].sales += op.sales_amount;
+      map[matType].trips += 1;
+      map[matType].loaded += Number(op?.qty_loaded || (op as any)?.net_weight || 0);
+      map[matType].delivered += Number(op?.qty_delivered || (op as any)?.net_weight || 0);
+      map[matType].wastage += Number(op?.qty_wastage || 0);
+      map[matType].sales += Number(op?.sales_amount || 0);
     });
 
     return Object.entries(map).map(([materialType, data]) => {
@@ -226,17 +249,17 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
         total,
       };
     });
-  }, [filteredOperations]);
+  }, [filteredOperations, isAr]);
 
   // Summary Metrics
   const summaryMetrics = useMemo(() => {
-    const totalLoaded = filteredOperations.reduce((acc, op) => acc + op.qty_loaded, 0);
-    const totalDelivered = filteredOperations.reduce((acc, op) => acc + op.qty_delivered, 0);
-    const totalWastage = filteredOperations.reduce((acc, op) => acc + op.qty_wastage, 0);
-    const totalSales = filteredOperations.reduce((acc, op) => acc + op.sales_amount, 0);
+    const totalLoaded = filteredOperations.reduce((acc, op) => acc + Number(op?.qty_loaded || (op as any)?.net_weight || 0), 0);
+    const totalDelivered = filteredOperations.reduce((acc, op) => acc + Number(op?.qty_delivered || (op as any)?.net_weight || 0), 0);
+    const totalWastage = filteredOperations.reduce((acc, op) => acc + Number(op?.qty_wastage || 0), 0);
+    const totalSales = filteredOperations.reduce((acc, op) => acc + Number(op?.sales_amount || 0), 0);
     const totalVat = totalSales * 0.15;
     const grandTotal = totalSales + totalVat;
-    const totalPurchases = filteredOperations.reduce((acc, op) => acc + op.purchases_cost, 0);
+    const totalPurchases = filteredOperations.reduce((acc, op) => acc + Number(op?.purchases_cost || 0), 0);
     const totalProfit = totalSales - totalPurchases;
     const overallWastageRate = totalLoaded > 0 ? (totalWastage / totalLoaded) * 100 : 0;
 
@@ -256,16 +279,16 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
 
   // Voucher Metrics for financial-vouchers docType
   const voucherMetrics = useMemo(() => {
-    const totalCount = vouchers.length;
-    const paymentTotal = vouchers
-      .filter((v) => v.type === 'Payment')
-      .reduce((acc, v) => acc + v.amount, 0);
-    const receiptTotal = vouchers
-      .filter((v) => v.type === 'Receipt')
-      .reduce((acc, v) => acc + v.amount, 0);
+    const totalCount = safeVouchers.length;
+    const paymentTotal = safeVouchers
+      .filter((v) => v?.type === 'Payment')
+      .reduce((acc, v) => acc + Number(v?.amount || 0), 0);
+    const receiptTotal = safeVouchers
+      .filter((v) => v?.type === 'Receipt')
+      .reduce((acc, v) => acc + Number(v?.amount || 0), 0);
     const netFlow = receiptTotal - paymentTotal;
     return { totalCount, paymentTotal, receiptTotal, netFlow };
-  }, [vouchers]);
+  }, [safeVouchers]);
 
   // Dynamic Metadata
   const docRefNumber = useMemo(() => {
@@ -282,7 +305,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
         : docType === 'crusher-statement'
         ? selectedCrusher?.id?.slice(-3) || 'CRSH'
         : 'ALL';
-    return `${prefixMap[docType]}-${selectedYear}${String(selectedMonth).padStart(2, '0')}-${entityTag}`;
+    return `${prefixMap[docType] || 'DOC'}-${selectedYear}${String(selectedMonth).padStart(2, '0')}-${entityTag}`;
   }, [docType, selectedYear, selectedMonth, selectedCustomer, selectedCrusher]);
 
   const docIssueDate = `2026-${String(selectedMonth).padStart(2, '0')}-28`;
@@ -290,22 +313,34 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
   // ZATCA Cryptographic QR Code Base64
   const zatcaQrBase64 = useMemo(() => {
     return generateZatcaQR(
-      brandConfig.companyNameAr,
-      brandConfig.taxNumber,
+      safeBrandConfig.companyNameAr || 'OxenGL',
+      safeBrandConfig.taxNumber || '300000000000003',
       `${docIssueDate}T12:00:00Z`,
-      summaryMetrics.grandTotal,
-      summaryMetrics.totalVat
+      summaryMetrics.grandTotal || 0,
+      summaryMetrics.totalVat || 0
     );
-  }, [brandConfig, docIssueDate, summaryMetrics.grandTotal, summaryMetrics.totalVat]);
+  }, [safeBrandConfig, docIssueDate, summaryMetrics.grandTotal, summaryMetrics.totalVat]);
 
   // Tafqeet String
   const amountInWordsAr = useMemo(() => {
-    return tafqeetArabic(summaryMetrics.grandTotal, 'ريال سعودي', 'هللة');
+    return tafqeetArabic(summaryMetrics.grandTotal || 0, 'ريال سعودي', 'هللة');
   }, [summaryMetrics.grandTotal]);
 
   const amountInWordsEn = useMemo(() => {
-    return tafqeetEnglish(summaryMetrics.grandTotal, 'Saudi Riyals', 'Halalas');
+    return tafqeetEnglish(summaryMetrics.grandTotal || 0, 'Saudi Riyals', 'Halalas');
   }, [summaryMetrics.grandTotal]);
+
+  // Escape key handler - must be before any conditional early returns
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -419,16 +454,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+
 
   return (
     <div
@@ -653,9 +679,9 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                     onChange={(e) => setSelectedCustomerId(e.target.value)}
                     className="w-full rounded-xl border border-slate-700 bg-slate-900 p-2 text-xs text-slate-200 focus:border-orange-500 focus:outline-none"
                   >
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.customerName}
+                    {safeCustomers.map((c) => (
+                      <option key={c?.id || Math.random()} value={c?.id}>
+                        {c?.customerName || (isAr ? 'عميل' : 'Customer')}
                       </option>
                     ))}
                   </select>
@@ -673,9 +699,9 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                     onChange={(e) => setSelectedCrusherId(e.target.value)}
                     className="w-full rounded-xl border border-slate-700 bg-slate-900 p-2 text-xs text-slate-200 focus:border-orange-500 focus:outline-none"
                   >
-                    {crushers.map((cr) => (
-                      <option key={cr.id} value={cr.id}>
-                        {cr.crusherName}
+                    {safeCrushers.map((cr) => (
+                      <option key={cr?.id || Math.random()} value={cr?.id}>
+                        {cr?.crusherName || (isAr ? 'كسارة' : 'Crusher')}
                       </option>
                     ))}
                   </select>
@@ -693,9 +719,9 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                     onChange={(e) => setSelectedTransporterId(e.target.value)}
                     className="w-full rounded-xl border border-slate-700 bg-slate-900 p-2 text-xs text-slate-200 focus:border-orange-500 focus:outline-none"
                   >
-                    {transporters.map((tr) => (
-                      <option key={tr.id} value={tr.id}>
-                        {tr.transporterName} ({tr.driverName})
+                    {safeTransporters.map((tr) => (
+                      <option key={tr?.id || Math.random()} value={tr?.id}>
+                        {tr?.transporterName || (isAr ? 'ناقل' : 'Transporter')} {tr?.driverName ? `(${tr.driverName})` : ''}
                       </option>
                     ))}
                   </select>
@@ -843,7 +869,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                 {/* 1. Official Header */}
                 {showLetterhead && (
                   <OfficialLetterheadHeader
-                    brandConfig={brandConfig}
+                    brandConfig={safeBrandConfig}
                     documentTypeAr={
                       docType === 'vat-invoice'
                         ? 'فاتورة ضريبية معتمدة'
@@ -1007,28 +1033,36 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {invoiceItems.map((item, idx) => (
-                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
-                            <td className="p-3 text-center font-bold text-slate-500">{idx + 1}</td>
-                            <td className="p-3 font-bold text-slate-900">{item.materialType}</td>
-                            <td className="p-3 text-center font-mono">{item.tripsCount}</td>
-                            <td className="p-3 text-center font-mono font-bold">
-                              {formatNumber(item.deliveredWeight, language, 2)}
-                            </td>
-                            <td className="p-3 text-center font-mono">
-                              {formatCurrency(item.unitPrice, language)}
-                            </td>
-                            <td className="p-3 text-center font-mono">
-                              {formatCurrency(item.subtotal, language)}
-                            </td>
-                            <td className="p-3 text-center font-mono">
-                              {formatCurrency(item.vatAmount, language)}
-                            </td>
-                            <td className="p-3 text-center font-mono font-black text-neutral-950">
-                              {formatCurrency(item.total, language)}
+                        {invoiceItems.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="p-8 text-center text-slate-500 font-medium">
+                              {isAr ? 'لا توجد بيانات عمليات مسجلة لهذه الفترة' : 'No recorded operations found for this period'}
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          invoiceItems.map((item, idx) => (
+                            <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}>
+                              <td className="p-3 text-center font-bold text-slate-500">{idx + 1}</td>
+                              <td className="p-3 font-bold text-slate-900">{item.materialType}</td>
+                              <td className="p-3 text-center font-mono">{item.tripsCount}</td>
+                              <td className="p-3 text-center font-mono font-bold">
+                                {formatNumber(item.deliveredWeight, language, 2)}
+                              </td>
+                              <td className="p-3 text-center font-mono">
+                                {formatCurrency(item.unitPrice, language)}
+                              </td>
+                              <td className="p-3 text-center font-mono">
+                                {formatCurrency(item.subtotal, language)}
+                              </td>
+                              <td className="p-3 text-center font-mono">
+                                {formatCurrency(item.vatAmount, language)}
+                              </td>
+                              <td className="p-3 text-center font-mono font-black text-neutral-950">
+                                {formatCurrency(item.total, language)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1056,35 +1090,43 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200">
-                        {filteredOperations.map((op, idx) => (
-                          <tr key={op.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                            <td className="p-2 text-center font-bold text-slate-500">{idx + 1}</td>
-                            <td className="p-2 font-mono whitespace-nowrap">{op.loading_date}</td>
-                            <td className="p-2 font-mono font-bold text-slate-900">{op.truck_no}</td>
-                            <td className="p-2 truncate max-w-[120px]">{op.transporter_name}</td>
-                            <td className="p-2 truncate max-w-[100px]">{op.loading_source}</td>
-                            <td className="p-2 truncate max-w-[120px] font-semibold">{op.destination_customer}</td>
-                            <td className="p-2">{op.material_type}</td>
-                            <td className="p-2 text-center font-mono">{formatNumber(op.qty_loaded, language, 2)}</td>
-                            <td className="p-2 text-center font-mono font-bold text-orange-950">
-                              {formatNumber(op.qty_delivered, language, 2)}
-                            </td>
-                            <td
-                              className={`p-2 text-center font-mono font-bold ${
-                                op.wastage_percentage > 1.5 ? 'text-rose-600' : 'text-slate-600'
-                              }`}
-                            >
-                              {formatNumber(op.qty_wastage, language, 2)} ({formatNumber(op.wastage_percentage, language, 1)}%)
-                            </td>
-                            <td className="p-2 text-center font-mono text-[10px] text-slate-500">
-                              {op.scale_ticket_no || '-'}
-                            </td>
-                            <td className="p-2 text-center font-mono">{formatCurrency(op.sales_amount, language)}</td>
-                            <td className="p-2 text-center font-mono text-slate-500">
-                              {formatCurrency(op.vat_amount, language)}
+                        {filteredOperations.length === 0 ? (
+                          <tr>
+                            <td colSpan={13} className="p-8 text-center text-slate-500 font-medium">
+                              {isAr ? 'لا توجد عمليات تطابق معايير التصفية المحددة' : 'No operations matching the selected filter criteria'}
                             </td>
                           </tr>
-                        ))}
+                        ) : (
+                          filteredOperations.map((op, idx) => (
+                            <tr key={op?.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                              <td className="p-2 text-center font-bold text-slate-500">{idx + 1}</td>
+                              <td className="p-2 font-mono whitespace-nowrap">{op?.loading_date || (op as any)?.weighed_in_at?.slice(0, 10) || '-'}</td>
+                              <td className="p-2 font-mono font-bold text-slate-900">{op?.truck_no || (op as any)?.truck_number || '-'}</td>
+                              <td className="p-2 truncate max-w-[120px]">{op?.transporter_name || (op as any)?.partner_name || '-'}</td>
+                              <td className="p-2 truncate max-w-[100px]">{op?.loading_source || (op as any)?.source_location_name || '-'}</td>
+                              <td className="p-2 truncate max-w-[120px] font-semibold">{op?.destination_customer || (op as any)?.dest_location_name || '-'}</td>
+                              <td className="p-2">{op?.material_type || (op as any)?.product_name || '-'}</td>
+                              <td className="p-2 text-center font-mono">{formatNumber(op?.qty_loaded || (op as any)?.net_weight || 0, language, 2)}</td>
+                              <td className="p-2 text-center font-mono font-bold text-orange-950">
+                                {formatNumber(op?.qty_delivered || (op as any)?.net_weight || 0, language, 2)}
+                              </td>
+                              <td
+                                className={`p-2 text-center font-mono font-bold ${
+                                  (op?.wastage_percentage || 0) > 1.5 ? 'text-rose-600' : 'text-slate-600'
+                                }`}
+                              >
+                                {formatNumber(op?.qty_wastage || 0, language, 2)} ({formatNumber(op?.wastage_percentage || 0, language, 1)}%)
+                              </td>
+                              <td className="p-2 text-center font-mono text-[10px] text-slate-500">
+                                {op?.scale_ticket_no || (op as any)?.ticket_number || '-'}
+                              </td>
+                              <td className="p-2 text-center font-mono">{formatCurrency(op?.sales_amount || 0, language)}</td>
+                              <td className="p-2 text-center font-mono text-slate-500">
+                                {formatCurrency(op?.vat_amount || 0, language)}
+                              </td>
+                            </tr>
+                          ))
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -1120,23 +1162,31 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                          {filteredOperations.map((op, idx) => (
-                            <tr key={op.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                              <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
-                              <td className="p-2.5 font-mono">{op.loading_date}</td>
-                              <td className="p-2.5 font-mono font-bold text-slate-800">{op.loading_invoice_no || '-'}</td>
-                              <td className="p-2.5 font-mono">{op.truck_no}</td>
-                              <td className="p-2.5">{op.transporter_name}</td>
-                              <td className="p-2.5">{op.material_type}</td>
-                              <td className="p-2.5 text-center font-mono font-bold">{formatNumber(op.qty_loaded, language, 2)}</td>
-                              <td className="p-2.5 text-center font-mono font-bold text-rose-700">
-                                {formatCurrency(op.purchases_cost, language)}
-                              </td>
-                              <td className="p-2.5 text-center font-mono text-emerald-700">
-                                {formatCurrency(op.crusher_payment, language)}
+                          {filteredOperations.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="p-8 text-center text-slate-500 font-medium">
+                                {isAr ? 'لا توجد توريدات مسجلة لهذه الكسارة خلال الفترة' : 'No supplies recorded for this crusher during this period'}
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            filteredOperations.map((op, idx) => (
+                              <tr key={op?.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
+                                <td className="p-2.5 font-mono">{op?.loading_date || '-'}</td>
+                                <td className="p-2.5 font-mono font-bold text-slate-800">{op?.loading_invoice_no || '-'}</td>
+                                <td className="p-2.5 font-mono">{op?.truck_no || (op as any)?.truck_number || '-'}</td>
+                                <td className="p-2.5">{op?.transporter_name || '-'}</td>
+                                <td className="p-2.5">{op?.material_type || '-'}</td>
+                                <td className="p-2.5 text-center font-mono font-bold">{formatNumber(op?.qty_loaded || 0, language, 2)}</td>
+                                <td className="p-2.5 text-center font-mono font-bold text-rose-700">
+                                  {formatCurrency(op?.purchases_cost || 0, language)}
+                                </td>
+                                <td className="p-2.5 text-center font-mono text-emerald-700">
+                                  {formatCurrency(op?.crusher_payment || 0, language)}
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1149,10 +1199,10 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <h4 className="text-xs font-bold text-slate-900">
                         {isAr ? 'كشف حساب وفاقد الناقل:' : 'Transporter Statement & Transit Loss:'}{' '}
-                        <strong className="text-orange-950">{selectedTransporter?.transporterName}</strong>
+                        <strong className="text-orange-950">{selectedTransporter?.transporterName || (isAr ? 'الناقل' : 'Transporter')}</strong>
                       </h4>
                       <p className="text-[11px] text-slate-600 mt-0.5">
-                        {isAr ? 'جهة النقل:' : 'Carrier:'} {selectedTransporter?.transporterName} | {isAr ? 'الأسطول:' : 'Fleet:'}{' '}
+                        {isAr ? 'جهة النقل:' : 'Carrier:'} {selectedTransporter?.transporterName || '-'} | {isAr ? 'الأسطول:' : 'Fleet:'}{' '}
                         {selectedTransporter?.trucksCount || 0} {isAr ? 'شاحنة' : 'trucks'}
                       </p>
                     </div>
@@ -1173,19 +1223,27 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                          {filteredOperations.map((op, idx) => (
-                            <tr key={op.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                              <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
-                              <td className="p-2.5 font-mono">{op.loading_date}</td>
-                              <td className="p-2.5 font-mono font-bold text-slate-800">{op.truck_no}</td>
-                              <td className="p-2.5">{op.driver_name || '-'}</td>
-                              <td className="p-2.5 text-center font-mono">{formatNumber(op.qty_loaded, language, 2)}</td>
-                              <td className="p-2.5 text-center font-mono">{formatNumber(op.qty_delivered, language, 2)}</td>
-                              <td className="p-2.5 text-center font-mono font-bold text-rose-600">{formatNumber(op.qty_wastage, language, 2)}</td>
-                              <td className="p-2.5 text-center font-mono">{formatCurrency(op.freight_fee || 0, language)}</td>
-                              <td className="p-2.5 text-center font-mono text-rose-700">{formatCurrency(op.penalty_fee || 0, language)}</td>
+                          {filteredOperations.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="p-8 text-center text-slate-500 font-medium">
+                                {isAr ? 'لا توجد رحلات مسجلة لهذا الناقل خلال الفترة' : 'No trips recorded for this transporter during this period'}
+                              </td>
                             </tr>
-                          ))}
+                          ) : (
+                            filteredOperations.map((op, idx) => (
+                              <tr key={op?.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
+                                <td className="p-2.5 font-mono">{op?.loading_date || '-'}</td>
+                                <td className="p-2.5 font-mono font-bold text-slate-800">{op?.truck_no || (op as any)?.truck_number || '-'}</td>
+                                <td className="p-2.5">{op?.driver_name || '-'}</td>
+                                <td className="p-2.5 text-center font-mono">{formatNumber(op?.qty_loaded || 0, language, 2)}</td>
+                                <td className="p-2.5 text-center font-mono">{formatNumber(op?.qty_delivered || 0, language, 2)}</td>
+                                <td className="p-2.5 text-center font-mono font-bold text-rose-600">{formatNumber(op?.qty_wastage || 0, language, 2)}</td>
+                                <td className="p-2.5 text-center font-mono">{formatCurrency(op?.freight_fee || 0, language)}</td>
+                                <td className="p-2.5 text-center font-mono text-rose-700">{formatCurrency(op?.penalty_fee || 0, language)}</td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1210,26 +1268,34 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
-                          {vouchers.map((v, idx) => (
-                            <tr key={v.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                              <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
-                              <td className="p-2.5 font-mono font-bold text-slate-800">{v.voucherNumber}</td>
-                              <td className="p-2.5 font-mono">{v.date}</td>
-                              <td className="p-2.5 font-bold">
-                                <span className={`px-2 py-0.5 rounded text-[10px] ${v.type === 'Payment' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                                  {v.type === 'Payment' ? (isAr ? 'صرف' : 'Payment') : (isAr ? 'قبض' : 'Receipt')}
-                                </span>
-                              </td>
-                              <td className="p-2.5 font-bold">{v.partyName}</td>
-                              <td className="p-2.5 max-w-[200px] truncate">{v.purpose}</td>
-                              <td className="p-2.5 text-center font-mono font-bold text-slate-900">{formatCurrency(v.amount, language)}</td>
-                              <td className="p-2.5 text-center">
-                                <span className={`px-2 py-0.5 rounded text-[10px] ${v.status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                                  {v.status === 'Approved' ? (isAr ? 'معتمد' : 'Approved') : (isAr ? 'بانتظار الاعتماد' : 'Pending')}
-                                </span>
+                          {safeVouchers.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="p-8 text-center text-slate-500 font-medium">
+                                {isAr ? 'لا توجد سندات مالية مسجلة' : 'No financial vouchers recorded'}
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            safeVouchers.map((v, idx) => (
+                              <tr key={v?.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                <td className="p-2.5 text-center font-bold text-slate-500">{idx + 1}</td>
+                                <td className="p-2.5 font-mono font-bold text-slate-800">{v?.voucherNumber || '-'}</td>
+                                <td className="p-2.5 font-mono">{v?.date || '-'}</td>
+                                <td className="p-2.5 font-bold">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] ${v?.type === 'Payment' ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                                    {v?.type === 'Payment' ? (isAr ? 'صرف' : 'Payment') : (isAr ? 'قبض' : 'Receipt')}
+                                  </span>
+                                </td>
+                                <td className="p-2.5 font-bold">{v?.partyName || '-'}</td>
+                                <td className="p-2.5 max-w-[200px] truncate">{v?.purpose || '-'}</td>
+                                <td className="p-2.5 text-center font-mono font-bold text-slate-900">{formatCurrency(v?.amount || 0, language)}</td>
+                                <td className="p-2.5 text-center">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] ${v?.status === 'Approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                    {v?.status === 'Approved' ? (isAr ? 'معتمد' : 'Approved') : (isAr ? 'بانتظار الاعتماد' : 'Pending')}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1316,18 +1382,18 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
                       <p>
                         {isAr ? 'اسم المستفيد:' : 'Beneficiary:'}{' '}
-                        <strong className="text-slate-900">{brandConfig.companyNameAr}</strong>
+                        <strong className="text-slate-900">{safeBrandConfig.companyNameAr}</strong>
                       </p>
                       <p>
-                        {isAr ? 'البنك:' : 'Bank:'} <strong className="text-slate-900">{brandConfig.bankNameAr}</strong>
+                        {isAr ? 'البنك:' : 'Bank:'} <strong className="text-slate-900">{safeBrandConfig.bankNameAr}</strong>
                       </p>
                       <p>
                         {isAr ? 'رقم الحساب:' : 'Account #:'}{' '}
-                        <strong className="font-mono text-slate-900">{brandConfig.bankAccountNumber}</strong>
+                        <strong className="font-mono text-slate-900">{safeBrandConfig.bankAccountNumber}</strong>
                       </p>
                       <p>
                         {isAr ? 'الآيبان الدولي (IBAN):' : 'IBAN:'}{' '}
-                        <strong className="font-mono text-orange-950 font-bold">{brandConfig.bankIban}</strong>
+                        <strong className="font-mono text-orange-950 font-bold">{safeBrandConfig.bankIban}</strong>
                       </p>
                     </div>
                   </div>
@@ -1348,7 +1414,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                       <span className="text-slate-500 font-bold block mb-1">
                         {isAr ? 'إعداد ومطابقة (Data Entry)' : 'Prepared by'}
                       </span>
-                      <p className="font-bold text-slate-900">{currentUser.fullNameAr || currentUser.fullName}</p>
+                      <p className="font-bold text-slate-900">{currentUser?.fullNameAr || currentUser?.fullName || (isAr ? 'المستخدم الحالي' : 'Current User')}</p>
                       <span className="text-[10px] text-slate-400 block mt-0.5">{docIssueDate}</span>
                     </div>
 
@@ -1366,9 +1432,9 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                       <span className="text-slate-500 font-bold block mb-1">
                         {isAr ? 'الاعتماد المالي والمدير التنفيذي' : 'Approved & Authorized by'}
                       </span>
-                      <p className="font-bold text-slate-900">{brandConfig.ceoNameAr}</p>
+                      <p className="font-bold text-slate-900">{safeBrandConfig.ceoNameAr || (isAr ? 'الرئيس التنفيذي' : 'Chief Executive Officer')}</p>
                       <span className="text-[10px] text-orange-700 font-bold block mt-0.5">
-                        {brandConfig.ceoTitleAr}
+                        {safeBrandConfig.ceoTitleAr || (isAr ? 'المدير التنفيذي' : 'General Director')}
                       </span>
                       <span className="text-[9px] font-mono text-slate-400 block mt-1">MYN-SEC-SIGN-2026</span>
                     </div>
@@ -1376,7 +1442,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                 )}
 
                 {/* 8. Legal Footer */}
-                {showFooter && <OfficialLetterheadFooter brandConfig={brandConfig} isAr={isAr} />}
+                {showFooter && <OfficialLetterheadFooter brandConfig={safeBrandConfig} isAr={isAr} />}
               </div>
             </div>
           </div>

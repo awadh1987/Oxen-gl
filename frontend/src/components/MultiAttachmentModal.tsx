@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { DocumentAttachment } from '../types';
 import {
@@ -45,6 +45,13 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
 }) => {
   const { addAttachmentToRecord, removeAttachmentFromRecord, language, showToast } = useApp();
   const isAr = language === 'ar';
+
+  // Defensive array fallback to prevent TypeError when API returns 500 or undefined attachments
+  const safeAttachments = useMemo(() => {
+    if (Array.isArray(existingAttachments)) return existingAttachments;
+    if (Array.isArray(propAttachments)) return propAttachments;
+    return [];
+  }, [existingAttachments, propAttachments]);
 
   const [category, setCategory] = useState<DocumentAttachment['docCategory']>('Scale Ticket');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -101,13 +108,22 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
     const sizeInMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
     const sizeStr = Number(sizeInMB) >= 1 ? `${sizeInMB} MB` : `${Math.round(selectedFile.size / 1024)} KB`;
 
-    addAttachmentToRecord(recordType as any, recordId, {
+    const newAtt = {
+      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       fileName: selectedFile.name,
       fileSize: sizeStr,
       fileType: selectedFile.type || 'application/octet-stream',
       docCategory: category,
       fileData: previewUrl || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop&q=80',
-    });
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: 'Current User',
+    };
+
+    if (onAddAttachment) {
+      onAddAttachment(newAtt);
+    } else if (addAttachmentToRecord) {
+      addAttachmentToRecord(recordType as any, recordId, newAtt);
+    }
 
     setSelectedFile(null);
     setPreviewUrl('');
@@ -277,11 +293,11 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                {isAr ? `المرفقات الحالية (${existingAttachments.length})` : `Attached Documents (${existingAttachments.length})`}
+                {isAr ? `المرفقات الحالية (${safeAttachments.length})` : `Attached Documents (${safeAttachments.length})`}
               </h3>
             </div>
 
-            {existingAttachments.length === 0 ? (
+            {safeAttachments.length === 0 ? (
               <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-8 text-center">
                 <File className="mx-auto h-8 w-8 text-slate-300" />
                 <p className="mt-2 text-xs font-bold text-slate-600">
@@ -293,53 +309,70 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
               </div>
             ) : (
               <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
-                {existingAttachments.map((att) => (
-                  <div key={att.id} className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-                        {att.fileType.includes('pdf') ? <FileText className="h-5 w-5 text-rose-600" /> : <Image className="h-5 w-5 text-orange-600" />}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-slate-900 truncate max-w-sm">{att.fileName}</p>
-                          <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(att.docCategory)}`}>
-                            {att.docCategory}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          {att.fileSize} - {formatDate(att.uploadedAt)} - {att.uploadedBy}
-                        </p>
-                      </div>
-                    </div>
+                {safeAttachments.map((att) => {
+                  const isPdf = Boolean(
+                    att?.fileType?.toLowerCase().includes('pdf') ||
+                    att?.fileName?.toLowerCase().endsWith('.pdf')
+                  );
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        onClick={() => setViewingAttachment(att)}
-                        title={isAr ? 'معاينة' : 'Preview'}
-                        className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-colors shadow-2xs"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <a
-                        href={att.fileData}
-                        download={att.fileName}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={isAr ? 'تحميل' : 'Download'}
-                        className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 transition-colors shadow-2xs"
-                      >
-                        <Download className="h-4 w-4" />
-                      </a>
-                      <button
-                        onClick={() => removeAttachmentFromRecord(recordType as any, recordId, att.id)}
-                        title={isAr ? 'حذف' : 'Delete'}
-                        className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                  return (
+                    <div key={att?.id || Math.random()} className="flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                          {isPdf ? <FileText className="h-5 w-5 text-rose-600" /> : <Image className="h-5 w-5 text-orange-600" />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-slate-900 truncate max-w-sm">{att?.fileName || (isAr ? 'مستند بدون اسم' : 'Unnamed Document')}</p>
+                            {att?.docCategory && (
+                              <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(att.docCategory)}`}>
+                                {att.docCategory}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {att?.fileSize || '0 KB'} - {att?.uploadedAt ? formatDate(att.uploadedAt) : '-'} - {att?.uploadedBy || '-'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => setViewingAttachment(att)}
+                          title={isAr ? 'معاينة' : 'Preview'}
+                          className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-colors shadow-2xs"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        {att?.fileData && (
+                          <a
+                            href={att.fileData}
+                            download={att?.fileName || 'attachment'}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={isAr ? 'تحميل' : 'Download'}
+                            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 transition-colors shadow-2xs"
+                          >
+                            <Download className="h-4 w-4" />
+                          </a>
+                        )}
+                        <button
+                          onClick={() => {
+                            if (onDeleteAttachment) {
+                              onDeleteAttachment(att.id);
+                            } else if (removeAttachmentFromRecord) {
+                              removeAttachmentFromRecord(recordType as any, recordId, att.id);
+                            }
+                          }}
+                          title={isAr ? 'حذف' : 'Delete'}
+                          className="rounded-xl border border-slate-200 bg-white p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -364,9 +397,9 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
               <div className="flex items-center gap-3">
                 <FileText className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{viewingAttachment.fileName}</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{viewingAttachment?.fileName || 'Document'}</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {viewingAttachment.docCategory} - {viewingAttachment.fileSize}
+                    {viewingAttachment?.docCategory || 'Attachment'} - {viewingAttachment?.fileSize || ''}
                   </p>
                 </div>
               </div>
@@ -378,16 +411,16 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
               </button>
             </div>
             <div className="flex-1 overflow-auto bg-slate-900 p-4 flex items-center justify-center min-h-[400px]">
-              {viewingAttachment.fileType.includes('pdf') ? (
+              {Boolean(viewingAttachment?.fileType?.toLowerCase().includes('pdf') || viewingAttachment?.fileName?.toLowerCase().endsWith('.pdf')) ? (
                 <iframe
                   src={viewingAttachment.fileData}
                   className="h-[550px] w-full rounded-xl bg-white border border-slate-800"
-                  title={viewingAttachment.fileName}
+                  title={viewingAttachment?.fileName || 'PDF Document'}
                 />
               ) : (
                 <img
                   src={viewingAttachment.fileData}
-                  alt={viewingAttachment.fileName}
+                  alt={viewingAttachment?.fileName || 'Attachment Preview'}
                   className="max-h-[550px] max-w-full rounded-xl object-contain shadow-2xl"
                 />
               )}

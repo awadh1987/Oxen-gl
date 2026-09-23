@@ -93,7 +93,7 @@ echo "⚙️  Step 5: Launching Multi-Container Application Mesh..."
 
 # 5a. FastAPI Backend Engine
 echo "  🚀 Starting Async FastAPI Engine (port 8000 on 127.0.0.1)..."
-"${VENV_DIR}/bin/python" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload &
+"${VENV_DIR}/bin/python" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir "${PROJECT_DIR}/backend" &
 UVICORN_PID=$!
 
 # 5b. Celery Worker Queue

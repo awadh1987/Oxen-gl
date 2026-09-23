@@ -70,7 +70,7 @@ async def fleet_telemetry_stream_endpoint(websocket: WebSocket):
     if query_tenant and x_tenant_id and str(x_tenant_id).strip().lower() != str(query_tenant).strip().lower():
         logger.warning(f"Cross-tenant WebSocket rejection: header '{x_tenant_id}' != query '{query_tenant}'")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
     # 2. Decode and validate token if present, or enforce authentication
     authenticated_tenant = None
@@ -79,18 +79,18 @@ async def fleet_telemetry_stream_endpoint(websocket: WebSocket):
         if not claims:
             logger.warning("WebSocket handshake rejected: invalid or expired JWT token")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+            return
 
         token_tenant = str(claims.get("tenant_id") or claims.get("company_id") or "").strip()
         if token_tenant:
             if query_tenant and str(query_tenant).strip().lower() != token_tenant.lower():
                 logger.warning(f"WebSocket rejected: token tenant {token_tenant} != query tenant {query_tenant}")
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-                raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+                return
             if x_tenant_id and str(x_tenant_id).strip().lower() != token_tenant.lower():
                 logger.warning(f"WebSocket rejected: token tenant {token_tenant} != header tenant {x_tenant_id}")
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-                raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+                return
             authenticated_tenant = token_tenant
         else:
             authenticated_tenant = query_tenant or x_tenant_id
@@ -99,7 +99,7 @@ async def fleet_telemetry_stream_endpoint(websocket: WebSocket):
         if not (query_tenant or x_tenant_id):
             logger.warning("Unauthenticated WebSocket handshake rejected: missing token and tenant context")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            raise WebSocketDisconnect(code=status.WS_1008_POLICY_VIOLATION)
+            return
         authenticated_tenant = query_tenant or x_tenant_id
 
     # 3. Accept handshake only after authentication and tenant scoping succeed

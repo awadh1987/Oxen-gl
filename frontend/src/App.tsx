@@ -9,6 +9,7 @@ import type { ExportDocType } from './components/ExportPrintModal';
 import { Building2, Cpu, CreditCard, Layers, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X, Globe, Radio } from 'lucide-react';
 import { UserRole } from './types';
 import { getSubdomain, isApexDomain } from './utils/subdomain';
+import { useNavigate } from './hooks/useNavigate';
 
 // Code-split dynamic view imports
 const DashboardView = React.lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -202,21 +203,25 @@ export const tenantNavigation: {
 function AppContent() {
   const { language, currentUser, brandConfig, isDriverMode, themeMode, authTier, tenantId, logoutUser, isTwoTierAuthenticated } = useApp();
   const isAr = language === 'ar';
+  const navigate = useNavigate();
 
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return Boolean(
-      localStorage.getItem('oxengl_session_active') === 'true' ||
+    const hasToken = Boolean(
       localStorage.getItem('oxengl_auth_jwt') ||
       localStorage.getItem('token') ||
       localStorage.getItem('access_token')
     );
+    const sessionActive = localStorage.getItem('oxengl_session_active') === 'true';
+    return Boolean(hasToken && sessionActive && currentUser?.role !== 'Guest' && currentUser?.id);
   });
 
   useEffect(() => {
-    if (isTwoTierAuthenticated) {
+    if (isTwoTierAuthenticated && currentUser?.role !== 'Guest' && currentUser?.id) {
       setIsLoggedIn(true);
+    } else if (currentUser?.role === 'Guest' || !currentUser?.id) {
+      setIsLoggedIn(false);
     }
-  }, [isTwoTierAuthenticated]);
+  }, [isTwoTierAuthenticated, currentUser]);
 
   const [inspectingWorkspace, setInspectingWorkspace] = useState(false);
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -298,12 +303,10 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('oxengl_session_active', String(isLoggedIn));
     if (isLoggedIn) {
-      if (typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '')) {
-        navigateToTab('operations');
-      }
+      localStorage.setItem('oxengl_session_active', 'true');
     } else {
+      localStorage.removeItem('oxengl_session_active');
       localStorage.removeItem('oxengl_recovery_session');
     }
   }, [isLoggedIn]);
@@ -539,7 +542,20 @@ function AppContent() {
 
   const activeSubdomain = getSubdomain();
 
-  if (currentPath === '/login' || (!isLoggedIn && activeSubdomain)) {
+  if (currentPath === '/' && !activeSubdomain) {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route path="/" element={<LandingPageView onLoginSuccess={() => {
+          setIsLoggedIn(true);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/operations/daily';
+          }
+        }} />} />
+      </Suspense>
+    );
+  }
+
+  if (currentPath === '/login' || (!isLoggedIn && activeSubdomain && currentPath !== '/')) {
     if (isLoggedIn) {
       if (typeof window !== 'undefined') {
         window.history.replaceState({}, '', '/operations/daily');
@@ -548,7 +564,10 @@ function AppContent() {
     } else {
       return (
         <Suspense fallback={<ViewLoadingFallback />}>
-          <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onLoginSuccess={() => {
+          <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onNavigate={(to) => {
+            setCurrentPath(to);
+            navigate(to);
+          }} onLoginSuccess={() => {
             setIsLoggedIn(true);
             if (typeof window !== 'undefined') {
               window.location.href = '/operations/daily';
@@ -560,24 +579,25 @@ function AppContent() {
   }
 
   if (currentPath === '/' && !isLoggedIn) {
-    if (!activeSubdomain) {
-      return (
-        <Suspense fallback={<ViewLoadingFallback />}>
-          <Route path="/" element={<LandingPageView onLoginSuccess={() => {
-            setIsLoggedIn(true);
-            if (typeof window !== 'undefined') {
-              window.location.href = '/operations/daily';
-            }
-          }} />} />
-        </Suspense>
-      );
-    }
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route path="/" element={<LandingPageView onLoginSuccess={() => {
+          setIsLoggedIn(true);
+          if (typeof window !== 'undefined') {
+            window.location.href = '/operations/daily';
+          }
+        }} />} />
+      </Suspense>
+    );
   }
 
   if (!isLoggedIn) {
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onLoginSuccess={() => {
+        <Route path="/login" element={<TenantLoginView forcedSlug={activeSubdomain || undefined} onNavigate={(to) => {
+          setCurrentPath(to);
+          navigate(to);
+        }} onLoginSuccess={() => {
           setIsLoggedIn(true);
           if (typeof window !== 'undefined') {
             window.location.href = '/operations/daily';

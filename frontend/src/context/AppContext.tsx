@@ -60,6 +60,8 @@ import {
   TwoTierTenantRegistrationPayload,
   PasswordRecoveryPayload,
   PasswordResetPayload,
+  getActiveCompanyId,
+  isValidUUID,
 } from '../services/api';
 import { getSubdomain, isApexDomain } from '../utils/subdomain';
 import {
@@ -111,14 +113,14 @@ function mapBackendRoleToFrontend(role?: string): UserRole {
 }
 
 export const DEFAULT_FALLBACK_USER: User = {
-  id: 'usr_default',
-  username: 'admin',
-  fullName: 'Authorized Workspace User',
-  fullNameAr: 'مستخدم معتمد للمنشأة',
-  email: 'admin@oxengl.me',
-  phone: '+966500000000',
-  role: 'Admin',
-  status: 'Active',
+  id: '',
+  username: '',
+  fullName: 'Guest User',
+  fullNameAr: 'مستخدم غير مسجل',
+  email: '',
+  phone: '',
+  role: 'Guest',
+  status: 'Pending',
 };
 
 function sanitizeUserSession(rawUser: any): User {
@@ -127,14 +129,14 @@ function sanitizeUserSession(rawUser: any): User {
   }
   const role = mapBackendRoleToFrontend(rawUser?.role);
   return {
-    id: rawUser.id || 'usr_fallback',
+    id: rawUser.id || '',
     username: rawUser.username || (rawUser.email ? String(rawUser.email).split('@')[0] : 'user'),
-    fullName: rawUser.fullName || rawUser.fullNameAr || 'Authorized User',
-    fullNameAr: rawUser.fullNameAr || rawUser.fullName || 'مستخدم معتمد',
-    email: rawUser.email || 'user@oxengl.com',
-    phone: rawUser.phone || rawUser.mobile || '+966500000000',
-    role: role,
-    status: rawUser.status || 'Active',
+    fullName: rawUser.fullName || rawUser.fullNameAr || 'Guest User',
+    fullNameAr: rawUser.fullNameAr || rawUser.fullName || 'مستخدم غير مسجل',
+    email: rawUser.email || '',
+    phone: rawUser.phone || rawUser.mobile || '',
+    role: role || 'Guest',
+    status: rawUser.status || 'Pending',
     companyId: rawUser.companyId || rawUser.company_id,
     assignedCustomerId: rawUser.assignedCustomerId,
   };
@@ -420,16 +422,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [companies, setCompanies] = useState<Company[]>([]);
   const [currentCompany, setCurrentCompany] = useState<Company | null>(() => {
     const activeSubdomain = getSubdomain();
+    const activeUuid = getActiveCompanyId();
     if (activeSubdomain) {
       const saved = localStorage.getItem('oxengl_current_company');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (parsed.slug === activeSubdomain) return parsed;
+          if (parsed.slug === activeSubdomain) {
+            if (activeUuid && !isValidUUID(parsed.id)) {
+              parsed.id = activeUuid;
+            }
+            return parsed;
+          }
         } catch {}
       }
       return {
-        id: activeSubdomain,
+        id: activeUuid || activeSubdomain,
         name: activeSubdomain.toUpperCase(),
         slug: activeSubdomain,
         currency: 'SAR',
@@ -443,7 +451,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return null;
     }
     const saved = localStorage.getItem('oxengl_current_company');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (activeUuid && !isValidUUID(parsed.id)) {
+          parsed.id = activeUuid;
+        }
+        return parsed;
+      } catch {}
+    }
+    return null;
   });
 
   const refreshCompanies = async (): Promise<Company[]> => {
@@ -452,11 +469,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCompanies(mapped);
     setCurrentCompany((selected) => {
       const activeSubdomain = getSubdomain();
+      const activeUuid = getActiveCompanyId();
       if (activeSubdomain) {
         const foundBySub = mapped.find((company) => company.slug?.toLowerCase() === activeSubdomain.toLowerCase());
         if (foundBySub) return foundBySub;
         return {
-          id: activeSubdomain,
+          id: activeUuid || activeSubdomain,
           name: activeSubdomain.toUpperCase(),
           slug: activeSubdomain,
           currency: 'SAR',
