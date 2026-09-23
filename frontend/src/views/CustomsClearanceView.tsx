@@ -830,13 +830,14 @@ export const CustomsClearanceView: React.FC = () => {
             <form onSubmit={handleCreateManifest} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.manifestNumOpt', 'Manifest Number (Optional)')}</label>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">{t('customs.manifestNum', 'Manifest Number')} <span className="text-[10px] text-cyan-500">({t('customs.autoGen', 'Auto')})</span></label>
                   <input
                     type="text"
-                    placeholder={t('customs.autoGen', 'Auto-generated if empty')}
+                    disabled={true}
+                    placeholder={t('customs.autoGenSave', 'Auto-generated upon save')}
                     value={newForm.manifest_number}
                     onChange={e => setNewForm(prev => ({ ...prev, manifest_number: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+                    className="w-full px-3 py-2 bg-slate-900/60 border border-slate-800 rounded-xl text-xs font-mono text-slate-500 cursor-not-allowed opacity-75 focus:outline-none"
                   />
                 </div>
                 <div>

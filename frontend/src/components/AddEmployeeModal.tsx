@@ -83,8 +83,8 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
     setSubmitting(true);
     try {
       const payload = {
-        employee_code: employeeNumber.trim() || defaultEmpNum,
-        employeeNumber: employeeNumber.trim() || defaultEmpNum,
+        employee_code: employeeNumber.trim() || undefined,
+        employeeNumber: employeeNumber.trim() || undefined,
         name: nameAr.trim() || nameEn.trim(),
         nameAr: nameAr.trim() || nameEn.trim(),
         nameEn: nameEn.trim() || nameAr.trim(),
@@ -218,17 +218,19 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
                 <span className="flex items-center gap-1">
                   <Hash className="h-3 w-3 text-slate-400" />
                   {isAr ? 'الرقم الوظيفي' : 'Employee ID'}
+                  <span className="text-[10px] font-normal text-slate-400">({isAr ? 'توليد تلقائي' : 'Auto'})</span>
                 </span>
               </label>
               <input
                 type="text"
+                disabled={true}
                 value={employeeNumber}
                 onChange={(e) => setEmployeeNumber(e.target.value)}
-                placeholder="EMP-0430"
-                className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono font-medium focus:outline-hidden focus:ring-2 focus:ring-[#F05627] ${
+                placeholder={isAr ? 'يتم التوليد تلقائياً عند الحفظ' : 'Auto-generated upon save'}
+                className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono font-medium cursor-not-allowed opacity-75 ${
                   isDark
-                    ? 'border-slate-700 bg-slate-900/60 text-white placeholder-slate-500'
-                    : 'border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400'
+                    ? 'border-slate-700 bg-slate-900/40 text-slate-400 placeholder-slate-500'
+                    : 'border-slate-200 bg-slate-100 text-slate-500 placeholder-slate-400'
                 }`}
               />
             </div>

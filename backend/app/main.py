@@ -104,6 +104,7 @@ try:
 	from backend.app.api.v1.ai import router as ai_router
 	from backend.app.api.v1.planning import router as planning_router
 	from backend.app.api.v1.auth import router as recovery_auth_router
+	from backend.app.services.sequence_service import SequenceService, get_next_sequence
 	from backend.app.services.bulk_import_service import (
 		BulkImportService,
 		parse_raw_rows_from_excel,
@@ -189,6 +190,7 @@ except ImportError:
 	from backend.app.api.v1.ai import router as ai_router  # type: ignore[no-redef]
 	from backend.app.api.v1.planning import router as planning_router  # type: ignore[no-redef]
 	from backend.app.api.v1.auth import router as recovery_auth_router  # type: ignore[no-redef]
+	from backend.app.services.sequence_service import SequenceService, get_next_sequence  # type: ignore[no-redef]
 	from backend.app.services.bulk_import_service import BulkImportService, parse_raw_rows_from_excel, parse_raw_rows_from_csv  # type: ignore[no-redef]
 
 
@@ -346,8 +348,6 @@ from backend.app.domains.finance import audit_export
 app.include_router(audit_export.router)
 from backend.app.domains.auth import onboard_tenant
 app.include_router(onboard_tenant.router)
-from backend.app.domains.logistics.ws_stream import router as ws_stream_router
-app.include_router(ws_stream_router)
 app.include_router(logistics_router)
 app.include_router(customs_router, prefix="/api/v1/logistics/customs/manifests")
 app.include_router(customs_router, prefix="/api/logistics/customs/manifests")
@@ -709,6 +709,21 @@ async def health_check():
 		"service": "OxenGL Core Backend Service Layer",
 		"version": "1.0.0",
 	}
+@app.get("/api/sequences/next/{entity_type}", tags=["Sequences"])
+@app.get("/api/v1/sequences/next/{entity_type}", tags=["Sequences"])
+def get_next_entity_sequence(
+	entity_type: str,
+	company_id: uuid.UUID = Depends(get_active_company_id),
+	database: Session = Depends(get_db),
+):
+	"""Returns the preview of the next available sequence code for the entity type."""
+	next_seq = SequenceService.preview_next_sequence(database, company_id, entity_type)
+	return {
+		"entity_type": entity_type,
+		"company_id": str(company_id),
+		"next_sequence": next_seq,
+	}
+
 
 
 @app.websocket("/api/v1/tracking/ws/fleet-stream")
@@ -1541,9 +1556,12 @@ def create_posted_account_move(database: Session, company_id: uuid.UUID, payload
 def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	gross_weight = payload.gross_weight.quantize(Decimal("0.0001"))
 	tare_weight = payload.tare_weight.quantize(Decimal("0.0001"))
-	net_weight = (gross_weight - tare_weight).quantize(Decimal("0.0001"))
-	reference = payload.ticket_number or f"WB-{datetime.now(timezone.utc):%Y%m%d%H%M%S}-{uuid.uuid4().hex[:8]}"
-	ticket_number = payload.ticket_number or f"TKT-{uuid.uuid4().hex[:12].upper()}"
+	tkt_input = (payload.ticket_number or "").strip()
+	if not tkt_input or "auto" in tkt_input.lower() or "توليد" in tkt_input or (tkt_input.startswith("TKT-") and len(tkt_input) > 15):
+		ticket_number = SequenceService.get_next_sequence(database, company_id, "ticket")
+	else:
+		ticket_number = tkt_input
+	reference = ticket_number
 	try:
 		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
 		with tx_ctx:
@@ -2171,7 +2189,11 @@ def create_customer_invoice(payload: CustomerInvoiceCreate, company_id: uuid.UUI
 		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
 		with tx_ctx:
 			journal = journal_by_code(database, company_id, "INV", "Sales Invoices", "sale", "INV")
-			invoice_number = payload.invoice_number or f"INV/{issue_date:%Y}/{journal.next_sequence:05d}"
+			inv_num_input = (payload.invoice_number or "").strip()
+			if not inv_num_input or "auto" in inv_num_input.lower() or "توليد" in inv_num_input or inv_num_input.startswith("INV/"):
+				invoice_number = SequenceService.get_next_sequence(database, company_id, "customer_invoice")
+			else:
+				invoice_number = inv_num_input
 			journal.next_sequence += 1
 			invoice = models.CustomerInvoice(
 				company_id=company_id,
@@ -2877,8 +2899,11 @@ def create_purchase_order(payload: PurchaseOrderCreate, company_id: uuid.UUID = 
 	if partner is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner was not found")
 	data = payload.model_dump()
-	if not data.get("po_number"):
-		data["po_number"] = f"PO/{datetime.now(timezone.utc):%Y}/{uuid.uuid4().hex[:6].upper()}"
+	po_input = (data.get("po_number") or "").strip()
+	if not po_input or "auto" in po_input.lower() or "توليد" in po_input or po_input.startswith("PO/"):
+		data["po_number"] = SequenceService.get_next_sequence(database, company_id, "purchase_order")
+	else:
+		data["po_number"] = po_input
 	if not data.get("total_amount") or data["total_amount"] == 0:
 		data["total_amount"] = data.get("subtotal", Decimal("0")) + data.get("tax_amount", Decimal("0"))
 	order = models.PurchaseOrder(company_id=company_id, **data)
@@ -2999,8 +3024,11 @@ def create_supplier_invoice(payload: SupplierInvoiceCreate, company_id: uuid.UUI
 	if partner is None:
 		raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partner was not found")
 	data = payload.model_dump()
-	if not data.get("invoice_number"):
-		data["invoice_number"] = f"SI/{datetime.now(timezone.utc):%Y}/{uuid.uuid4().hex[:6].upper()}"
+	si_input = (data.get("invoice_number") or "").strip()
+	if not si_input or "auto" in si_input.lower() or "توليد" in si_input or si_input.startswith("SI/"):
+		data["invoice_number"] = SequenceService.get_next_sequence(database, company_id, "supplier_invoice")
+	else:
+		data["invoice_number"] = si_input
 	if not data.get("total_amount") or data["total_amount"] == 0:
 		data["total_amount"] = data.get("subtotal", Decimal("0")) + data.get("tax_amount", Decimal("0"))
 	invoice = models.SupplierInvoice(company_id=company_id, **data)

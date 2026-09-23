@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from backend.database import get_db
 from backend import models as core_models
+from backend.app.services.sequence_service import SequenceService
 from backend.app.domains.procurement.models import (
     ApprovalRule,
     WorkflowInstance,
@@ -422,7 +423,11 @@ def create_purchase_order(
             tax_val = round(subtotal_val * Decimal("0.15"), 4)
         total_val = subtotal_val + tax_val
 
-    po_num = payload.get("po_number") or payload.get("poNumber") or f"PO-{datetime.now(timezone.utc).strftime('%Y%m')}-{uuid.uuid4().hex[:4].upper()}"
+    po_raw = (payload.get("po_number") or payload.get("poNumber") or "").strip()
+    if not po_raw or "auto" in po_raw.lower() or "توليد" in po_raw or (po_raw.startswith("PO-") and len(po_raw) == 16):
+        po_num = SequenceService.get_next_sequence(db, comp_uuid, "purchase_order")
+    else:
+        po_num = po_raw
     status_raw = str(payload.get("status", "draft")).lower()
     valid_statuses = {"draft", "confirmed", "received", "billed", "cancelled"}
     if status_raw in ["pending", "active"]:

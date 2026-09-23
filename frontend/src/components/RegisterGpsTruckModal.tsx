@@ -201,14 +201,16 @@ export const RegisterGpsTruckModal: React.FC<RegisterGpsTruckModalProps> = ({
               </div>
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                  {isAr ? 'معرّف الشاحنة (اختياري)' : 'Vehicle Code (Optional)'}
+                  {isAr ? 'معرّف الشاحنة' : 'Vehicle Code'}
+                  <span className="text-[10px] text-emerald-400 ms-1">({isAr ? 'توليد تلقائي' : 'Auto'})</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. V-1005"
+                  disabled={true}
+                  placeholder={isAr ? 'يتم التوليد تلقائياً عند الحفظ' : 'Auto-generated upon save'}
                   value={vehicleId}
                   onChange={(e) => setVehicleId(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-mono text-white placeholder-slate-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-hidden"
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs font-mono text-slate-400 placeholder-slate-500 cursor-not-allowed opacity-75 outline-hidden"
                 />
               </div>
               <div>

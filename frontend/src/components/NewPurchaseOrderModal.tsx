@@ -77,8 +77,8 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
     setSubmitting(true);
     try {
       const payload = {
-        po_number: poNumber.trim() || defaultPoNumber,
-        poNumber: poNumber.trim() || defaultPoNumber,
+        po_number: poNumber.trim() || undefined,
+        poNumber: poNumber.trim() || undefined,
         vendor_name: vendorName.trim(),
         vendorName: vendorName.trim(),
         category: category.trim(),
@@ -166,19 +166,20 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
               <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 <span className="flex items-center gap-1">
                   <Hash className="h-3 w-3 text-slate-400" />
-                  {isAr ? 'رقم أمر الشراء *' : 'PO Number *'}
+                  {isAr ? 'رقم أمر الشراء' : 'PO Number'}
+                  <span className="text-[10px] font-normal text-slate-400">({isAr ? 'توليد تلقائي' : 'Auto'})</span>
                 </span>
               </label>
               <input
                 type="text"
-                required
+                disabled={true}
                 value={poNumber}
                 onChange={(e) => setPoNumber(e.target.value)}
-                placeholder="PO-2026-0105"
-                className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono font-medium focus:outline-hidden focus:ring-2 focus:ring-[#F05627] ${
+                placeholder={isAr ? 'يتم التوليد تلقائياً عند الحفظ' : 'Auto-generated upon save'}
+                className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-mono font-medium cursor-not-allowed opacity-75 ${
                   isDark
-                    ? 'border-slate-700 bg-slate-900/60 text-white placeholder-slate-500'
-                    : 'border-slate-200 bg-slate-50 text-slate-900 placeholder-slate-400'
+                    ? 'border-slate-700 bg-slate-900/40 text-slate-400 placeholder-slate-500'
+                    : 'border-slate-200 bg-slate-100 text-slate-500 placeholder-slate-400'
                 }`}
               />
             </div>

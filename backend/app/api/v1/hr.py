@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 
 from backend.database import get_db
+from backend.app.services.sequence_service import SequenceService
 from backend.app.security.abac import enforce_abac, get_abac_user_context, ABACUserContext
 from backend.app.domains.hr.models import Employee, AttendanceLog, HrmsAttendanceLog
 from backend.app.domains.hr.services import AutomatedPayrollEngine
@@ -77,7 +78,11 @@ async def create_employee(
     if not last_name:
         last_name = "جديد"
 
-    emp_code = payload.get("employee_code") or payload.get("employeeNumber") or f"EMP-{uuid.uuid4().hex[:6].upper()}"
+    emp_raw = (payload.get("employee_code") or payload.get("employeeNumber") or "").strip()
+    if not emp_raw or "auto" in emp_raw.lower() or "توليد" in emp_raw or (emp_raw.startswith("EMP-") and len(emp_raw) == 10):
+        emp_code = SequenceService.get_next_sequence(db, tenant_uuid, "employee")
+    else:
+        emp_code = emp_raw
     dept = payload.get("department") or payload.get("departmentAr") or payload.get("departmentEn") or "General"
     salary = float(payload.get("base_salary") or payload.get("baseSalary") or 0.0)
 

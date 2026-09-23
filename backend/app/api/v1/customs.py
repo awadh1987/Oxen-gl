@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import ResUser
+from backend.app.services.sequence_service import SequenceService
 from backend.app.dependencies import get_active_company_id, get_current_active_user
 from backend.app.domains.logistics.customs_models import CustomsManifest
 
@@ -199,7 +200,11 @@ def create_customs_manifest(
     Creates a new customs declaration manifest with automated SHA-256 blockchain hash chaining.
     Links the new block to the tenant's latest recorded ledger state.
     """
-    manifest_number = payload.manifest_number or f"MANIFEST-KSA-{datetime.now(timezone.utc):%Y%m%d}-{uuid.uuid4().hex[:6].upper()}"
+    man_raw = (payload.manifest_number or "").strip()
+    if not man_raw or "auto" in man_raw.lower() or "توليد" in man_raw or man_raw.startswith("MANIFEST-KSA-"):
+        manifest_number = SequenceService.get_next_sequence(db, active_company_id, "customs_manifest")
+    else:
+        manifest_number = man_raw
 
     # Check uniqueness
     existing = db.scalar(

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 
 from backend.database import get_db
+from backend.app.services.sequence_service import SequenceService
 from backend.app.domains.finance.models import (
     Account,
     JournalEntry,
@@ -332,7 +333,11 @@ def post_balanced_financial_voucher(
     total_debit = sum(Decimal(str(l.debit)) for l in payload.lines)
     total_credit = sum(Decimal(str(l.credit)) for l in payload.lines)
 
-    entry_number = payload.voucher_number or f"JV-{uuid.uuid4().hex[:8].upper()}"
+    vch_raw = (payload.voucher_number or "").strip()
+    if not vch_raw or "auto" in vch_raw.lower() or "توليد" in vch_raw or (vch_raw.startswith("JV-") and len(vch_raw) == 11):
+        entry_number = SequenceService.get_next_sequence(db, company_uuid or tenant_uuid, "voucher")
+    else:
+        entry_number = vch_raw
     entry = FinanceJournalEntry(
         tenant_id=tenant_uuid,
         company_id=company_uuid,

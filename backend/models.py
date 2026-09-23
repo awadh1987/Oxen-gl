@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, event, func, inspect
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, event, func, inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
@@ -2037,3 +2037,24 @@ from backend.app.domains.logistics.customs_models import (  # noqa: E402
     CustomsManifest,
     CustomsDeclaration,
 )
+
+
+# ==============================================================================
+# Universal System Sequence Generator (REM-SEQ-01)
+# ==============================================================================
+class SystemSequence(TimestampMixin, Base):
+    """Authoritative tenant-isolated sequence generator for auto-numbering entities."""
+    __tablename__ = "system_sequences"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    entity_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    prefix: Mapped[str] = mapped_column(String(20), nullable=False)
+    current_value: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    format_pattern: Mapped[str] = mapped_column(String(100), nullable=False, default="{prefix}-{YYYY}-{XXXX}")
+    fiscal_year: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        Index("uq_tenant_entity_fiscal", "tenant_id", "entity_type", text("COALESCE(fiscal_year, 0)"), unique=True),
+    )
+

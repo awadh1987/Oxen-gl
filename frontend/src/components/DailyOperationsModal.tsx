@@ -249,16 +249,16 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
       truck_no: truckNo,
       transporter_name: transporterName,
       loading_source: loadingSource,
-      loading_invoice_no: loadingInvoiceNo || `CR-${opYear}-${Math.floor(1000 + Math.random() * 9000)}`,
+      loading_invoice_no: loadingInvoiceNo.trim() || undefined,
       destination_customer: destinationCustomer,
-      receipt_invoice_no: receiptInvoiceNo || `REC-${opYear}-${Math.floor(1000 + Math.random() * 9000)}`,
+      receipt_invoice_no: receiptInvoiceNo.trim() || undefined,
       material_type: materialType,
       uom: uom,
       qty_loaded: numLoaded,
       qty_delivered: numDelivered,
       qty_wastage: qtyWastage,
       wastage_percentage: wastagePercentage,
-      scale_ticket_no: scaleTicketNo || `ST-${Math.floor(100000 + Math.random() * 900000)}`,
+      scale_ticket_no: scaleTicketNo.trim() || undefined,
       sales_amount: salesAmount,
       vat_amount: vatAmount,
       total_sales: totalSales,
@@ -463,14 +463,16 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
               {/* 4. رقم تذكرة الميزان */}
               <div>
                 <label className="mb-1 block text-xs font-bold text-slate-700">
-                  {isAr ? 'رقم تذكرة الميزان *' : 'Scale Ticket Number *'}
+                  {isAr ? 'رقم تذكرة الميزان' : 'Scale Ticket Number'}
+                  <span className="text-[10px] font-normal text-slate-400 ms-1">({isAr ? 'توليد تلقائي' : 'Auto'})</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="ST-2026-XXXXXX"
+                  disabled={true}
+                  placeholder={isAr ? 'يتم التوليد تلقائياً عند الحفظ' : 'Auto-generated upon save'}
                   value={scaleTicketNo}
                   onChange={(e) => setScaleTicketNo(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-mono font-bold text-slate-500 cursor-not-allowed opacity-75 focus:outline-none"
                 />
               </div>
             </div>
@@ -518,13 +520,15 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
               <div>
                 <label className="mb-1 block text-xs font-bold text-slate-700">
                   {isAr ? 'رقم فاتورة التحميل' : 'Loading Invoice Number'}
+                  <span className="text-[10px] font-normal text-slate-400 ms-1">({isAr ? 'توليد تلقائي' : 'Auto'})</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="CR-2026-XXXX"
+                  disabled={true}
+                  placeholder={isAr ? 'يتم التوليد تلقائياً عند الحفظ' : 'Auto-generated upon save'}
                   value={loadingInvoiceNo}
                   onChange={(e) => setLoadingInvoiceNo(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-800 focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-mono text-slate-500 cursor-not-allowed opacity-75 focus:outline-none"
                 />
               </div>
 
@@ -561,13 +565,15 @@ export const DailyOperationsModal: React.FC<DailyOperationsModalProps> = ({
               <div>
                 <label className="mb-1 block text-xs font-bold text-slate-700">
                   {isAr ? 'رقم فاتورة الاستلام' : 'Receipt Invoice Number'}
+                  <span className="text-[10px] font-normal text-slate-400 ms-1">({isAr ? 'توليد تلقائي' : 'Auto'})</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="REC-2026-XXXX"
+                  disabled={true}
+                  placeholder={isAr ? 'يتم التوليد تلقائياً عند الحفظ' : 'Auto-generated upon save'}
                   value={receiptInvoiceNo}
                   onChange={(e) => setReceiptInvoiceNo(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-800 focus:border-orange-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-mono text-slate-500 cursor-not-allowed opacity-75 focus:outline-none"
                 />
               </div>
             </div>
