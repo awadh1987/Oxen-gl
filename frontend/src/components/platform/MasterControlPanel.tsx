@@ -141,9 +141,17 @@ export const MasterControlPanel: React.FC = () => {
 
   const loadFeatureFlags = async () => {
     try {
-      const res = await fetch('/api/master/platform/feature-flags');
-      const data = await res.json();
-      if (data.success) setFeatureFlags(data.flags);
+      const res = await fetch('/api/admin/feature-flags').catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json();
+        if (data.success && data.flags) {
+          setFeatureFlags(data.flags);
+          return;
+        }
+      }
+      const fallbackRes = await fetch('/api/master/platform/feature-flags');
+      const data = await fallbackRes.json();
+      if (data.success && data.flags) setFeatureFlags(data.flags);
     } catch (err) {
       console.error('Error fetching flags:', err);
     }
@@ -170,21 +178,44 @@ export const MasterControlPanel: React.FC = () => {
   };
 
   const handleToggleFlag = async (flagKey: string, currentVal: boolean) => {
+    const nextVal = !currentVal;
+    // Optimistic UI state update
+    setFeatureFlags((prev) => ({
+      ...prev,
+      [flagKey]: { ...prev[flagKey], enabled: nextVal },
+    }));
+
     try {
-      const res = await fetch('/api/master/platform/feature-flags/toggle', {
-        method: 'POST',
+      // Primary: PATCH /api/admin/feature-flags to persist in PostgreSQL
+      const res = await fetch('/api/admin/feature-flags', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flag_key: flagKey, enabled: !currentVal }),
+        body: JSON.stringify({ flag_key: flagKey, enabled: nextVal }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setFeatureFlags((prev) => ({
-          ...prev,
-          [flagKey]: { ...prev[flagKey], enabled: !currentVal },
-        }));
+      if (res.ok) {
+        const data = await res.json();
+        if (data.flags) {
+          setFeatureFlags(data.flags);
+        }
+      } else {
+        // Fallback: POST /api/master/platform/feature-flags/toggle
+        const fallbackRes = await fetch('/api/master/platform/feature-flags/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flag_key: flagKey, enabled: nextVal }),
+        });
+        const data = await fallbackRes.json();
+        if (data.flags) {
+          setFeatureFlags(data.flags);
+        }
       }
     } catch (err) {
       console.error('Toggle flag error:', err);
+      // Revert optimistic state on error
+      setFeatureFlags((prev) => ({
+        ...prev,
+        [flagKey]: { ...prev[flagKey], enabled: currentVal },
+      }));
     }
   };
 
@@ -323,12 +354,29 @@ export const MasterControlPanel: React.FC = () => {
                     <div className="font-mono text-xs font-semibold text-slate-200 truncate">{key}</div>
                     <div className="text-[11px] text-slate-400 truncate">{flag.description}</div>
                   </div>
-                  <button
-                    onClick={() => handleToggleFlag(key, flag.enabled)}
-                    className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 ${flag.enabled ? 'bg-indigo-600' : 'bg-slate-800'}`}
-                  >
-                    <span className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${flag.enabled ? 'right-1' : 'left-1'}`} />
-                  </button>
+                  <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={flag.enabled}
+                      onChange={() => handleToggleFlag(key, flag.enabled)}
+                    />
+                    <div
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleToggleFlag(key, flag.enabled);
+                      }}
+                      className={`w-11 h-6 rounded-full transition-colors relative flex-shrink-0 cursor-pointer ${
+                        flag.enabled ? 'bg-indigo-600' : 'bg-slate-800'
+                      }`}
+                    >
+                      <span
+                        className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${
+                          flag.enabled ? 'right-1' : 'left-1'
+                        }`}
+                      />
+                    </div>
+                  </label>
                 </div>
               );
             })}

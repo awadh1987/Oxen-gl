@@ -5,6 +5,7 @@ Replaces Express in-memory shadow controller with PostgreSQL persistence.
 """
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
@@ -17,9 +18,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import MasterTenant, ResCompany, ResUser, TenantAuditLog
+from backend.models import (
+    MasterTenant,
+    ResCompany,
+    ResUser,
+    TenantAuditLog,
+    PlatformFeatureFlag,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Master Platform Control"])
+admin_router = APIRouter(tags=["Admin Control"])
 
 _START_TIME = time.time()
 
@@ -62,9 +72,12 @@ class DeleteTenantRequest(BaseModel):
 
 
 class ToggleFeatureFlagRequest(BaseModel):
-    flag_key: str
+    flag_key: Optional[str] = None
+    key: Optional[str] = None
     enabled: Optional[bool] = None
     is_enabled: Optional[bool] = None
+
+    model_config = {"extra": "allow"}
 
 
 # ==============================================================================
@@ -377,30 +390,115 @@ def get_system_health(db: Session = Depends(get_db)):
     }
 
 
+def _sync_feature_flags_from_db(db: Session) -> Dict[str, Dict[str, Any]]:
+    """Synchronizes in-memory feature flags with PostgreSQL database table platform_feature_flags."""
+    flags: Dict[str, Dict[str, Any]] = {
+        k: dict(v) for k, v in GLOBAL_FEATURE_FLAGS.items()
+    }
+    try:
+        rows = db.query(PlatformFeatureFlag).all()
+        if not rows:
+            for k, meta in GLOBAL_FEATURE_FLAGS.items():
+                db_item = PlatformFeatureFlag(
+                    id=uuid.uuid4(),
+                    flag_key=k,
+                    is_enabled=meta.get("enabled", False),
+                    description=meta.get("description", ""),
+                    rollout_percent=meta.get("rolloutPercent", 100),
+                )
+                db.add(db_item)
+            db.commit()
+            rows = db.query(PlatformFeatureFlag).all()
+
+        for r in rows:
+            flags[r.flag_key] = {
+                "enabled": bool(r.is_enabled),
+                "description": r.description or GLOBAL_FEATURE_FLAGS.get(r.flag_key, {}).get("description", ""),
+                "rolloutPercent": r.rollout_percent,
+            }
+            if r.flag_key in GLOBAL_FEATURE_FLAGS:
+                GLOBAL_FEATURE_FLAGS[r.flag_key]["enabled"] = bool(r.is_enabled)
+    except Exception as e:
+        logger.warning(f"Failed to query platform_feature_flags from database: {e}")
+    return flags
+
+
+def _save_feature_flag(db: Session, flag_key: str, target_state: bool) -> PlatformFeatureFlag:
+    db_flag = db.query(PlatformFeatureFlag).filter(PlatformFeatureFlag.flag_key == flag_key).first()
+    if not db_flag:
+        default_meta = GLOBAL_FEATURE_FLAGS.get(flag_key, {})
+        db_flag = PlatformFeatureFlag(
+            id=uuid.uuid4(),
+            flag_key=flag_key,
+            is_enabled=bool(target_state),
+            description=default_meta.get("description", ""),
+            rollout_percent=default_meta.get("rolloutPercent", 100),
+        )
+        db.add(db_flag)
+    else:
+        db_flag.is_enabled = bool(target_state)
+        db_flag.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(db_flag)
+
+    if flag_key in GLOBAL_FEATURE_FLAGS:
+        GLOBAL_FEATURE_FLAGS[flag_key]["enabled"] = bool(target_state)
+    else:
+        GLOBAL_FEATURE_FLAGS[flag_key] = {
+            "enabled": bool(target_state),
+            "description": db_flag.description or "",
+            "rolloutPercent": db_flag.rollout_percent,
+        }
+    return db_flag
+
+
 @router.get("/feature-flags", status_code=status.HTTP_200_OK)
-def get_feature_flags():
-    """Returns the platform-wide feature flags."""
-    return {"success": True, "flags": GLOBAL_FEATURE_FLAGS}
+@admin_router.get("/feature-flags", status_code=status.HTTP_200_OK)
+def get_feature_flags(db: Session = Depends(get_db)):
+    """Returns the platform-wide feature flags loaded from PostgreSQL."""
+    flags = _sync_feature_flags_from_db(db)
+    return {"success": True, "flags": flags}
 
 
+@router.patch("/feature-flags", status_code=status.HTTP_200_OK)
 @router.post("/feature-flags/toggle", status_code=status.HTTP_200_OK)
-def toggle_feature_flag(payload: ToggleFeatureFlagRequest):
-    """Toggles a global feature flag."""
-    flag_key = payload.flag_key
-    if flag_key not in GLOBAL_FEATURE_FLAGS:
+@router.post("/feature-flags", status_code=status.HTTP_200_OK)
+@admin_router.patch("/feature-flags", status_code=status.HTTP_200_OK)
+@admin_router.post("/feature-flags/toggle", status_code=status.HTTP_200_OK)
+@admin_router.post("/feature-flags", status_code=status.HTTP_200_OK)
+def toggle_or_patch_feature_flag(payload: ToggleFeatureFlagRequest, db: Session = Depends(get_db)):
+    """Updates a global feature flag in PostgreSQL."""
+    flag_key = payload.flag_key or payload.key
+    target_state = payload.enabled if payload.enabled is not None else payload.is_enabled
+
+    extra = getattr(payload, "__pydantic_extra__", None) or {}
+    if not flag_key and extra:
+        for k, v in extra.items():
+            if isinstance(v, bool):
+                flag_key = k
+                target_state = v
+                break
+
+    if not flag_key:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Feature flag '{flag_key}' does not exist.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A valid flag_key or key must be provided in request payload.",
         )
 
-    target_state = payload.enabled if payload.enabled is not None else payload.is_enabled
     if target_state is None:
-        target_state = not GLOBAL_FEATURE_FLAGS[flag_key]["enabled"]
+        current_flags = _sync_feature_flags_from_db(db)
+        target_state = not current_flags.get(flag_key, {}).get("enabled", False)
 
-    GLOBAL_FEATURE_FLAGS[flag_key]["enabled"] = bool(target_state)
+    target_state = bool(target_state)
+    _save_feature_flag(db, flag_key, target_state)
+    all_flags = _sync_feature_flags_from_db(db)
+
     return {
         "success": True,
         "flag_key": flag_key,
-        "is_enabled": bool(target_state),
-        "enabled": bool(target_state),
+        "is_enabled": target_state,
+        "enabled": target_state,
+        "flags": all_flags,
     }
+

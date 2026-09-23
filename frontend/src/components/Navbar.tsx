@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useOutsideClick } from '../hooks/useOutsideClick';
 import {
   Bell,
   Globe,
@@ -81,6 +82,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  const settingsRef = useOutsideClick<HTMLDivElement>(() => {
+    if (showSettings) setShowSettings(false);
+  });
+
+  const notificationsRef = useOutsideClick<HTMLDivElement>(() => {
+    if (showNotifications) setShowNotifications(false);
+  });
 
   const isAr = language === 'ar';
   const isDark = themeMode === 'dark';
@@ -310,7 +319,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
       {/* Right Section: Clean Controls (Settings Dropdown, Notifications, Language, Role / Avatar) */}
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         {/* Consolidated Settings Dropdown (⚙️ Icon) */}
-        <div className="relative">
+        <div ref={settingsRef} className="relative">
           <button
             id="nav-settings-btn"
             type="button"
@@ -556,7 +565,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
         </div>
 
         {/* Notifications */}
-        <div className="relative">
+        <div ref={notificationsRef} className="relative">
           <button
             id="nav-notifications-btn"
             onClick={() => {

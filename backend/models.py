@@ -1836,6 +1836,18 @@ class MasterAuditLog(Base):
     )
 
 
+class PlatformFeatureFlag(TimestampMixin, Base):
+    """Level 1: Platform-wide feature flag state persisted in PostgreSQL."""
+    __tablename__ = "platform_feature_flags"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    flag_key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rollout_percent: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+
+
+
 class TenantUser(TimestampMixin, Base):
     """Level 2: Tenant-specific company employees and operators."""
     __tablename__ = "tenant_users"

@@ -5,6 +5,7 @@ import {
   TrendingUp, BarChart3
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useOutsideClick } from '../hooks/useOutsideClick';
 import { Company } from '../types';
 import { LicenseProvisionerView, PanoramicCockpit, PlatformSettingsView, PricingPlansView, SystemAuditView, TenantsRegistryView } from '../components/platform/PlatformModules';
 import { MasterControlPanel } from '../components/platform/MasterControlPanel';
@@ -35,6 +36,10 @@ export const SuperAdminCockpitView: React.FC<SuperAdminCockpitViewProps> = ({ on
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [inspectOpen, setInspectOpen] = useState(false);
   const [search, setSearch] = useState('');
+
+  const inspectRef = useOutsideClick<HTMLDivElement>(() => {
+    if (inspectOpen) setInspectOpen(false);
+  });
 
   const announcementActive = localStorage.getItem('oxengl_announcement_active') === 'true';
   const announcement = localStorage.getItem('oxengl_announcement') || '';
@@ -145,7 +150,7 @@ export const SuperAdminCockpitView: React.FC<SuperAdminCockpitViewProps> = ({ on
           </div>
 
           <div className="flex shrink-0 items-center gap-3">
-            <div className="relative">
+            <div ref={inspectRef} className="relative">
               <button onClick={() => setInspectOpen(!inspectOpen)} className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 transition-all hover:bg-blue-100">
                 <Building2 className="h-4 w-4 text-blue-600" /><span className="hidden sm:inline">Inspect Tenant:</span>
                 <span className="max-w-32 truncate rounded border border-blue-200 bg-white px-1.5 py-0.5 font-mono text-slate-700">{currentCompany?.slug || 'Central Master'}</span>
