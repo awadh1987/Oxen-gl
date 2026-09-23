@@ -101,9 +101,9 @@ export const CustomerInvoicingView: React.FC = () => {
       if (partner && customers.length > 0) {
         const found = customers.find(
           (c) =>
-            c.id.toLowerCase() === partner.toLowerCase() ||
-            c.customerName.toLowerCase().includes(partner.toLowerCase()) ||
-            (c.customerNameEn && c.customerNameEn.toLowerCase().includes(partner.toLowerCase()))
+            (c?.id || '').toLowerCase() === partner.toLowerCase() ||
+            (c?.customerName || '').toLowerCase().includes(partner.toLowerCase()) ||
+            ((c?.customerNameEn || '').toLowerCase().includes(partner.toLowerCase()))
         );
         if (found) {
           setSelectedCustomerId(found.id);
@@ -121,18 +121,22 @@ export const CustomerInvoicingView: React.FC = () => {
   }, [customers]);
 
   const selectedCustomer = useMemo(() => {
-    return customers.find((c) => c.id === selectedCustomerId) || customers[0];
+    return customers.find((c) => c?.id === selectedCustomerId) || customers[0] || null;
   }, [customers, selectedCustomerId]);
 
   // Filter matching trips for this customer & billing cycle
   const matchingTrips = useMemo(() => {
     if (!selectedCustomer) return [];
+    const custName = selectedCustomer?.customerName || '';
+    const custNameEn = selectedCustomer?.customerNameEn || '';
+
     return accessibleOperations.filter((op) => {
+      const destCustomer = op?.destination_customer || '';
       const matchCustomer =
-        op.destination_customer.includes(selectedCustomer.customerName) ||
-        (selectedCustomer.customerNameEn && op.destination_customer.includes(selectedCustomer.customerNameEn));
-      const matchMonth = op.operation_month === selectedMonth && op.operation_year === selectedYear;
-      return matchCustomer && matchMonth;
+        (custName && destCustomer.includes(custName)) ||
+        (custNameEn && destCustomer.includes(custNameEn));
+      const matchMonth = op?.operation_month === selectedMonth && op?.operation_year === selectedYear;
+      return Boolean(matchCustomer && matchMonth);
     });
   }, [accessibleOperations, selectedCustomer, selectedMonth, selectedYear]);
 
@@ -141,14 +145,15 @@ export const CustomerInvoicingView: React.FC = () => {
     const map: Record<string, { trips: number; loaded: number; delivered: number; wastage: number; sales: number }> = {};
 
     matchingTrips.forEach((op) => {
-      if (!map[op.material_type]) {
-        map[op.material_type] = { trips: 0, loaded: 0, delivered: 0, wastage: 0, sales: 0 };
+      const matType = op?.material_type || 'General Material';
+      if (!map[matType]) {
+        map[matType] = { trips: 0, loaded: 0, delivered: 0, wastage: 0, sales: 0 };
       }
-      map[op.material_type].trips += 1;
-      map[op.material_type].loaded += op.qty_loaded;
-      map[op.material_type].delivered += op.qty_delivered;
-      map[op.material_type].wastage += op.qty_wastage;
-      map[op.material_type].sales += op.sales_amount;
+      map[matType].trips += 1;
+      map[matType].loaded += Number(op?.qty_loaded || 0);
+      map[matType].delivered += Number(op?.qty_delivered || 0);
+      map[matType].wastage += Number(op?.qty_wastage || 0);
+      map[matType].sales += Number(op?.sales_amount || 0);
     });
 
     return Object.entries(map).map(([materialType, data]) => {
@@ -948,7 +953,7 @@ Myon Economic Contracting Co. Ltd.`;
       <div
         ref={invoiceContainerRef}
         id="customer-tax-invoice-printable"
-        className="relative overflow-hidden rounded-3xl border border-slate-300 bg-white p-8 sm:p-10 shadow-xl text-slate-900"
+        className="relative overflow-hidden rounded-3xl border border-slate-300 bg-white p-8 sm:p-10 shadow-xl text-slate-900 print-container zatca-invoice-wrapper"
       >
         {/* Pre-Approval Watermark (Shown when status is Draft or Pending_Approval) */}
         {invoiceStatus !== 'Approved' && (

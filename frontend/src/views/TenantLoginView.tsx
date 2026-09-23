@@ -71,8 +71,8 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({
     if (!cleanSlug || cleanSlug.length < 2) {
       setErrorMessage(
         isAr
-          ? 'يرجى إدخال رمز مساحة العمل بشكل صحيح (مثال: meayon-logistics)'
-          : 'Please enter a valid workspace slug (e.g., meayon-logistics)'
+          ? 'يرجى إدخال رمز مساحة العمل بشكل صحيح (مثال: fleet-logistics)'
+          : 'Please enter a valid workspace slug (e.g., fleet-logistics)'
       );
       return;
     }
@@ -342,7 +342,7 @@ export const TenantLoginView: React.FC<TenantLoginViewProps> = ({
                     onChange={(e) =>
                       setTenantSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
                     }
-                    placeholder="e.g. meayon-logistics"
+                    placeholder="e.g. fleet-logistics"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950/80 ps-10 pe-4 py-3 font-mono text-sm text-orange-300 placeholder-slate-600 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                   />
                 </div>

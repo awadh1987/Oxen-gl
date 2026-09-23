@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useOutsideClick } from '../hooks/useOutsideClick';
 import {
@@ -28,8 +28,9 @@ import {
 import { UserRole } from '../types';
 import { TENANT_PALETTES } from '../theme/designTokens';
 import { BrandLogo } from './BrandLogo';
+import { PlatformLogo } from './PlatformLogo';
 import { UserAvatar } from './UserAvatar';
-import { isApexDomain } from '../utils/subdomain';
+import { isApexDomain, getSubdomain } from '../utils/subdomain';
 
 export interface SystemAlert {
   id: string;
@@ -209,11 +210,53 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
   const isMasterAdmin = authTier === 'master' || currentUser?.role === 'Super_Admin';
   const currentTenantId = !isMasterAdmin ? (tenantId || currentCompany?.id || localStorage.getItem('oxengl_tenant_id') || '') : tenantId;
   const isTenantScoped = Boolean((authTier === 'tenant' || tenantId || currentTenantId) && !isMasterAdmin);
-  const isRootPortal = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+  const activeSubdomain = typeof window !== 'undefined' ? getSubdomain() : null;
   const isApex = typeof window !== 'undefined' ? isApexDomain() : true;
+  const isTenantDomain = !isApex && Boolean(activeSubdomain);
+  const isTenant = isTenantDomain || isTenantScoped || Boolean(tenantSlug) || Boolean(currentTenantId);
+
+  // Match the company from currentCompany, companies list, or tenant context
+  const effectiveCompany = useMemo(() => {
+    // If currentCompany is properly loaded with a real company name (not just uppercase slug placeholder)
+    if (currentCompany && currentCompany.name && currentCompany.name.toLowerCase() !== (currentCompany.slug || '').toLowerCase()) {
+      return currentCompany;
+    }
+    const targetSlug = (activeSubdomain || tenantSlug || '').toLowerCase();
+    if (targetSlug && companies.length > 0) {
+      const match = companies.find((c) => c.slug?.toLowerCase() === targetSlug);
+      if (match) return match;
+    }
+    if (currentTenantId && companies.length > 0) {
+      const match = companies.find((c) => c.id === currentTenantId || c.id === currentUser?.companyId);
+      if (match) return match;
+    }
+    return currentCompany;
+  }, [currentCompany, companies, activeSubdomain, tenantSlug, currentTenantId, currentUser?.companyId]);
+
+  // Synchronize context if effectiveCompany has the authentic tenant name from companies registry
+  useEffect(() => {
+    if (effectiveCompany && (!currentCompany || currentCompany.name !== effectiveCompany.name)) {
+      setCurrentCompany(effectiveCompany);
+    }
+  }, [effectiveCompany, currentCompany, setCurrentCompany]);
+
+  const tenantDisplayName =
+    effectiveCompany?.name ||
+    effectiveCompany?.company_name ||
+    (isAr ? effectiveCompany?.name_ar : effectiveCompany?.name_en) ||
+    (currentUser as any)?.companyName ||
+    (isAr ? brandConfig?.companyNameAr : brandConfig?.companyNameEn) ||
+    (activeSubdomain ? `${activeSubdomain.toUpperCase()} Workspace` : (tenantSlug ? `${tenantSlug.toUpperCase()} Workspace` : (isAr ? 'منظومة أوكسن السحابية' : 'OxenGL Enterprise Cloud')));
+
+  const tenantLogoUrl =
+    effectiveCompany?.logo_url ||
+    effectiveCompany?.uiLogoUrl ||
+    effectiveCompany?.ui_logo_url ||
+    brandConfig?.customLogoUrl ||
+    null;
 
   const CompanyDropdown: React.FC = () => {
-    if (!currentCompany) return null;
+    if (!currentCompany || isTenantDomain) return null;
     return (
       <div className="flex items-center gap-2">
         <div className="hidden h-7 w-px bg-neutral-200 dark:bg-slate-800 lg:block" />
@@ -255,11 +298,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
         {/* Brand Logo & Tagline */}
         <div className="flex items-center gap-3">
           {/* Dynamic Logo Asset Rendering Container */}
-          {isTenantScoped && !isApex && !isRootPortal && (currentCompany?.logo_url || brandConfig?.customLogoUrl) ? (
+          {isTenant && tenantLogoUrl ? (
             <div className="relative h-8 w-8 shrink-0">
               <img 
-                src={currentCompany?.logo_url || brandConfig?.customLogoUrl} 
-                alt={`${currentCompany?.name || 'Tenant'} Logo`} 
+                src={tenantLogoUrl} 
+                alt={`${tenantDisplayName} Logo`} 
                 className="h-8 w-8 object-contain rounded-md bg-slate-900 p-1 border border-slate-800 shrink-0"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
@@ -274,7 +317,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
           ) : (
             /* Global Platform Master Logo strictly displayed on apex domain / unauthenticated / master portal routes */
             <div className="flex h-8 w-8 items-center justify-center shrink-0">
-              <BrandLogo size="sm" showText={false} forcePlatformLogo={true} />
+              <PlatformLogo size="sm" />
             </div>
           )}
 
@@ -282,12 +325,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
           <div className="hidden flex-col md:flex">
             {/* Dynamic Isolated Tenant Title or Master OxenGL Enterprise Header */}
             <span className="text-sm font-semibold tracking-wide text-slate-200">
-              {isTenantScoped && !isApex && !isRootPortal
-                ? currentCompany?.name || (tenantSlug ? `${tenantSlug.toUpperCase()} Workspace` : 'Enterprise Workspace')
-                : 'OXENGL ENTERPRISE CLOUD'}
+              {isTenant ? tenantDisplayName : 'OXENGL ENTERPRISE CLOUD'}
             </span>
             <span className="text-[10px] text-neutral-500 dark:text-slate-400 font-medium">
-              {isTenantScoped && !isApex && !isRootPortal
+              {isTenant
                 ? (isAr ? 'المملكة العربية السعودية • ZATCA Compatible' : 'Kingdom of Saudi Arabia • ZATCA')
                 : (isAr ? 'منصة العمليات اللوجستية وإدارة الموارد' : 'Unified Logistics & Supply Chain Cloud')}
             </span>
@@ -295,7 +336,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
         </div>
 
         {/* Isolated Tenant Guarded Company Dropdown */}
-        { !currentTenantId && <CompanyDropdown /> }
+        { !isTenantDomain && !currentTenantId && <CompanyDropdown /> }
 
         {/* Offline Failsafe Indicator */}
         {!isOnline && (

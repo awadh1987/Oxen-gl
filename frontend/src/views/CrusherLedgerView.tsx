@@ -42,20 +42,20 @@ export const CrusherLedgerView: React.FC = () => {
   }, [currentCompany]);
 
   const suppliers = useMemo(() => {
-    const apiSuppliers = partners.filter((partner) =>
-      ['raw_materials_supplier', 'supplier'].includes(partner.partner_type)
+    const apiSuppliers = (partners || []).filter((partner) =>
+      ['raw_materials_supplier', 'supplier'].includes(partner?.partner_type || '')
     );
     return apiSuppliers.length
       ? apiSuppliers.map((partner) => ({
           id: partner.id,
-          name: partner.name,
+          name: partner.name || '',
           location: isAr ? 'منطقة توريد المستأجر' : 'Tenant sourcing region',
           tax: partner.tax_number,
         }))
-      : crushers.map((supplier) => ({
+      : (crushers || []).map((supplier) => ({
           id: supplier.id,
-          name: supplier.crusherName,
-          location: supplier.location,
+          name: supplier.crusherName || '',
+          location: supplier.location || '',
           tax: supplier.taxNumber,
         }));
   }, [partners, crushers, isAr]);
@@ -63,22 +63,22 @@ export const CrusherLedgerView: React.FC = () => {
   const selected = suppliers.find((supplier) => supplier.id === selectedId) || suppliers[0];
 
   const purchaseFor = (id: string, name: string) => {
-    const settlement = settlements.filter((item) => item.partner_id === id);
-    if (settlement.length) return settlement.reduce((total, item) => total + Number(item.total_gross_amount), 0);
-    return accessibleOperations
-      .filter((item) => item.loading_source.includes(name))
-      .reduce((total, item) => total + item.purchases_cost, 0);
+    const settlement = (settlements || []).filter((item) => item?.partner_id === id);
+    if (settlement.length) return settlement.reduce((total, item) => total + Number(item?.total_gross_amount || 0), 0);
+    return (accessibleOperations || [])
+      .filter((item) => (item?.loading_source || '').includes(name || ''))
+      .reduce((total, item) => total + (item?.purchases_cost || 0), 0);
   };
 
   const paymentFor = (id: string) =>
-    settlements
-      .filter((item) => item.partner_id === id && item.state === 'paid')
-      .reduce((total, item) => total + Number(item.net_payable), 0);
+    (settlements || [])
+      .filter((item) => item?.partner_id === id && item?.state === 'paid')
+      .reduce((total, item) => total + Number(item?.net_payable || 0), 0);
 
   const purchases = selected ? purchaseFor(selected.id, selected.name) : 0;
   const payments = selected ? paymentFor(selected.id) : 0;
   const outstanding = purchases - payments;
-  const supplierMoves = selected ? moves.filter((move) => move.partner_id === selected.id) : [];
+  const supplierMoves = selected ? (moves || []).filter((move) => move?.partner_id === selected.id) : [];
 
   const handleExportJSONSnapshot = () => {
     const dataStr = JSON.stringify(
@@ -108,14 +108,14 @@ export const CrusherLedgerView: React.FC = () => {
       ? ['التاريخ', 'رقم القيد', 'المرجع', 'الحالة', 'اسم المورد', 'المبلغ المستحق']
       : ['Date', 'Move', 'Reference', 'State', 'Supplier', 'Amount'];
     const rowsCsv = supplierMoves.map((m) => {
-      const settlement = settlements.find((item) => item.move_id === m.id);
+      const settlement = (settlements || []).find((item) => item?.move_id === m?.id);
       return [
-        m.date.slice(0, 10),
-        m.name,
-        m.ref || '',
-        m.state,
+        (m?.date || '').slice(0, 10),
+        m?.name || '',
+        m?.ref || '',
+        m?.state || '',
         `"${selected?.name || ''}"`,
-        settlement ? Number(settlement.net_payable) : 0,
+        settlement ? Number(settlement.net_payable || 0) : 0,
       ].join(',');
     });
     const csvContent = '\uFEFF' + [headers.join(','), ...rowsCsv].join('\n');

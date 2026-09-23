@@ -937,6 +937,27 @@ export const erpApi = {
     unitOfMeasure?: string;
     attachments?: any[];
     scaleTicketAttachment?: string;
+    scaleTicketNo?: string;
+    scale_ticket_no?: string;
+    loadingInvoiceNo?: string;
+    loading_invoice_no?: string;
+    receiptInvoiceNo?: string;
+    receipt_invoice_no?: string;
+    ticket_number?: string;
+    ticketNumber?: string;
+    qty_loaded?: number;
+    qty_delivered?: number;
+    qty_wastage?: number;
+    wastage_percentage?: number;
+    sales_amount?: number;
+    vat_amount?: number;
+    total_sales?: number;
+    purchases_cost?: number;
+    crusher_payment?: number;
+    net_profit?: number;
+    operation_month?: number;
+    operation_year?: number;
+    notes?: string;
   }) {
     const partner = await findOrCreate<Partner>('/api/partners', input.companyId, (record) => record.name === input.transporterName, {
       name: input.transporterName, partner_type: 'service_supplier',
@@ -964,6 +985,23 @@ export const erpApi = {
           unit_of_measure: input.unitOfMeasure || input.uom || 'MT',
           attachments: input.attachments || [],
           scale_ticket_attachment: input.scaleTicketAttachment || null,
+          scale_ticket_no: input.scale_ticket_no || input.scaleTicketNo || null,
+          loading_invoice_no: input.loading_invoice_no || input.loadingInvoiceNo || null,
+          receipt_invoice_no: input.receipt_invoice_no || input.receiptInvoiceNo || null,
+          ticket_number: input.ticket_number || input.ticketNumber || null,
+          qty_loaded: input.qty_loaded,
+          qty_delivered: input.qty_delivered,
+          qty_wastage: input.qty_wastage,
+          wastage_percentage: input.wastage_percentage,
+          sales_amount: input.sales_amount,
+          vat_amount: input.vat_amount,
+          total_sales: input.total_sales,
+          purchases_cost: input.purchases_cost,
+          crusher_payment: input.crusher_payment,
+          net_profit: input.net_profit,
+          operation_month: input.operation_month,
+          operation_year: input.operation_year,
+          notes: input.notes,
         }),
       });
     },

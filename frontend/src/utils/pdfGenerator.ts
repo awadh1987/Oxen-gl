@@ -208,17 +208,38 @@ function normalizeElementColorsForHtml2Canvas(clonedDoc: Document) {
 }
 
 /**
+ * Converts a base64 data URL to a Uint8Array in memory without relying on fetch()
+ */
+export function base64DataUrlToUint8Array(dataUrl: string): Uint8Array {
+  const commaIndex = dataUrl.indexOf(',');
+  const base64 = commaIndex !== -1 ? dataUrl.slice(commaIndex + 1) : dataUrl;
+  const binaryString = window.atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
  * Safely captures an HTML element (including off-screen, hidden, or nested elements)
  * by temporarily cloning the DOM node, mounting it into a fixed viewport container
  * (position: absolute/fixed, z-index: -1, opacity: 1, visible), running html2canvas,
  * and immediately destroying the clone and container.
  */
 export async function captureElementWithStaging(
-  element: HTMLElement,
+  element: HTMLElement | null,
   scale: number = 2,
   targetWidth: number = 960
 ): Promise<string> {
-  if (!element) {
+  const resolvedEl =
+    element ||
+    (document.getElementById('export-print-preview-content') as HTMLElement) ||
+    (document.querySelector('.print-container') as HTMLElement) ||
+    (document.getElementById('customer-tax-invoice-printable') as HTMLElement);
+
+  if (!resolvedEl) {
     throw new Error('Element to capture is null or undefined.');
   }
 
@@ -239,7 +260,7 @@ export async function captureElementWithStaging(
   stagingContainer.style.boxSizing = 'border-box';
 
   // 2. Clone the element
-  const clone = element.cloneNode(true) as HTMLElement;
+  const clone = resolvedEl.cloneNode(true) as HTMLElement;
   clone.style.display = 'block';
   clone.style.opacity = '1';
   clone.style.visibility = 'visible';
@@ -275,18 +296,30 @@ export async function captureElementWithStaging(
  * Capture an HTML element as high-resolution PNG image data URL
  */
 export async function captureElementToPng(element: HTMLElement, scale: number = 2): Promise<string> {
-  const canvas = await html2canvas(element, {
-    scale,
-    useCORS: true,
-    allowTaint: true,
-    logging: false,
-    backgroundColor: '#ffffff',
-    windowWidth: element.scrollWidth || 1024,
-    onclone: (clonedDoc) => {
-      normalizeElementColorsForHtml2Canvas(clonedDoc);
-    },
-  });
-  return canvas.toDataURL('image/png', 0.95);
+  try {
+    const canvas = await html2canvas(element, {
+      scale,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: element.scrollWidth || 1024,
+      onclone: (clonedDoc) => {
+        normalizeElementColorsForHtml2Canvas(clonedDoc);
+      },
+    });
+    return canvas.toDataURL('image/png', 0.95);
+  } catch (err) {
+    console.warn('Standard html2canvas capture failed, attempting resilient fallback mode:', err);
+    const canvas = await html2canvas(element, {
+      scale: 1.5,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
+    return canvas.toDataURL('image/png', 0.95);
+  }
 }
 
 /**
@@ -303,7 +336,7 @@ export async function generateInvoicePdfFromElement(
   const a4Width = 595.28;
   const a4Height = 841.89;
 
-  const imageBytes = await fetch(pngDataUrl).then((res) => res.arrayBuffer());
+  const imageBytes = base64DataUrlToUint8Array(pngDataUrl);
   const pngImage = await pdfDoc.embedPng(imageBytes);
 
   const imgDims = pngImage.scaleToFit(a4Width - 40, a4Height - 40);
@@ -335,7 +368,7 @@ export async function generateScaleTicketPdfFromElement(
   const a4Width = 595.28;
   const a4Height = 841.89;
 
-  const imageBytes = await fetch(pngDataUrl).then((res) => res.arrayBuffer());
+  const imageBytes = base64DataUrlToUint8Array(pngDataUrl);
   const pngImage = await pdfDoc.embedPng(imageBytes);
 
   const imgDims = pngImage.scaleToFit(a4Width - 40, a4Height - 40);
@@ -365,7 +398,13 @@ export async function generateSingleMergedInvoicePdf(
   invoice: CustomerInvoice,
   onProgress?: MergedPdfProgressCallback
 ): Promise<Blob> {
-  if (!invoiceElement) {
+  const resolvedInvoiceEl =
+    invoiceElement ||
+    (document.getElementById('customer-tax-invoice-printable') as HTMLElement) ||
+    (document.querySelector('.print-container') as HTMLElement) ||
+    (document.getElementById('export-print-preview-content') as HTMLElement);
+
+  if (!resolvedInvoiceEl) {
     throw new Error('Invoice container element is null or undefined.');
   }
 
@@ -374,9 +413,9 @@ export async function generateSingleMergedInvoicePdf(
 
   // Set PDF Metadata
   mergedPdfDoc.setTitle(`Tax Invoice ${invoice.invoiceNumber} - Official Merged Document`);
-  mergedPdfDoc.setAuthor('Meayon Economic Contracting Co. Ltd.');
+  mergedPdfDoc.setAuthor('OxenGL Enterprise Cloud');
   mergedPdfDoc.setSubject(`Approved Tax Invoice and Supporting Scale Tickets for ${invoice.customerName}`);
-  mergedPdfDoc.setKeywords(['Tax Invoice', 'ZATCA', 'Scale Tickets', 'Meayon', invoice.invoiceNumber]);
+  mergedPdfDoc.setKeywords(['Tax Invoice', 'ZATCA', 'Scale Tickets', 'OxenGL', invoice.invoiceNumber]);
   mergedPdfDoc.setCreationDate(new Date());
 
   const a4Width = 595.28;
@@ -384,8 +423,8 @@ export async function generateSingleMergedInvoicePdf(
 
   // Step 1: Render Page 1 (Main Tax Invoice)
   onProgress?.(25, 'جاري معالجة وتضمين الفاتورة الضريبية المعتمدة (الصفحة 1)...');
-  const invoicePng = await captureElementWithStaging(invoiceElement, 2, 960);
-  const invoiceImageBytes = await fetch(invoicePng).then((res) => res.arrayBuffer());
+  const invoicePng = await captureElementWithStaging(resolvedInvoiceEl, 2, 960);
+  const invoiceImageBytes = base64DataUrlToUint8Array(invoicePng);
   const embeddedInvoiceImg = await mergedPdfDoc.embedPng(invoiceImageBytes);
 
   const invDims = embeddedInvoiceImg.scaleToFit(a4Width - 40, a4Height - 40);
@@ -416,7 +455,7 @@ export async function generateSingleMergedInvoicePdf(
 
       try {
         const ticketPng = await captureElementWithStaging(ticketEl, 2, 960);
-        const ticketBytes = await fetch(ticketPng).then((res) => res.arrayBuffer());
+        const ticketBytes = base64DataUrlToUint8Array(ticketPng);
         const embeddedTicketImg = await mergedPdfDoc.embedPng(ticketBytes);
 
         const ticketDims = embeddedTicketImg.scaleToFit(a4Width - 40, a4Height - 40);

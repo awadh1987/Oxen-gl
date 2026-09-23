@@ -38,7 +38,13 @@ import {
 } from '../utils/formatters';
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
 import { exportOperationsToExcel, exportInvoiceToExcel } from '../utils/excelExporter';
-import { generateSingleMergedInvoicePdf, captureElementToPng, captureElementWithStaging, downloadBlob } from '../utils/pdfGenerator';
+import {
+  generateSingleMergedInvoicePdf,
+  captureElementToPng,
+  captureElementWithStaging,
+  downloadBlob,
+  base64DataUrlToUint8Array,
+} from '../utils/pdfGenerator';
 import { OfficialLetterheadHeader } from './OfficialLetterheadHeader';
 import { OfficialLetterheadFooter } from './OfficialLetterheadFooter';
 import { BrandLogo } from './BrandLogo';
@@ -373,18 +379,31 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
   };
 
   const handleDownloadPdf = async () => {
-    if (!printPreviewRef.current) return;
+    // Robust ref and DOM fallback resolution
+    const targetElement =
+      printPreviewRef.current ||
+      (document.getElementById('export-print-preview-content') as HTMLElement) ||
+      (document.querySelector('.print-container') as HTMLElement) ||
+      (document.getElementById('customer-tax-invoice-printable') as HTMLElement);
+
+    if (!targetElement) {
+      console.error('Target printable element not found in DOM.');
+      alert(isAr ? 'لم يتم العثور على محتوى المستند للطباعة.' : 'Failed to generate PDF document: target element not found.');
+      return;
+    }
+
     try {
       setIsExportingPdf(true);
       const targetWidth = orientation === 'landscape' ? 1100 : 850;
-      const pngDataUrl = await captureElementWithStaging(printPreviewRef.current, 2, targetWidth);
+      const pngDataUrl = await captureElementWithStaging(targetElement, 2, targetWidth);
       const pdfDoc = await PDFDocument.create();
 
-      // A4 dimensions
+      // A4 dimensions in points: portrait 595.28 x 841.89, landscape 841.89 x 595.28
       const a4Width = orientation === 'portrait' ? 595.28 : 841.89;
       const a4Height = orientation === 'portrait' ? 841.89 : 595.28;
 
-      const imageBytes = await fetch(pngDataUrl).then((res) => res.arrayBuffer());
+      // Safe in-memory decoding that avoids fetch() data URL security restrictions
+      const imageBytes = base64DataUrlToUint8Array(pngDataUrl);
       const pngImage = await pdfDoc.embedPng(imageBytes);
 
       const imgDims = pngImage.scaleToFit(a4Width - 30, a4Height - 30);
@@ -402,7 +421,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
 
       const pdfBytes = await pdfDoc.save();
       const blob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
-      downloadBlob(blob, `Meayon_${docType}_${docRefNumber}.pdf`);
+      downloadBlob(blob, `OxenGL_${docType}_${docRefNumber}.pdf`);
     } catch (err) {
       console.error('PDF Generation Error:', err);
       alert(isAr ? 'حدث خطأ أثناء إنشاء ملف PDF.' : 'Failed to generate PDF document.');
@@ -468,7 +487,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
         className="flex h-[96vh] w-full max-w-[1440px] flex-col rounded-3xl border border-slate-700/80 bg-slate-900 shadow-2xl overflow-hidden text-slate-100"
       >
         {/* Top Modal Header */}
-        <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/90 px-5 py-3.5 gap-3 shrink-0">
+        <div className="flex flex-wrap items-center justify-between border-b border-slate-800 bg-slate-900/90 px-5 py-3.5 gap-3 shrink-0 no-print export-modal-header">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-600/30 text-orange-400 border border-orange-500/30 shadow-inner">
               <Printer className="h-5 w-5" />
@@ -561,7 +580,10 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
         {/* Main Content Area: Sidebar Controls + Live Preview Canvas */}
         <div className="flex flex-1 min-h-0 overflow-hidden">
           {/* Left / Right Settings Sidebar */}
-          <div className="w-80 sm:w-88 shrink-0 border-e border-slate-800 bg-slate-900/95 p-4 overflow-y-auto space-y-5 text-xs">
+          <div
+            id="export-modal-sidebar"
+            className="w-80 sm:w-88 shrink-0 border-e border-slate-800 bg-slate-900/95 p-4 overflow-y-auto space-y-5 text-xs no-print"
+          >
             {/* 1. Document Type Selector */}
             <div>
               <label className="block text-[11px] font-black uppercase tracking-wider text-slate-400 mb-2">
@@ -862,7 +884,7 @@ export const ExportPrintModal: React.FC<ExportPrintModalProps> = ({
                 id="export-print-preview-content"
                 ref={printPreviewRef}
                 dir={isAr ? 'rtl' : 'ltr'}
-                className={`mx-auto bg-white text-slate-900 shadow-2xl rounded-2xl border border-slate-200 p-6 sm:p-10 font-sans transition-all ${
+                className={`mx-auto bg-white text-slate-900 shadow-2xl rounded-2xl border border-slate-200 p-6 sm:p-10 font-sans transition-all print-container zatca-invoice-wrapper ${
                   orientation === 'landscape' ? 'max-w-[1100px]' : 'max-w-[850px]'
                 }`}
               >

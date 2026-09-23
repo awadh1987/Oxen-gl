@@ -49,8 +49,8 @@ export const OfficialLetterheadFooter: React.FC<OfficialLetterheadFooterProps> =
 
       <div className="mt-2 text-[9px] text-neutral-400 border-t border-neutral-100 pt-1">
         {isAr
-          ? 'وثيقة رسمية معتمدة إلكترونياً صادرة من نظام ميون مقاولات ولوجستيات (MYON ERP) • خاضعة لأنظمة هيئة الزكاة والضريبة والجمارك (ZATCA)'
-          : 'Official verified electronic document issued by MYON Contracting & Logistics ERP • Compliant with ZATCA regulations'}
+          ? 'وثيقة رسمية معتمدة إلكترونياً صادرة من منصة أوكسن السحابية (OxenGL Enterprise Cloud) • خاضعة لأنظمة هيئة الزكاة والضريبة والجمارك (ZATCA)'
+          : 'Official verified electronic document issued by OxenGL Enterprise Cloud • Compliant with ZATCA regulations'}
       </div>
     </div>
   );

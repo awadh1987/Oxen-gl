@@ -349,6 +349,7 @@ export interface BrandConfig {
   primaryColor: string; // e.g. #4f46e5
   secondaryColor: string; // e.g. #9333ea
   customLogoUrl?: string;
+  platformLogoUrl?: string;
   wallpaperUrl?: string;
   backgroundUrl?: string;
   ceoSignatureUrl?: string;

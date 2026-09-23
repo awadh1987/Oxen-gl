@@ -151,9 +151,9 @@ export const TenantLandingHubView: React.FC<TenantLandingHubViewProps> = ({ onNa
               showText={true}
               horizontal={true}
               theme={isDark ? 'dark' : 'light'}
-              customLogoUrl={currentCompany?.uiLogoUrl || undefined}
-              companyNameAr={currentCompany?.name || 'Tenant Workspace'}
-              companyNameEn="OXENGL LOGISTICS & CONTRACTING ERP"
+              customLogoUrl={currentCompany?.logo_url || currentCompany?.uiLogoUrl || undefined}
+              companyNameAr={currentCompany?.name_ar || currentCompany?.company_name_ar || currentCompany?.name || 'Tenant Workspace'}
+              companyNameEn={currentCompany?.name_en || currentCompany?.company_name || currentCompany?.name || 'Enterprise Workspace'}
               primaryColor={currentCompany?.uiPrimaryColor}
               secondaryColor={currentCompany?.uiSecondaryColor}
             />

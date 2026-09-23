@@ -52,10 +52,10 @@ export const OfficialLetterheadHeader: React.FC<OfficialLetterheadHeaderProps> =
 
           <div>
             <h1 className="text-base font-black text-neutral-950 sm:text-lg">
-              {brandConfig.companyNameAr || 'ميون مقاولات ولوجستيات'}
+              {brandConfig.companyNameAr || 'منظومة أوكسن السحابية'}
             </h1>
             <p className="text-xs font-bold uppercase tracking-wider text-[#F05627]">
-              {brandConfig.companyNameEn || 'MYON Contracting & Logistics'}
+              {brandConfig.companyNameEn || 'OxenGL Enterprise Cloud'}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 text-[11px] text-neutral-600">
               <span>

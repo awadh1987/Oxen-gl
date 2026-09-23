@@ -813,6 +813,56 @@ def list_public_tenants(database: Session = Depends(get_db)):
 	return database.scalars(select(models.ResCompany).order_by(models.ResCompany.name)).all()
 
 
+@app.get("/api/public/tenants", tags=["Public"])
+@app.get("/api/public/tenants/", tags=["Public"])
+def list_available_public_tenants(database: Session = Depends(get_db)):
+	"""Retrieve active/approved licensed corporate tenants for the public workspace directory."""
+	try:
+		tenants = database.execute(
+			text("""
+				SELECT 
+					coalesce(c.id, m.id)::text as id,
+					coalesce(c.name, m.name) as name,
+					coalesce(c.slug, m.slug) as slug,
+					coalesce(c.commercial_registration, '1010' || substring(replace(coalesce(c.id, m.id)::text, '-', '') from 1 for 6)) as commercial_registration,
+					coalesce(c.max_cost_centers, 25) as max_cost_centers,
+					upper(coalesce(c.subscription_tier, m.subscription_tier, 'PROFESSIONAL')) as subscription_tier,
+					coalesce(c.ui_logo_url, c.logo_url) as logo_url,
+					coalesce(c.ui_primary_color, c.primary_color, '#F97316') as theme_color,
+					coalesce(c.ui_primary_color, c.primary_color, '#F97316') as primary_color,
+					coalesce(c.secondary_color, '#111827') as secondary_color,
+					coalesce(m.status, c.status, 'active') as status
+				FROM master_tenants m
+				LEFT JOIN res_companies c ON c.id = m.id OR c.slug = m.slug
+				WHERE m.status IN ('active', 'approved')
+				ORDER BY name ASC
+			""")
+		).mappings().all()
+		return [dict(t) for t in tenants]
+	except Exception:
+		companies = database.execute(
+			text("""
+				SELECT 
+					id::text,
+					name,
+					slug,
+					coalesce(commercial_registration, '1010' || substring(replace(id::text, '-', '') from 1 for 6)) as commercial_registration,
+					coalesce(max_cost_centers, 25) as max_cost_centers,
+					upper(coalesce(subscription_tier, 'PROFESSIONAL')) as subscription_tier,
+					coalesce(ui_logo_url, logo_url) as logo_url,
+					coalesce(ui_primary_color, primary_color, '#F97316') as theme_color,
+					coalesce(ui_primary_color, primary_color, '#F97316') as primary_color,
+					coalesce(secondary_color, '#111827') as secondary_color,
+					coalesce(status, 'active') as status
+				FROM res_companies
+				WHERE is_active = true OR status IN ('approved', 'active')
+				ORDER BY name ASC
+				LIMIT 20
+			""")
+		).mappings().all()
+		return [dict(c) for c in companies]
+
+
 @app.get("/api/companies/{company_id}", response_model=ResCompanyRead, tags=["Companies"])
 def get_company(company_id: uuid.UUID, active_company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	if company_id != active_company_id:
@@ -1556,12 +1606,27 @@ def create_posted_account_move(database: Session, company_id: uuid.UUID, payload
 def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id: uuid.UUID = Depends(get_active_company_id), database: Session = Depends(get_db)):
 	gross_weight = payload.gross_weight.quantize(Decimal("0.0001"))
 	tare_weight = payload.tare_weight.quantize(Decimal("0.0001"))
-	tkt_input = (payload.ticket_number or "").strip()
+	net_weight = payload.net_weight if payload.net_weight is not None else (gross_weight - tare_weight)
+
+	tkt_input = (payload.scale_ticket_no or payload.scaleTicketNo or payload.ticket_number or payload.ticketNumber or "").strip()
 	if not tkt_input or "auto" in tkt_input.lower() or "توليد" in tkt_input or (tkt_input.startswith("TKT-") and len(tkt_input) > 15):
 		ticket_number = SequenceService.get_next_sequence(database, company_id, "ticket")
 	else:
 		ticket_number = tkt_input
 	reference = ticket_number
+
+	loading_inv_input = (payload.loading_invoice_no or payload.loadingInvoiceNo or "").strip()
+	if not loading_inv_input or "auto" in loading_inv_input.lower() or "توليد" in loading_inv_input:
+		loading_invoice_no = SequenceService.get_next_sequence(database, company_id, "supplier_invoice")
+	else:
+		loading_invoice_no = loading_inv_input
+
+	receipt_inv_input = (payload.receipt_invoice_no or payload.receiptInvoiceNo or "").strip()
+	if not receipt_inv_input or "auto" in receipt_inv_input.lower() or "توليد" in receipt_inv_input:
+		receipt_invoice_no = SequenceService.get_next_sequence(database, company_id, "customer_invoice")
+	else:
+		receipt_invoice_no = receipt_inv_input
+
 	try:
 		tx_ctx = database.begin_nested() if database.in_transaction() else database.begin()
 		with tx_ctx:
@@ -1640,16 +1705,27 @@ def create_weighbridge_operation(payload: WeighbridgeOperationCreate, company_id
 				unit_of_measure=selected_uom,
 				weighed_in_at=datetime.now(timezone.utc),
 				weighed_out_at=datetime.now(timezone.utc),
-				attachments=payload.attachments,
+				attachments=payload.attachments or [],
 				scale_ticket_attachment=payload.scale_ticket_attachment,
 				material_supplier_name=source.name if source else None,
 				service_supplier_name=partner.name if partner else None,
 				destination_customer_name=destination.name if destination else None,
+				loading_invoice_no=loading_invoice_no,
+				receipt_invoice_no=receipt_invoice_no,
 				material_type=product.name if product else None,
 				qty_loaded=payload.qty_loaded if payload.qty_loaded is not None else gross_weight,
 				qty_delivered=payload.qty_delivered if payload.qty_delivered is not None else net_weight,
 				qty_wastage=payload.qty_wastage if payload.qty_wastage is not None else (gross_weight - net_weight),
 				wastage_percentage=payload.wastage_percentage,
+				sales_amount=payload.sales_amount if payload.sales_amount is not None else payload.salesAmount,
+				vat_amount=payload.vat_amount if payload.vat_amount is not None else payload.vatAmount,
+				total_sales=payload.total_sales if payload.total_sales is not None else payload.totalSales,
+				purchases_cost=payload.purchases_cost if payload.purchases_cost is not None else payload.purchasesCost,
+				crusher_payment=payload.crusher_payment if payload.crusher_payment is not None else payload.crusherPayment,
+				net_profit=payload.net_profit if payload.net_profit is not None else payload.netProfit,
+				operation_month=payload.operation_month if payload.operation_month is not None else payload.operationMonth,
+				operation_year=payload.operation_year if payload.operation_year is not None else payload.operationYear,
+				notes=payload.notes,
 			)
 			database.add(ticket)
 		database.commit()

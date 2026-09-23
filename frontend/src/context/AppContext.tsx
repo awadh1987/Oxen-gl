@@ -465,7 +465,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const refreshCompanies = async (): Promise<Company[]> => {
     const apiCompanies = await erpApi.getCompanies();
-    const mapped = apiCompanies.map((company) => ({ id: company.id, parentId: company.parent_id, name: company.name, slug: company.slug, commercialRegistration: company.commercial_registration || undefined, taxId: company.tax_id || undefined, currency: company.currency, fiscalCalendar: company.fiscal_calendar, fiscalYearStartMonth: company.fiscal_year_start_month, taxRegime: company.tax_regime, subscriptionTier: company.subscription_tier, licenseKey: company.license_key, licenseExpiresAt: company.license_expires_at, maxCostCenters: company.max_cost_centers, themeMode: company.theme_mode, uiPrimaryColor: company.ui_primary_color, uiSecondaryColor: company.ui_secondary_color, uiLogoUrl: company.ui_logo_url }));
+    const mapped = apiCompanies.map((company) => ({ id: company.id, parentId: company.parent_id, name: company.name, slug: company.slug, commercialRegistration: company.commercial_registration || undefined, taxId: company.tax_id || undefined, currency: company.currency, fiscalCalendar: company.fiscal_calendar, fiscalYearStartMonth: company.fiscal_year_start_month, taxRegime: company.tax_regime, subscriptionTier: company.subscription_tier, licenseKey: company.license_key, licenseExpiresAt: company.license_expires_at, maxCostCenters: company.max_cost_centers, themeMode: company.theme_mode, uiPrimaryColor: company.ui_primary_color, uiSecondaryColor: company.ui_secondary_color, uiLogoUrl: company.ui_logo_url, logo_url: company.ui_logo_url || (company as any).logo_url }));
     setCompanies(mapped);
     setCurrentCompany((selected) => {
       const activeSubdomain = getSubdomain();
@@ -954,10 +954,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Synchronize brand config with authenticated tenant company
   useEffect(() => {
-    const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+    const isApexRoot = typeof window !== 'undefined' && isApexDomain() && (window.location.pathname === '/' || window.location.pathname === '');
     const token = getAuthToken();
     const tier = getAuthTier();
-    if (isRoot && (!token || tier === 'master')) {
+    if (isApexRoot && (!token || tier === 'master')) {
       return;
     }
     if (currentCompany) {
@@ -969,18 +969,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         secondaryColor: currentCompany.uiSecondaryColor || prev.secondaryColor,
         crNumber: currentCompany.commercialRegistration || prev.crNumber,
         taxNumber: currentCompany.taxId || prev.taxNumber,
-        customLogoUrl: currentCompany.uiLogoUrl || prev.customLogoUrl,
+        customLogoUrl: currentCompany.logo_url || currentCompany.uiLogoUrl || prev.customLogoUrl,
       }));
     }
   }, [currentCompany]);
 
-  // Ensure navigating to root unified portal resets tenant branding leaks
+  // Ensure navigating to root unified portal resets tenant branding leaks (Apex domain only)
   useEffect(() => {
     const handleLocationChange = () => {
-      const isRoot = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+      const isApexRoot = typeof window !== 'undefined' && isApexDomain() && (window.location.pathname === '/' || window.location.pathname === '');
       const token = getAuthToken();
       const tier = getAuthTier();
-      if (isRoot && (!token || tier === 'master')) {
+      if (isApexRoot && (!token || tier === 'master')) {
         setBrandConfig(INITIAL_BRAND_CONFIG);
         setCurrentCompany(null);
       }
@@ -1388,6 +1388,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addOperation = async (opData: Omit<OperationRecord, 'id' | 'created_at' | 'updated_at'>): Promise<void> => {
     if (navigator.onLine && currentCompany) {
+      const numGross = Number(opData.qty_loaded) || 1;
+      const numDelivered = Number(opData.qty_delivered) || 0;
+      const computedTare = Math.max(0, numGross - numDelivered);
+      const safeTare = computedTare >= numGross ? Math.max(0, numGross - 0.0001) : computedTare;
+
       const operation = await erpApi.createWeighbridgeOperation({
         companyId: currentCompany.id,
         transporterName: opData.transporter_name,
@@ -1395,16 +1400,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sourceName: opData.loading_source,
         destinationName: opData.destination_customer,
         truckNumber: opData.truck_no,
-        grossWeight: opData.qty_loaded,
-        tareWeight: Math.max(0, opData.qty_loaded - opData.qty_delivered),
+        grossWeight: numGross,
+        tareWeight: safeTare,
         uom: (opData.uom as string) || 'MT',
         unitOfMeasure: (opData.uom as string) || 'MT',
         attachments: opData.attachments || [],
         scaleTicketAttachment: opData.scale_ticket_attachment,
+        scaleTicketNo: opData.scale_ticket_no,
+        loadingInvoiceNo: opData.loading_invoice_no,
+        receiptInvoiceNo: opData.receipt_invoice_no,
+        qty_loaded: opData.qty_loaded,
+        qty_delivered: opData.qty_delivered,
+        qty_wastage: opData.qty_wastage,
+        wastage_percentage: opData.wastage_percentage,
+        sales_amount: opData.sales_amount,
+        vat_amount: opData.vat_amount,
+        total_sales: opData.total_sales,
+        purchases_cost: opData.purchases_cost,
+        crusher_payment: opData.crusher_payment,
+        net_profit: opData.net_profit,
+        operation_month: opData.operation_month,
+        operation_year: opData.operation_year,
+        notes: opData.notes,
       });
       const serverRecord: OperationRecord = {
         ...mapApiOperation(operation),
         uom: (opData.uom as string) || operation.uom || operation.unit_of_measure || 'MT',
+        scale_ticket_no: operation.scale_ticket_attachment || operation.ticket_number || opData.scale_ticket_no,
+        loading_invoice_no: operation.loading_invoice_no || opData.loading_invoice_no,
+        receipt_invoice_no: operation.receipt_invoice_no || opData.receipt_invoice_no,
         sales_amount: opData.sales_amount || 0,
         vat_amount: opData.vat_amount || 0,
         total_sales: opData.total_sales || 0,

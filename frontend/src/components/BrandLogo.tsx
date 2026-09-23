@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { isApexDomain } from '../utils/subdomain';
 
 interface BrandLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'hero';
@@ -39,21 +40,31 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     currentCompany = appContext?.currentCompany;
     authTier = appContext?.authTier ?? null;
     tenantId = appContext?.tenantId ?? null;
-    isTenantScoped = Boolean((authTier === 'tenant' || tenantId) && authTier !== 'master');
+    const isApex = isApexDomain();
+    isTenantScoped = Boolean((authTier === 'tenant' || tenantId || !isApex) && authTier !== 'master');
   } catch {
     // Graceful fallback if rendered outside AppProvider
   }
 
-  // Check if current route is root portal /
-  const isRootPortal = typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
+  // Check if current route is apex root portal /
+  const isApex = typeof window !== 'undefined' ? isApexDomain() : true;
+  const isApexRootPortal = isApex && typeof window !== 'undefined' && (window.location.pathname === '/' || window.location.pathname === '');
 
   // Only allow custom tenant logos when explicitly authenticated inside a tenant-scoped session or route,
-  // and forcePlatformLogo is NOT set.
-  const allowTenantLogo = !forcePlatformLogo && !isRootPortal && isTenantScoped;
+  // or on a tenant subdomain, and forcePlatformLogo is NOT set, and not on apex root portal.
+  const allowTenantLogo = !forcePlatformLogo && !isApexRootPortal && (isTenantScoped || !isApex);
+
+  const envPlatformLogo = typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_PLATFORM_LOGO_URL : undefined;
+  const platformLogoUrl =
+    (envPlatformLogo && typeof envPlatformLogo === 'string' && envPlatformLogo.trim() !== '')
+      ? envPlatformLogo.trim()
+      : (appBrandConfig?.platformLogoUrl && typeof appBrandConfig.platformLogoUrl === 'string' && appBrandConfig.platformLogoUrl.trim() !== '')
+      ? appBrandConfig.platformLogoUrl.trim()
+      : null;
 
   const rawLogoUrl = allowTenantLogo
     ? (propCustomLogoUrl ?? currentCompany?.logo_url ?? currentCompany?.uiLogoUrl ?? appBrandConfig?.customLogoUrl)
-    : null;
+    : (propCustomLogoUrl ?? platformLogoUrl);
 
   const effectiveLogoUrl = (rawLogoUrl && rawLogoUrl !== '/oxengl-logo.svg') ? rawLogoUrl : null;
   const effectiveNameAr = allowTenantLogo

@@ -122,9 +122,9 @@ export const OperationsLogView: React.FC = () => {
         if (!matches) return false;
       }
 
-      if (selectedCustomer && !op.destination_customer.includes(selectedCustomer)) return false;
-      if (selectedCrusher && !op.loading_source.includes(selectedCrusher)) return false;
-      if (selectedTransporter && !op.transporter_name.includes(selectedTransporter)) return false;
+      if (selectedCustomer && !(op.destination_customer || '').includes(selectedCustomer)) return false;
+      if (selectedCrusher && !(op.loading_source || '').includes(selectedCrusher)) return false;
+      if (selectedTransporter && !(op.transporter_name || '').includes(selectedTransporter)) return false;
       if (selectedMaterial && op.material_type !== selectedMaterial) return false;
       if (selectedMonth !== 'ALL' && op.operation_month !== Number(selectedMonth)) return false;
       if (filterExcessLoss && op.wastage_percentage <= 2.0) return false;

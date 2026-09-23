@@ -177,19 +177,56 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     box-shadow: none !important;
   }
 
+  /* Universal reset for print root & parent hierarchy */
+  html,
   body {
     background: #ffffff !important;
     color: #0f172a !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #root,
+  #meayon-erp-app-root,
+  main,
+  #customer-invoicing-view,
+  #operations-log-view,
+  #financial-vouchers-view,
+  #crusher-ledger-view,
+  #transporter-performance-view,
+  .app-view-container {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
   }
 
   /* Global UI Elements to Hide during printing */
   header,
   aside,
   nav,
+  footer,
   #app-sidebar-navigation,
   #main-app-header,
+  #domain-navigation-switcher,
+  #notification-topbar,
+  #ai-assistant-widget,
   #nav-ai-assistant-btn,
   #nav-notifications-btn,
   #nav-lang-toggle-btn,
@@ -199,47 +236,64 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
   button,
   input,
   select,
+  textarea,
   [role="tablist"],
   .tab-control,
   .pagination-controls,
-  .search-filter-bar {
+  .search-filter-bar,
+  .action-buttons-bar,
+  #export-modal-sidebar,
+  .export-modal-header {
     display: none !important;
   }
 
-  /* ----------------------------------------------------
-     PRINT ISOLATION: Primary Tax Invoice
-     ---------------------------------------------------- */
-  body.printing-invoice #root > *:not(main),
-  body.printing-invoice aside,
-  body.printing-invoice nav,
-  body.printing-invoice header,
-  body.printing-invoice .no-print {
-    display: none !important;
-  }
-
-  body.printing-invoice #customer-tax-invoice-printable {
+  /* Specific Printable Invoice & Document Containers: MUST BE VISIBLE */
+  .print-container,
+  .zatca-invoice-wrapper,
+  #customer-tax-invoice-printable,
+  #export-print-preview-content,
+  #public-tax-invoice-container,
+  .printable-ticket-page,
+  .printable-voucher-page {
     display: block !important;
     visibility: visible !important;
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-container *,
+  .zatca-invoice-wrapper *,
+  #customer-tax-invoice-printable *,
+  #export-print-preview-content *,
+  #public-tax-invoice-container * {
+    visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ----------------------------------------------------
+     PRINT ISOLATION: Primary Tax Invoice (Direct Page Print)
+     ---------------------------------------------------- */
+  body.printing-invoice #customer-invoicing-view > *:not(#customer-tax-invoice-printable):not(:has(#customer-tax-invoice-printable)) {
+    display: none !important;
   }
 
   /* ----------------------------------------------------
      MODAL PRINT ISOLATION: Single Voucher Detail Modal
      ---------------------------------------------------- */
-  body.printing-voucher-modal #root > *:not(main),
-  body.printing-voucher-modal aside,
-  body.printing-voucher-modal nav,
-  body.printing-voucher-modal header,
-  body.printing-voucher-modal .no-print {
-    display: none !important;
-  }
-
-  body.printing-voucher-modal #financial-vouchers-view > *:not(#voucher-detail-modal-backdrop) {
+  body.printing-voucher-modal #financial-vouchers-view > *:not(#voucher-detail-modal-backdrop):not(:has(#voucher-detail-modal-backdrop)) {
     display: none !important;
   }
 
@@ -253,6 +307,7 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     overflow: visible !important;
     inset: auto !important;
     z-index: auto !important;
+    display: block !important;
   }
 
   #voucher-detail-modal-backdrop > div {
@@ -267,9 +322,9 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
+    display: block !important;
   }
 
-  /* Hide close button and modal action footer inside Voucher Modal */
   #voucher-detail-modal-backdrop button,
   #voucher-detail-modal-backdrop [role="toolbar"],
   #voucher-detail-modal-backdrop .modal-footer-actions {
@@ -279,15 +334,8 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
   /* ----------------------------------------------------
      MODAL PRINT ISOLATION: Universal Export & Print Studio
      ---------------------------------------------------- */
-  body.printing-export-modal #root > *:not(main),
-  body.printing-export-modal aside,
-  body.printing-export-modal nav,
-  body.printing-export-modal header,
-  body.printing-export-modal .no-print {
-    display: none !important;
-  }
-
-  body.printing-export-modal #customer-invoicing-view > *:not(#export-print-modal-backdrop) {
+  body.printing-export-modal #customer-invoicing-view > *:not(#export-print-modal-backdrop):not(:has(#export-print-modal-backdrop)),
+  body.printing-export-modal #operations-log-view > *:not(#export-print-modal-backdrop):not(:has(#export-print-modal-backdrop)) {
     display: none !important;
   }
 
@@ -298,12 +346,18 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     margin: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
     overflow: visible !important;
     inset: auto !important;
     z-index: auto !important;
+    display: block !important;
+    visibility: visible !important;
   }
 
+  #export-print-modal-backdrop > div[role="dialog"],
   #export-print-modal-backdrop > div {
+    position: static !important;
     border: none !important;
     box-shadow: none !important;
     background: transparent !important;
@@ -314,6 +368,26 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
     overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
+    display: block !important;
+    visibility: visible !important;
+  }
+
+  #export-print-modal-backdrop .flex-1 {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #export-print-modal-backdrop [style*="scale"] {
+    transform: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 auto !important;
   }
 
   #export-print-modal-backdrop button,
@@ -321,22 +395,9 @@ html[data-theme-mode="light"] .canvas-dotted-grid {
   #export-print-modal-backdrop input,
   #export-print-modal-backdrop textarea,
   #export-print-modal-backdrop [role="toolbar"],
-  #export-print-modal-backdrop > div > div:first-child,
-  #export-print-modal-backdrop > div > div > div:first-child {
+  #export-print-modal-backdrop #export-modal-sidebar,
+  #export-print-modal-backdrop .export-modal-header {
     display: none !important;
-  }
-
-  #export-print-preview-content {
-    display: block !important;
-    visibility: visible !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    margin: 0 auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    background: #ffffff !important;
-    transform: none !important;
   }
 
   /* ----------------------------------------------------
