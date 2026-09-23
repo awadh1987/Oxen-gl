@@ -266,7 +266,7 @@ export const PublicSharedInvoiceView: React.FC<PublicSharedInvoiceViewProps> = (
           <div
             ref={invoiceElementRef}
             id="public-tax-invoice-container"
-            className="rounded-3xl border border-slate-300 bg-white p-8 sm:p-12 shadow-xl"
+            className="rounded-3xl border border-slate-300 bg-white p-8 sm:p-12 shadow-xl print-container zatca-invoice-wrapper"
           >
             {/* 1. Official Corporate Letterhead */}
             <OfficialLetterheadHeader
