@@ -724,6 +724,31 @@ class CustomerInvoice(TimestampMixin, Base):
     partner: Mapped[Optional[ResPartner]] = relationship()
     move: Mapped[Optional[AccountMove]] = relationship()
 
+    @property
+    def public_token(self) -> Optional[str]:
+        from sqlalchemy.orm import object_session
+        session = object_session(self)
+        if session:
+            try:
+                InvoiceClass = globals().get("Invoice")
+                if InvoiceClass:
+                    inv = session.query(InvoiceClass).filter(InvoiceClass.invoice_number == self.invoice_number).first()
+                    if inv and inv.public_token:
+                        return inv.public_token
+                    inv = InvoiceClass(
+                        invoice_number=self.invoice_number,
+                        total_amount=self.grand_total,
+                        currency="SAR",
+                        payment_status="paid" if self.status in ("Issued", "Paid") else "pending",
+                    )
+                    session.add(inv)
+                    session.flush()
+                    return inv.public_token
+            except Exception:
+                pass
+        return None
+
+
     __table_args__ = (
         CheckConstraint("status IN ('Draft', 'Approved', 'Issued', 'Cancelled')", name="ck_customer_invoice_status"),
         CheckConstraint("subtotal >= 0 AND vat_amount >= 0 AND grand_total >= 0", name="ck_customer_invoice_amounts"),

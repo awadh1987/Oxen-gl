@@ -30,6 +30,7 @@ import {
   ExternalLink,
   Archive,
   Upload,
+  Link2,
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatNumber, formatTonnage, getMonthName, generateZatcaQR, roundHalala, calculateVatBreakdown } from '../utils/formatters';
 import { tafqeetArabic, tafqeetEnglish } from '../utils/tafqeet';
@@ -296,6 +297,19 @@ export const CustomerInvoicingView: React.FC = () => {
         }
       : undefined,
     attachments: invoiceAttachments,
+    public_token: currentBackendInvoice?.public_token || undefined,
+    publicToken: currentBackendInvoice?.public_token || undefined,
+  };
+
+  const copyMagicLink = (publicToken?: string) => {
+    if (!publicToken) {
+      alert("This invoice does not have a public token yet.");
+      return;
+    }
+    const magicLink = `${window.location.origin}/shared/invoice/${publicToken}`;
+    navigator.clipboard.writeText(magicLink)
+      .then(() => alert("Magic Link copied to clipboard!"))
+      .catch((err) => console.error("Failed to copy link: ", err));
   };
 
   const handlePrint = () => {
@@ -667,6 +681,17 @@ Myon Economic Contracting Co. Ltd.`;
             <span>{isAr ? 'تصدير كشف Excel' : 'Export Excel'}</span>
           </button>
 
+          {/* Copy Magic Link */}
+          <button
+            id="copy-invoice-magic-link-top-btn"
+            onClick={() => copyMagicLink(currentBackendInvoice?.public_token || undefined)}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/80 px-3 py-2 text-xs font-bold text-indigo-900 shadow-xs hover:bg-indigo-100 transition-colors"
+            title={isAr ? 'نسخ رابط الدفع المباشر السحري (Magic Link)' : 'Copy Public Magic Link'}
+          >
+            <Link2 className="h-3.5 w-3.5 text-indigo-700" />
+            <span>{isAr ? 'الرابط السحري' : 'Magic Link'}</span>
+          </button>
+
           {/* Print / Live Preview Export */}
           <button
             onClick={() => setIsExportPrintModalOpen(true)}
@@ -783,12 +808,25 @@ Myon Economic Contracting Co. Ltd.`;
                   ? `مُعد الفاتورة: ${currentUser.fullNameAr || currentUser.fullName} (${currentUser.role}). تتضمن الفاتورة حالياً علامة مائية (DRAFT) حتى اعتمادها.`
                   : `Prepared by: ${currentUser.fullName} (${currentUser.role}). A "DRAFT" watermark is active until authorized.`}
               </p>
-              {currentBackendInvoice?.move_id && (
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-mono font-bold text-blue-900 shadow-xs">
-                  <BookOpen className="h-3.5 w-3.5 text-blue-600" />
-                  <span>{isAr ? 'معرف القيد المالي:' : 'GL Move ID:'} {currentBackendInvoice.move_id}</span>
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                {currentBackendInvoice?.move_id && (
+                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-mono font-bold text-blue-900 shadow-xs">
+                    <BookOpen className="h-3.5 w-3.5 text-blue-600" />
+                    <span>{isAr ? 'معرف القيد المالي:' : 'GL Move ID:'} {currentBackendInvoice.move_id}</span>
+                  </div>
+                )}
+                {currentBackendInvoice?.public_token && (
+                  <button
+                    type="button"
+                    onClick={() => copyMagicLink(currentBackendInvoice.public_token || undefined)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/80 px-2.5 py-1 text-[11px] font-mono font-bold text-indigo-900 hover:bg-indigo-100 transition-colors shadow-xs"
+                    title={isAr ? 'انقر لنسخ الرابط السحري' : 'Click to copy magic link'}
+                  >
+                    <Link2 className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>{isAr ? 'الرابط السحري:' : 'Magic Link:'} {currentBackendInvoice.public_token.slice(0, 8)}...</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -846,6 +884,16 @@ Myon Economic Contracting Co. Ltd.`;
             {/* Issued / Paid Stage: Share actions */}
             {(invoiceStatus === 'Paid' || currentBackendInvoice?.status === 'Issued') && (
               <>
+                <button
+                  id="workflow-copy-magic-link-btn"
+                  onClick={() => copyMagicLink(currentBackendInvoice?.public_token || undefined)}
+                  className="flex items-center gap-1.5 rounded-2xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-700 transition-colors"
+                  title={isAr ? 'نسخ رابط الدفع المباشر السحري (Magic Link)' : 'Copy Public Magic Link'}
+                >
+                  <Link2 className="h-4 w-4" />
+                  <span>{isAr ? 'نسخ الرابط السحري' : 'Copy Magic Link'}</span>
+                </button>
+
                 <button
                   onClick={() => setIsExportShareModalOpen(true)}
                   className="flex items-center gap-1.5 rounded-2xl bg-orange-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-orange-600/30 hover:bg-orange-700 transition-colors"

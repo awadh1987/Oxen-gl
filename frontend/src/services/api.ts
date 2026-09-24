@@ -291,7 +291,11 @@ export interface ApiCustomerInvoice {
   issued_at: string | null;
   created_at: string;
   updated_at: string;
+  public_token?: string | null;
 }
+
+export type InvoiceOut = ApiCustomerInvoice;
+export type InvoiceResponse = ApiCustomerInvoice;
 
 export interface CustomerInvoiceCreatePayload {
   partner_id?: string | null;

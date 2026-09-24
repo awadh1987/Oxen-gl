@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
@@ -624,6 +624,16 @@ class CustomerInvoiceRead(ORMReadModel):
     issued_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    public_token: Optional[str] = None
+
+
+class InvoiceOut(CustomerInvoiceRead):
+    public_token: Optional[str] = None
+
+
+class InvoiceResponse(CustomerInvoiceRead):
+    public_token: Optional[str] = None
+
 
 
 class SupplierSettlementGenerate(BaseModel):

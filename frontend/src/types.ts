@@ -255,6 +255,8 @@ export interface CustomerInvoice {
   is_deleted?: boolean;
   deleted_at?: string;
   deleted_by?: string;
+  public_token?: string;
+  publicToken?: string;
 }
 
 export interface InvoiceItem {

@@ -181,5 +181,13 @@ async def get_public_invoice(
         "payment_status": invoice.payment_status,
         "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
         "payment_method": invoice.payment_method,
+        "public_token": invoice.public_token,
     }
+
+
+try:
+    from backend.schemas import InvoiceOut, InvoiceResponse
+except ImportError:
+    from schemas import InvoiceOut, InvoiceResponse  # type: ignore
+
 
