@@ -10,5 +10,6 @@ for p in [str(backend_dir), str(app_root)]:
 
 from backend.app.main import app  # noqa: F401,E402
 from backend.api.routes.hrms_ledger import router as hrms_ledger_router  # noqa: F401,E402
+from backend.api.routes.procurement import router as procurement_router  # noqa: F401,E402
 
-__all__ = ["app", "hrms_ledger_router"]
+__all__ = ["app", "hrms_ledger_router", "procurement_router"]

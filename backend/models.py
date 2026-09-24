@@ -2136,3 +2136,21 @@ from backend.app.domains.finance.models import (  # noqa: E402
 Payroll = PayrollRun
 LedgerTransaction = FinanceJournalEntry
 LedgerLine = FinanceJournalLine
+
+
+# ==============================================================================
+# Phase 7: Procurement & Double-Entry Ledger Integration
+# ==============================================================================
+from backend.app.domains.procurement.models import (  # noqa: E402
+    Vendor,
+    VendorBill,
+    ProcurementBill,
+    ProcurementVendor,
+    PurchaseRequisition,
+    PurchaseRequisitionLine,
+    PurchaseOrderLine,
+    GoodsReceiptBatchLog,
+    ApprovalRule,
+    WorkflowInstance,
+    WorkflowStep,
+)

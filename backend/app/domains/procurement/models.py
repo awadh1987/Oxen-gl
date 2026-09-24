@@ -30,6 +30,14 @@ try:
 except ImportError:
     from models import PurchaseOrder, GoodsReceipt
 
+try:
+    from backend.app.domains.finance.models import FinanceJournalEntry
+except ImportError:
+    try:
+        from app.domains.finance.models import FinanceJournalEntry
+    except ImportError:
+        FinanceJournalEntry = "FinanceJournalEntry"
+
 
 class ApprovalRule(Base):
     """Metadata-driven routing rules determining approvals based on value thresholds."""
@@ -101,6 +109,8 @@ class Vendor(Base):
     address: Mapped[Optional[str]] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+    bills: Mapped[List["VendorBill"]] = relationship("VendorBill", back_populates="vendor")
 
 
 class PurchaseRequisition(Base):
@@ -184,6 +194,7 @@ class VendorBill(Base):
     vendor_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("vendors.id", ondelete="SET NULL"), nullable=True)
     purchase_order_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("purchase_orders.id", ondelete="CASCADE"), nullable=False, index=True)
     goods_receipt_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("goods_receipts.id", ondelete="CASCADE"), nullable=False, index=True)
+    journal_entry_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("finance_journal_entries.id", ondelete="SET NULL"), nullable=True, index=True)
 
     invoice_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
     due_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
@@ -196,3 +207,11 @@ class VendorBill(Base):
     discrepancy_details: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     is_posted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
+
+    vendor: Mapped[Optional["Vendor"]] = relationship("Vendor", back_populates="bills")
+    journal_entry: Mapped[Optional["FinanceJournalEntry"]] = relationship("FinanceJournalEntry", foreign_keys=[journal_entry_id])
+
+
+# Semantic domain aliases for Procurement & General Ledger integration
+ProcurementBill = VendorBill
+ProcurementVendor = Vendor

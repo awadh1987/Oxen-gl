@@ -375,6 +375,8 @@ from backend.api.routes.finance_payments import router as finance_payments_route
 app.include_router(finance_payments_router)
 from backend.api.routes.hrms_ledger import router as hrms_ledger_router
 app.include_router(hrms_ledger_router)
+from backend.api.routes.procurement import router as procurement_ledger_router
+app.include_router(procurement_ledger_router)
 
 
 

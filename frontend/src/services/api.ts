@@ -1173,6 +1173,21 @@ export const erpApi = {
       body: JSON.stringify(payload),
     }),
 
+  // Procurement Bills & Double-Entry Ledger Integration (Phase 7)
+  getProcurementBills: (companyId?: string) =>
+    request<ApiProcurementBill[]>('/api/procurement/bills', companyId),
+  createProcurementBill: (payload: any, companyId?: string) =>
+    request<ApiProcurementBill>('/api/procurement/bills', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  postProcurementBillToLedger: (billId: string, companyId?: string) =>
+    request<ApiJournalEntry>(`/api/procurement/bills/${billId}/post-ledger`, companyId, {
+      method: 'POST',
+    }),
+  getProcurementVendors: (companyId?: string) =>
+    request<any[]>('/api/procurement/vendors', companyId),
+
   // Legacy System Resource Excel Import
   importLegacySystemResource: (file: File, companyId?: string) => {
     const formData = new FormData();
@@ -1196,6 +1211,28 @@ export const erpApi = {
     });
   },
 };
+
+export interface ApiProcurementBill {
+  id: string;
+  tenant_id: string;
+  company_id?: string;
+  invoice_number: string;
+  vendor_id?: string;
+  vendor_name?: string;
+  purchase_order_id?: string;
+  purchase_order_number?: string;
+  goods_receipt_id?: string;
+  invoice_date: string;
+  due_date?: string;
+  currency: string;
+  amount: number;
+  tax_amount: number;
+  total_billed: number;
+  match_status: 'MATCHED' | 'PENDING' | 'HOLD_DISCREPANCY';
+  is_posted: boolean;
+  journal_entry_id?: string;
+  created_at: string;
+}
 
 export interface ApiCustomsManifest {
   id: string;
