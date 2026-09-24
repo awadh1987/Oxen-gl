@@ -25,6 +25,14 @@ class Employee(Base):
     hire_date: Mapped[date] = mapped_column(Date, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    @property
+    def company_id(self) -> uuid.UUID:
+        return self.tenant_id
+
+    @company_id.setter
+    def company_id(self, val: uuid.UUID):
+        self.tenant_id = val
+
 
 class AttendanceLog(Base):
     """Tracks biometric check-ins and check-outs for automated working hours logs."""
@@ -54,6 +62,14 @@ class PayrollRun(Base):
     net_pay: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)  # Formula: Gross + Allowances - Deductions
     status: Mapped[str] = mapped_column(String(30), default="DRAFT", nullable=False)  # 'DRAFT', 'APPROVED', 'PAID'
 
+    @property
+    def company_id(self) -> uuid.UUID:
+        return self.tenant_id
+
+    @company_id.setter
+    def company_id(self, val: uuid.UUID):
+        self.tenant_id = val
+
 
 class HrmsAttendanceLog(Base):
     """Tracks biometric check-ins and check-outs for automated working hours logs with biometric hashes."""
@@ -70,7 +86,17 @@ class HrmsAttendanceLog(Base):
     verification_mode: Mapped[str] = mapped_column(String(50), default="BIOMETRIC_FINGERPRINT", nullable=False)
     created_at: Mapped[dt_class] = mapped_column(DateTime(timezone=True), default=dt_class.utcnow, nullable=False)
 
+    @property
+    def company_id(self) -> uuid.UUID:
+        return self.tenant_id
+
+    @company_id.setter
+    def company_id(self, val: uuid.UUID):
+        self.tenant_id = val
+
     def __init__(self, *args, **kwargs):
+        if "company_id" in kwargs and "tenant_id" not in kwargs:
+            kwargs["tenant_id"] = kwargs.pop("company_id")
         if "biometric_timestamp" in kwargs and "check_in" not in kwargs:
             kwargs["check_in"] = kwargs.pop("biometric_timestamp")
         if "device_identifier" in kwargs and "device_id" not in kwargs:

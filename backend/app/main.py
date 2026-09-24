@@ -373,6 +373,8 @@ from backend.api.routes.platform_billing import router as platform_billing_route
 app.include_router(platform_billing_router)
 from backend.api.routes.finance_payments import router as finance_payments_router
 app.include_router(finance_payments_router)
+from backend.api.routes.hrms_ledger import router as hrms_ledger_router
+app.include_router(hrms_ledger_router)
 
 
 

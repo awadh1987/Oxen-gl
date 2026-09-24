@@ -2114,4 +2114,25 @@ class Invoice(Base):
     public_token = Column(String(64), unique=True, index=True, nullable=True, default=lambda: str(uuid.uuid4()))
 
 
+# ==============================================================================
+# Phase 2: Biometric HRMS & Double-Entry Financial Ledgers
+# ==============================================================================
+from backend.app.domains.hr.models import (  # noqa: E402
+    Employee,
+    AttendanceLog,
+    PayrollRun,
+    HrmsAttendanceLog,
+)
+from backend.app.domains.finance.models import (  # noqa: E402
+    FinanceJournalEntry,
+    FinanceJournalLine,
+    Account,
+    AccountChart,
+    JournalEntry,
+    JournalLine,
+)
 
+# Semantic domain aliases for HRMS & General Ledger integration
+Payroll = PayrollRun
+LedgerTransaction = FinanceJournalEntry
+LedgerLine = FinanceJournalLine
