@@ -82,15 +82,22 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({
 
     setSubmitting(true);
     try {
+      const fullName = (nameEn.trim() || nameAr.trim());
+      const nameParts = fullName.split(' ');
+      const firstName = nameParts[0] || 'Employee';
+      const lastName = nameParts.slice(1).join(' ') || (nameAr.trim() || 'Staff');
+
       const payload = {
         employee_code: employeeNumber.trim() || undefined,
         employeeNumber: employeeNumber.trim() || undefined,
-        name: nameAr.trim() || nameEn.trim(),
+        first_name: firstName,
+        last_name: lastName,
+        name: fullName,
         nameAr: nameAr.trim() || nameEn.trim(),
         nameEn: nameEn.trim() || nameAr.trim(),
         roleAr: roleAr.trim() || 'موظف',
         roleEn: roleEn.trim() || 'Employee',
-        department: departmentAr || departmentEn || 'العمليات اللوجستية',
+        department: departmentEn || departmentAr || 'Logistics Operations',
         departmentAr: departmentAr || 'العمليات اللوجستية',
         departmentEn: departmentEn || 'Logistics Operations',
         base_salary: parseFloat(baseSalary) || 10000,

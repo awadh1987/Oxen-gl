@@ -768,3 +768,82 @@ export interface LandedCostRecord {
   allocation_method: 'VALUE' | 'WEIGHT' | 'QUANTITY';
 }
 
+// ==============================================================================
+// Phase 2: Biometric HRMS & Double-Entry Financial Ledgers
+// ==============================================================================
+export interface HrmsEmployee {
+  id: string;
+  tenant_id?: string;
+  company_id?: string;
+  user_id?: string | null;
+  employee_code: string;
+  employeeNumber?: string;
+  first_name: string;
+  last_name: string;
+  name?: string;
+  nameAr?: string;
+  nameEn?: string;
+  department: string;
+  departmentAr?: string;
+  departmentEn?: string;
+  roleAr?: string;
+  roleEn?: string;
+  base_salary: number;
+  baseSalary?: number;
+  hire_date: string;
+  hireDate?: string;
+  is_active: boolean;
+  status?: string;
+  attendance_rate?: number;
+  attendanceRate?: number;
+  iqamaOrNationalId?: string;
+}
+
+export interface HrmsAttendanceLog {
+  id: string;
+  tenant_id: string;
+  employee_id: string;
+  device_id?: string | null;
+  check_in: string;
+  check_out?: string | null;
+  biometric_hash?: string | null;
+  verification_mode: string;
+  created_at: string;
+}
+
+export interface HrmsPayrollRun {
+  id: string;
+  tenant_id: string;
+  employee_id: string;
+  employee_name?: string;
+  employee_code?: string;
+  pay_period: string;
+  gross_earnings: number;
+  allowances: number;
+  deductions: number;
+  net_pay: number;
+  status: 'DRAFT' | 'APPROVED' | 'PAID' | string;
+}
+
+export interface HrmsJournalLine {
+  id?: string;
+  account_code: string;
+  account_id?: string | null;
+  description?: string | null;
+  debit: number;
+  credit: number;
+}
+
+export interface HrmsJournalEntry {
+  id: string;
+  tenant_id: string;
+  company_id?: string | null;
+  entry_number: string;
+  entry_date: string;
+  description: string;
+  total_debit: number;
+  total_credit: number;
+  status: string;
+  lines?: HrmsJournalLine[];
+}
+

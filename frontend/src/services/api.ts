@@ -297,6 +297,82 @@ export interface ApiCustomerInvoice {
 export type InvoiceOut = ApiCustomerInvoice;
 export type InvoiceResponse = ApiCustomerInvoice;
 
+export interface ApiEmployee {
+  id: string;
+  tenant_id?: string;
+  company_id?: string;
+  user_id?: string | null;
+  employee_code: string;
+  employeeNumber?: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  nameAr?: string;
+  nameEn?: string;
+  department: string;
+  departmentAr?: string;
+  departmentEn?: string;
+  roleAr?: string;
+  roleEn?: string;
+  base_salary: number;
+  baseSalary?: number;
+  hire_date?: string;
+  hireDate?: string;
+  is_active: boolean;
+  status?: string;
+  attendance_rate?: number;
+  attendanceRate?: number;
+  iqamaOrNationalId?: string;
+}
+
+export interface ApiAttendanceLog {
+  id: string;
+  tenant_id: string;
+  employee_id: string;
+  device_id?: string | null;
+  check_in: string;
+  check_out?: string | null;
+  biometric_hash?: string | null;
+  verification_mode: string;
+  created_at: string;
+}
+
+export interface ApiPayrollRun {
+  id: string;
+  tenant_id: string;
+  employee_id: string;
+  employee_name?: string;
+  employee_code?: string;
+  pay_period: string;
+  gross_earnings: number;
+  allowances: number;
+  deductions: number;
+  net_pay: number;
+  status: 'DRAFT' | 'APPROVED' | 'PAID' | string;
+}
+
+export interface ApiJournalLine {
+  id?: string;
+  account_code: string;
+  account_id?: string | null;
+  description?: string | null;
+  debit: number;
+  credit: number;
+}
+
+export interface ApiJournalEntry {
+  id: string;
+  tenant_id: string;
+  company_id?: string | null;
+  entry_number: string;
+  entry_date: string;
+  description: string;
+  total_debit: number;
+  total_credit: number;
+  status: string;
+  lines?: ApiJournalLine[];
+}
+
 export interface CustomerInvoiceCreatePayload {
   partner_id?: string | null;
   invoice_number?: string | null;
@@ -1027,9 +1103,63 @@ export const erpApi = {
 
   // HR Personnel Core
   getEmployees: (companyId?: string) =>
-    request<any[]>('/api/v1/hr/employees', companyId),
+    request<any[]>('/api/hrms/employees', companyId).catch(() =>
+      request<any[]>('/api/v1/hr/employees', companyId)
+    ),
   createEmployee: (payload: any, companyId?: string) =>
-    request<any>('/api/v1/hr/employees', companyId, {
+    request<any>('/api/hrms/employees', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }).catch(() =>
+      request<any>('/api/v1/hr/employees', companyId, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    ),
+
+  // Phase 2: Biometric HRMS & Double-Entry Financial Ledger
+  getHrmsEmployees: (companyId?: string, department?: string) => {
+    const query = department ? `?department=${encodeURIComponent(department)}` : '';
+    return request<ApiEmployee[]>(`/api/hrms/employees${query}`, companyId);
+  },
+  createHrmsEmployee: (payload: Partial<ApiEmployee>, companyId?: string) =>
+    request<ApiEmployee>('/api/hrms/employees', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getHrmsAttendanceLogs: (companyId?: string, employeeId?: string, limit = 50) => {
+    const params = new URLSearchParams();
+    if (employeeId) params.append('employee_id', employeeId);
+    params.append('limit', String(limit));
+    return request<ApiAttendanceLog[]>(`/api/hrms/attendance?${params.toString()}`, companyId);
+  },
+  recordHrmsAttendance: (payload: { employee_id: string; device_id?: string; verification_mode?: string; check_in?: string; check_out?: string }, companyId?: string) =>
+    request<ApiAttendanceLog>('/api/hrms/attendance', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getHrmsPayrollRuns: (companyId?: string, payPeriod?: string, status?: string) => {
+    const params = new URLSearchParams();
+    if (payPeriod) params.append('pay_period', payPeriod);
+    if (status) params.append('status', status);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return request<ApiPayrollRun[]>(`/api/hrms/payroll${qs}`, companyId);
+  },
+  createHrmsPayrollRun: (payload: { employee_id: string; pay_period: string; gross_earnings: number; allowances?: number; deductions?: number; status?: string }, companyId?: string) =>
+    request<ApiPayrollRun>('/api/hrms/payroll', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  postPayrollToLedger: (runId: string, companyId?: string) =>
+    request<ApiJournalEntry>(`/api/hrms/payroll/${runId}/post-ledger`, companyId, {
+      method: 'POST',
+    }),
+  getHrmsJournalEntries: (companyId?: string, status?: string) => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    return request<ApiJournalEntry[]>(`/api/hrms/journal-entries${qs}`, companyId);
+  },
+  createHrmsJournalEntry: (payload: { description: string; lines: Array<{ account_code: string; debit: number; credit: number; description?: string }>; entry_date?: string }, companyId?: string) =>
+    request<ApiJournalEntry>('/api/hrms/journal-entries', companyId, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

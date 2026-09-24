@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, computed_field
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
@@ -73,12 +73,20 @@ class EmployeeCreate(BaseModel):
     tenant_id: Optional[uuid.UUID] = None
     company_id: Optional[uuid.UUID] = None
     user_id: Optional[uuid.UUID] = None
-    employee_code: str
-    first_name: str
-    last_name: str
-    department: str
-    base_salary: Decimal = Decimal("0.00")
+    employee_code: Optional[str] = None
+    employeeNumber: Optional[str] = None
+    name: Optional[str] = None
+    nameAr: Optional[str] = None
+    nameEn: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    department: Optional[str] = None
+    departmentAr: Optional[str] = None
+    departmentEn: Optional[str] = None
+    base_salary: Optional[Decimal] = None
+    baseSalary: Optional[Decimal] = None
     hire_date: Optional[date] = None
+    hireDate: Optional[date] = None
     is_active: bool = True
 
 
@@ -94,6 +102,34 @@ class EmployeeResponse(BaseModel):
     base_salary: Decimal
     hire_date: date
     is_active: bool
+
+    @computed_field
+    def employeeNumber(self) -> str:
+        return self.employee_code
+
+    @computed_field
+    def name(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @computed_field
+    def nameAr(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @computed_field
+    def nameEn(self) -> str:
+        return f"{self.first_name} {self.last_name}".strip()
+
+    @computed_field
+    def departmentAr(self) -> str:
+        return self.department
+
+    @computed_field
+    def departmentEn(self) -> str:
+        return self.department
+
+    @computed_field
+    def baseSalary(self) -> float:
+        return float(self.base_salary)
 
 
 class PayrollRunCreate(BaseModel):
@@ -255,16 +291,25 @@ def create_employee(
 ):
     """Register a new employee record."""
     effective_tenant_id = payload.tenant_id or payload.company_id or uuid.uuid4()
+    code = payload.employee_code or payload.employeeNumber or f"EMP-{uuid.uuid4().hex[:6].upper()}"
+    raw_name = payload.name or payload.nameEn or payload.nameAr or ""
+    parts = raw_name.strip().split() if raw_name.strip() else []
+    first = payload.first_name or (parts[0] if parts else "Employee")
+    last = payload.last_name or (" ".join(parts[1:]) if len(parts) > 1 else (payload.nameAr or "Personnel"))
+    dept = payload.department or payload.departmentAr or payload.departmentEn or "General Operations"
+    salary = payload.base_salary if payload.base_salary is not None else (payload.baseSalary if payload.baseSalary is not None else Decimal("10000.00"))
+    hdate = payload.hire_date or payload.hireDate or date.today()
+
     emp = Employee(
         id=uuid.uuid4(),
         tenant_id=effective_tenant_id,
         user_id=payload.user_id,
-        employee_code=payload.employee_code,
-        first_name=payload.first_name,
-        last_name=payload.last_name,
-        department=payload.department,
-        base_salary=payload.base_salary,
-        hire_date=payload.hire_date or date.today(),
+        employee_code=code,
+        first_name=first,
+        last_name=last,
+        department=dept,
+        base_salary=salary,
+        hire_date=hdate,
         is_active=payload.is_active,
     )
     db.add(emp)
