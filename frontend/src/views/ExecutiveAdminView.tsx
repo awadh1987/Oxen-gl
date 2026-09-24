@@ -183,13 +183,16 @@ export const ExecutiveAdminView: React.FC = () => {
   // Filtered Grid rows
   const filteredGridRows = useMemo(() => {
     return activeOperations.filter((op) => {
+      if (!op) return false;
+      const q = (gridSearch || '').trim().toLowerCase();
       const matchSearch =
         !gridSearch ||
-        op.truck_no.toLowerCase().includes(gridSearch.toLowerCase()) ||
-        op.destination_customer.toLowerCase().includes(gridSearch.toLowerCase()) ||
-        op.loading_source.toLowerCase().includes(gridSearch.toLowerCase()) ||
-        op.transporter_name.toLowerCase().includes(gridSearch.toLowerCase()) ||
-        op.scale_ticket_no.toLowerCase().includes(gridSearch.toLowerCase());
+        (op.truck_no || '').toLowerCase().includes(q) ||
+        (op.destination_customer || '').toLowerCase().includes(q) ||
+        (op.loading_source || '').toLowerCase().includes(q) ||
+        (op.transporter_name || '').toLowerCase().includes(q) ||
+        (op.scale_ticket_no || '').toLowerCase().includes(q) ||
+        (op.driver_name || '').toLowerCase().includes(q);
 
       const matchMonth = gridMonthFilter === 0 || op.operation_month === gridMonthFilter;
       return matchSearch && matchMonth;
@@ -199,11 +202,13 @@ export const ExecutiveAdminView: React.FC = () => {
   // Filtered Audit Logs
   const filteredAuditLogs = useMemo(() => {
     return auditLogs.filter((log) => {
+      if (!log) return false;
+      const q = (auditSearch || '').trim().toLowerCase();
       const matchSearch =
         !auditSearch ||
-        log.summary.toLowerCase().includes(auditSearch.toLowerCase()) ||
-        log.userName.toLowerCase().includes(auditSearch.toLowerCase()) ||
-        log.entityId.toLowerCase().includes(auditSearch.toLowerCase());
+        (log.summary || '').toLowerCase().includes(q) ||
+        (log.userName || '').toLowerCase().includes(q) ||
+        (log.entityId || '').toLowerCase().includes(q);
 
       const matchAction = auditActionFilter === 'ALL' || log.action === auditActionFilter;
       const matchEntity = auditEntityFilter === 'ALL' || log.entityType === auditEntityFilter;

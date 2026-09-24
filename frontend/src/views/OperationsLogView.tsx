@@ -108,26 +108,35 @@ export const OperationsLogView: React.FC = () => {
   // Filtered dataset
   const filteredOperations = useMemo(() => {
     return accessibleOperations.filter((op) => {
+      if (!op) return false;
+
       // Search term
       if (searchTerm) {
-        const q = searchTerm.toLowerCase();
+        const q = (searchTerm || '').trim().toLowerCase();
         const matches =
-          op.truck_no.toLowerCase().includes(q) ||
-          op.scale_ticket_no.toLowerCase().includes(q) ||
-          op.loading_invoice_no.toLowerCase().includes(q) ||
-          op.receipt_invoice_no.toLowerCase().includes(q) ||
-          op.destination_customer.toLowerCase().includes(q) ||
-          op.transporter_name.toLowerCase().includes(q) ||
-          op.loading_source.toLowerCase().includes(q);
+          (op.truck_no || '').toLowerCase().includes(q) ||
+          (op.scale_ticket_no || '').toLowerCase().includes(q) ||
+          (op.loading_invoice_no || '').toLowerCase().includes(q) ||
+          (op.receipt_invoice_no || '').toLowerCase().includes(q) ||
+          (op.destination_customer || '').toLowerCase().includes(q) ||
+          (op.transporter_name || '').toLowerCase().includes(q) ||
+          (op.loading_source || '').toLowerCase().includes(q) ||
+          (op.driver_name || '').toLowerCase().includes(q) ||
+          ((op as any).driverName || '').toLowerCase().includes(q) ||
+          (op.material_type || '').toLowerCase().includes(q) ||
+          (op.notes || '').toLowerCase().includes(q) ||
+          String(op.qty_loaded || '').includes(q) ||
+          String(op.qty_delivered || '').includes(q) ||
+          String(op.sales_amount || '').includes(q);
         if (!matches) return false;
       }
 
       if (selectedCustomer && !(op.destination_customer || '').includes(selectedCustomer)) return false;
       if (selectedCrusher && !(op.loading_source || '').includes(selectedCrusher)) return false;
       if (selectedTransporter && !(op.transporter_name || '').includes(selectedTransporter)) return false;
-      if (selectedMaterial && op.material_type !== selectedMaterial) return false;
+      if (selectedMaterial && (op.material_type || '') !== selectedMaterial) return false;
       if (selectedMonth !== 'ALL' && op.operation_month !== Number(selectedMonth)) return false;
-      if (filterExcessLoss && op.wastage_percentage <= 2.0) return false;
+      if (filterExcessLoss && (op.wastage_percentage || 0) <= 2.0) return false;
 
       return true;
     });
@@ -146,10 +155,10 @@ export const OperationsLogView: React.FC = () => {
   const paginatedOperations = filteredOperations.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Aggregate statistics for current view
-  const currentTotalLoaded = filteredOperations.reduce((acc, c) => acc + c.qty_loaded, 0);
-  const currentTotalDelivered = filteredOperations.reduce((acc, c) => acc + c.qty_delivered, 0);
-  const currentTotalWastage = filteredOperations.reduce((acc, c) => acc + c.qty_wastage, 0);
-  const currentTotalSales = filteredOperations.reduce((acc, c) => acc + c.sales_amount, 0);
+  const currentTotalLoaded = filteredOperations.reduce((acc, c) => acc + (c?.qty_loaded || 0), 0);
+  const currentTotalDelivered = filteredOperations.reduce((acc, c) => acc + (c?.qty_delivered || 0), 0);
+  const currentTotalWastage = filteredOperations.reduce((acc, c) => acc + (c?.qty_wastage || 0), 0);
+  const currentTotalSales = filteredOperations.reduce((acc, c) => acc + (c?.sales_amount || 0), 0);
 
   const handleDelete = (id: string) => {
     if (confirm(isAr ? 'هل أنت متأكد من رغبتك في حذف هذا السجل التشغيلي؟' : 'Delete this haulage record?')) {

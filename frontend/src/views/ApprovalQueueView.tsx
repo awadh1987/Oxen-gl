@@ -176,10 +176,12 @@ export const ApprovalQueueView: React.FC = () => {
   };
 
   const filteredItems = items.filter(item => {
+    if (!item) return false;
+    const q = (searchQuery || '').trim().toLowerCase();
     const matchesSearch =
-      item.document_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.requester_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.document_number || '').toLowerCase().includes(q) ||
+      (item.requester_name || '').toLowerCase().includes(q) ||
+      (item.description || '').toLowerCase().includes(q);
     const matchesType = selectedType === 'ALL' || item.document_type === selectedType;
     return matchesSearch && matchesType;
   });

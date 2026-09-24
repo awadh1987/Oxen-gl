@@ -103,11 +103,14 @@ export const ProcurementView: React.FC = () => {
     }).catch(() => {});
   }, []);
 
-  const filteredOrders = purchaseOrders.filter(
-    (po) =>
-      po.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      po.vendorName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOrders = purchaseOrders.filter((po) => {
+    if (!po) return false;
+    const q = (searchTerm || '').trim().toLowerCase();
+    return (
+      (po.poNumber || '').toLowerCase().includes(q) ||
+      (po.vendorName || '').toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-6" id="procurement-view">

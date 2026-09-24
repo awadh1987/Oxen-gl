@@ -101,12 +101,15 @@ export const HRMSView: React.FC = () => {
     }).catch(() => {});
   }, []);
 
-  const filteredEmployees = employees.filter(
-    (emp) =>
-      emp.nameAr.includes(searchTerm) ||
-      emp.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.employeeNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredEmployees = employees.filter((emp) => {
+    if (!emp) return false;
+    const q = (searchTerm || '').trim().toLowerCase();
+    return (
+      (emp.nameAr || '').includes(searchTerm) ||
+      (emp.nameEn || '').toLowerCase().includes(q) ||
+      (emp.employeeNumber || '').toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-6" id="hrms-view">
