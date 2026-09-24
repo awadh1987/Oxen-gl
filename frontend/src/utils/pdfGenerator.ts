@@ -413,14 +413,16 @@ export function sanitizeStylePropertyValue(propertyName: string, value: string):
  */
 function createSanitizedStyleDeclaration(realStyle: CSSStyleDeclaration): CSSStyleDeclaration {
   return new Proxy(realStyle, {
-    get(target, prop, receiver) {
+    get(target, prop, _receiver) {
       if (prop === 'getPropertyValue') {
         return (propertyName: string): string => {
           const raw = target.getPropertyValue(propertyName);
           return sanitizeStylePropertyValue(propertyName, raw);
         };
       }
-      const val = Reflect.get(target, prop, receiver);
+      // Pass target as receiver (NOT Proxy receiver) so native WebIDL getters execute with realStyle context,
+      // preventing "TypeError: Illegal invocation"
+      const val = Reflect.get(target, prop, target);
       if (typeof prop === 'string' && typeof val === 'string') {
         return sanitizeStylePropertyValue(prop, val);
       }
@@ -428,6 +430,21 @@ function createSanitizedStyleDeclaration(realStyle: CSSStyleDeclaration): CSSSty
         return val.bind(target);
       }
       return val;
+    },
+  });
+}
+
+/**
+ * Creates a Proxy wrapping window.getComputedStyle that preserves target function binding to window
+ * and ensures Reflect.apply explicitly binds to the window context, avoiding "TypeError: Illegal invocation"
+ */
+function createGetComputedStyleProxy(targetWindow: Window): typeof window.getComputedStyle {
+  const origFn = targetWindow.getComputedStyle;
+  const boundTarget = origFn.bind(targetWindow);
+  return new Proxy(boundTarget, {
+    apply(target, _thisArg, args: [Element, (string | null | undefined)?]) {
+      const real = Reflect.apply(target, targetWindow, args) as CSSStyleDeclaration;
+      return createSanitizedStyleDeclaration(real);
     },
   });
 }
@@ -501,14 +518,7 @@ function normalizeElementColorsForHtml2Canvas(clonedDoc: Document) {
   // 1. Hook cloned document's defaultView getComputedStyle if present
   try {
     if (clonedDoc.defaultView && clonedDoc.defaultView !== window) {
-      const origClonedGetComputedStyle = clonedDoc.defaultView.getComputedStyle;
-      clonedDoc.defaultView.getComputedStyle = function (
-        elt: Element,
-        pseudoElt?: string | null
-      ): CSSStyleDeclaration {
-        const real = origClonedGetComputedStyle.call(clonedDoc.defaultView, elt, pseudoElt);
-        return createSanitizedStyleDeclaration(real);
-      };
+      clonedDoc.defaultView.getComputedStyle = createGetComputedStyleProxy(clonedDoc.defaultView);
     }
   } catch {}
 
@@ -722,12 +732,10 @@ export async function captureElementWithStaging(
 export async function captureElementToPng(element: HTMLElement, scale: number = 2): Promise<string> {
   const origGetComputedStyle = window.getComputedStyle;
   try {
-    // Intercept window.getComputedStyle so that html2canvas CSSParsedDeclaration
-    // receives only safe standard sRGB colors and no oklab/oklch strings
-    window.getComputedStyle = function (elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
-      const real = origGetComputedStyle.call(window, elt, pseudoElt);
-      return createSanitizedStyleDeclaration(real);
-    };
+    // Intercept window.getComputedStyle via createGetComputedStyleProxy so that
+    // target function is bound to window and Reflect.apply explicitly binds to window context,
+    // preventing "TypeError: Illegal invocation"
+    window.getComputedStyle = createGetComputedStyleProxy(window);
 
     const canvas = await html2canvas(element, {
       scale,
