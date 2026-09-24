@@ -377,6 +377,9 @@ from backend.api.routes.hrms_ledger import router as hrms_ledger_router
 app.include_router(hrms_ledger_router)
 from backend.api.routes.procurement import router as procurement_ledger_router
 app.include_router(procurement_ledger_router)
+from backend.api.routes.inventory import router as inventory_ledger_router
+app.include_router(inventory_ledger_router)
+
 
 
 

@@ -110,3 +110,34 @@ class LandedCostItem(Base):
     final_effective_cost: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
 
     allocation: Mapped["LandedCostAllocation"] = relationship("LandedCostAllocation", back_populates="items")
+
+
+class InventoryMovement(Base):
+    """Inventory movement and valuation adjustments linked to General Ledger."""
+    __tablename__ = "inventory_movements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
+    company_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("res_companies.id", ondelete="SET NULL"), nullable=True, index=True)
+    movement_number: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    movement_type: Mapped[str] = mapped_column(String(32), nullable=False, default="ADJUSTMENT")  # 'ADJUSTMENT', 'INBOUND', 'OUTBOUND', 'TRANSFER', 'SCRAP'
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("product_products.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    quantity: Mapped[Decimal] = mapped_column(Numeric(18, 4), nullable=False)
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(18, 4), default=Decimal("0.0000"), nullable=False)
+    total_cost: Mapped[Decimal] = mapped_column(Numeric(18, 4), default=Decimal("0.0000"), nullable=False)
+
+    reason: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    reference: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="COMPLETED", nullable=False)  # 'DRAFT', 'COMPLETED', 'POSTED'
+    is_posted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    journal_entry_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("finance_journal_entries.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False)
+
+    warehouse: Mapped[Optional["Warehouse"]] = relationship("Warehouse", foreign_keys=[warehouse_id])
+    product: Mapped[Optional["ProductProduct"]] = relationship("ProductProduct", foreign_keys=[product_id])
+    journal_entry: Mapped[Optional["FinanceJournalEntry"]] = relationship("FinanceJournalEntry", foreign_keys=[journal_entry_id])
+

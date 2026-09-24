@@ -46,6 +46,7 @@ const SuperAdminLogsView = React.lazy(() => import('./views/SuperAdminLogsView')
 const SuperAdminAnalyticsView = React.lazy(() => import('./views/SuperAdminAnalyticsView').then(m => ({ default: m.SuperAdminAnalyticsView })));
 const ResetPasswordView = React.lazy(() => import('./views/ResetPasswordView').then(m => ({ default: m.ResetPasswordView })));
 const ProcurementView = React.lazy(() => import('./views/ProcurementView').then(m => ({ default: m.ProcurementView })));
+const InventoryView = React.lazy(() => import('./views/InventoryView').then(m => ({ default: m.InventoryView })));
 const HRMSView = React.lazy(() => import('./views/HRMSView').then(m => ({ default: m.HRMSView })));
 
 const ViewLoadingFallback = () => (
@@ -77,6 +78,7 @@ export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
   '/operations/customs': 'customs',
   '/operations/planning': 'planning',
   '/operations/procurement': 'procurement',
+  '/operations/inventory': 'inventory',
   '/operations/hr': 'hr',
 
   // Finance Ribbon
@@ -101,6 +103,7 @@ export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
   '/operations': 'operations',
   '/planning': 'planning',
   '/procurement': 'procurement',
+  '/inventory': 'inventory',
   '/hr': 'hr',
   '/customs': 'customs',
   '/invoicing': 'invoicing',
@@ -136,7 +139,7 @@ export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
   hub: '/operations/daily',
   dashboard: '/operations/daily',
   approvals: '/settings/approvals',
-  inventory: '/operations/procurement',
+  inventory: '/operations/inventory',
   mfa: '/login',
   'admin-hub': '/operations/daily',
 };
@@ -155,6 +158,7 @@ export const getTabFromPath = (path: string): ActiveTab => {
   if (cleanPath.startsWith('/operations/customs')) return 'customs';
   if (cleanPath.startsWith('/operations/planning')) return 'planning';
   if (cleanPath.startsWith('/operations/procurement') || cleanPath.startsWith('/procurement')) return 'procurement';
+  if (cleanPath.startsWith('/operations/inventory') || cleanPath.startsWith('/inventory')) return 'inventory';
   if (cleanPath.startsWith('/operations/hr') || cleanPath.startsWith('/hr')) return 'hr';
 
   if (cleanPath.startsWith('/finance/invoices')) return 'invoicing';
@@ -684,6 +688,8 @@ function AppContent() {
         return <ApprovalQueueView />;
       case 'procurement':
         return <ProcurementView />;
+      case 'inventory':
+        return <InventoryView />;
       case 'hr':
         return <HRMSView />;
       case 'mfa':

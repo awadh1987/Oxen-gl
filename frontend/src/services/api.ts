@@ -1188,6 +1188,32 @@ export const erpApi = {
   getProcurementVendors: (companyId?: string) =>
     request<any[]>('/api/procurement/vendors', companyId),
 
+  // Inventory Management & Double-Entry Ledger Integration (Phase 8)
+  getInventoryMovements: (companyId?: string) =>
+    request<ApiInventoryMovement[]>('/api/inventory/movements', companyId),
+  getInventoryMovement: (movementId: string, companyId?: string) =>
+    request<ApiInventoryMovement>(`/api/inventory/movements/${movementId}`, companyId),
+  createInventoryMovement: (payload: any, companyId?: string) =>
+    request<ApiInventoryMovement>('/api/inventory/movements', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  postInventoryMovementToLedger: (movementId: string, companyId?: string) =>
+    request<ApiJournalEntry>(`/api/inventory/movements/${movementId}/post-ledger`, companyId, {
+      method: 'POST',
+    }),
+  getInventoryWarehouses: (companyId?: string) =>
+    request<ApiWarehouse[]>('/api/inventory/warehouses', companyId),
+  createInventoryWarehouse: (payload: any, companyId?: string) =>
+    request<ApiWarehouse>('/api/inventory/warehouses', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getInventoryProducts: (companyId?: string) =>
+    request<ApiProduct[]>('/api/inventory/products', companyId),
+  getInventoryValuationSummary: (companyId?: string) =>
+    request<ApiInventoryValuationSummary>('/api/inventory/valuation', companyId),
+
   // Legacy System Resource Excel Import
   importLegacySystemResource: (file: File, companyId?: string) => {
     const formData = new FormData();
@@ -1211,6 +1237,54 @@ export const erpApi = {
     });
   },
 };
+
+export interface ApiInventoryMovement {
+  id: string;
+  tenant_id: string;
+  company_id?: string;
+  movement_number: string;
+  movement_type: string;
+  warehouse_id: string;
+  warehouse_name?: string;
+  product_id?: string;
+  product_name?: string;
+  quantity: number;
+  unit_cost: number;
+  total_cost: number;
+  reason?: string;
+  reference?: string;
+  status: string;
+  is_posted: boolean;
+  journal_entry_id?: string;
+  created_at: string;
+}
+
+export interface ApiWarehouse {
+  id: string;
+  company_id: string;
+  code: string;
+  name: string;
+  address?: string;
+  is_active: boolean;
+}
+
+export interface ApiProduct {
+  id: string;
+  sku: string;
+  name: string;
+  product_type: string;
+  unit_of_measure: string;
+  standard_cost: number;
+  sale_price: number;
+  is_active: boolean;
+}
+
+export interface ApiInventoryValuationSummary {
+  total_valuation: number;
+  total_items: number;
+  posted_movements: number;
+  pending_movements: number;
+}
 
 export interface ApiProcurementBill {
   id: string;

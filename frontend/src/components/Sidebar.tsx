@@ -22,6 +22,7 @@ import {
   Scale,
   FileCheck2,
   ShoppingCart,
+  Boxes,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -208,6 +209,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         icon: ShoppingCart,
         roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
         badge: 'S2P',
+      },
+      {
+        id: 'inventory',
+        labelAr: 'المخزون والتقييم المالي',
+        labelEn: 'Inventory & Valuation',
+        path: '/operations/inventory',
+        icon: Boxes,
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
+        badge: 'GL',
       },
 
       // 3. Logistics & Fleet
@@ -396,7 +406,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelAr: 'المشتريات وسلسلة التوريد',
         labelEn: 'Procurement & S2P',
         icon: ShoppingCart,
-        itemIds: ['procurement'],
+        itemIds: ['procurement', 'inventory'],
       },
       {
         id: 'logistics',

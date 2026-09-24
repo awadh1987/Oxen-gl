@@ -2154,3 +2154,20 @@ from backend.app.domains.procurement.models import (  # noqa: E402
     WorkflowInstance,
     WorkflowStep,
 )
+
+
+# ==============================================================================
+# Phase 8: Inventory Management & Double-Entry Ledger Integration
+# ==============================================================================
+from backend.app.domains.inventory.models import (  # noqa: E402
+    Material,
+    StockBalance,
+    LandedCostAllocation,
+    LandedCostItem,
+    InventoryMovement,
+)
+
+# Semantic domain aliases for Inventory & General Ledger integration
+Product = ProductProduct
+InventoryLedgerMovement = InventoryMovement
+
