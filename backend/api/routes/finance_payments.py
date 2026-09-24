@@ -23,13 +23,14 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/finance/payments", tags=["Tenant Invoices"])
+router = APIRouter(prefix="/api/finance", tags=["Tenant Invoices"])
 MOYASAR_SECRET_KEY = os.getenv("MOYASAR_SECRET_KEY", "")
 
 
+@router.post("/payments/moyasar/verify/{invoice_id}", status_code=status.HTTP_200_OK)
 @router.post("/moyasar/verify/{invoice_id}", status_code=status.HTTP_200_OK)
 async def verify_moyasar_payment(
-    invoice_id: int,
+    invoice_id: str,
     request: Request,
     db: Session = Depends(get_db),
 ):
@@ -53,7 +54,12 @@ async def verify_moyasar_payment(
             detail="Transaction ID required",
         )
 
-    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    invoice = None
+    if str(invoice_id).isdigit():
+        invoice = db.query(Invoice).filter(Invoice.id == int(invoice_id)).first()
+    if not invoice:
+        invoice = db.query(Invoice).filter(Invoice.invoice_number == str(invoice_id)).first()
+
     if not invoice:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -147,3 +153,33 @@ async def verify_moyasar_payment(
         "currency": invoice.currency,
         "payment_method": invoice.payment_method,
     }
+
+
+@router.get("/invoices/public/{token}", status_code=status.HTTP_200_OK)
+@router.get("/payments/invoices/public/{token}", status_code=status.HTTP_200_OK)
+async def get_public_invoice(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Public, unauthenticated retrieval of invoice metadata by public magic link token.
+    Exposes only a safe subset of data for external checkout/verification without
+    exposing internal tenant/vendor IDs or sensitive accounting details.
+    """
+    invoice = db.query(Invoice).filter(Invoice.public_token == token).first()
+    if not invoice:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invoice not found",
+        )
+
+    return {
+        "id": invoice.id,
+        "invoice_number": invoice.invoice_number,
+        "total_amount": float(invoice.total_amount),
+        "currency": invoice.currency,
+        "payment_status": invoice.payment_status,
+        "paid_at": invoice.paid_at.isoformat() if invoice.paid_at else None,
+        "payment_method": invoice.payment_method,
+    }
+

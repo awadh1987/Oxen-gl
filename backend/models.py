@@ -2086,5 +2086,7 @@ class Invoice(Base):
     moyasar_transaction_id: Mapped[Optional[str]] = mapped_column(String(128), unique=True, nullable=True, index=True)
     payment_method: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    public_token = Column(String(64), unique=True, index=True, nullable=True, default=lambda: str(uuid.uuid4()))
+
 
 

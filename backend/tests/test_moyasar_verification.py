@@ -130,3 +130,33 @@ def test_moyasar_verify_success(test_invoice):
     assert inv.payment_method == "creditcard"
     assert inv.paid_at is not None
     db.close()
+
+
+def test_get_public_invoice_success(test_invoice):
+    client = TestClient(app)
+    db = SessionLocal()
+    inv = db.query(Invoice).filter(Invoice.id == test_invoice).first()
+    token = inv.public_token
+    db.close()
+
+    assert token is not None
+    resp = client.get(f"/api/finance/invoices/public/{token}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["id"] == test_invoice
+    assert data["invoice_number"] == "INV-MOYASAR-TEST-001"
+    assert data["total_amount"] == 250.0
+    assert data["currency"] == "SAR"
+    assert data["payment_status"] == "pending"
+    # Ensure sensitive fields are NOT exposed
+    assert "tenant_id" not in data
+    assert "vendor_id" not in data
+    assert "company_id" not in data
+
+
+def test_get_public_invoice_not_found():
+    client = TestClient(app)
+    resp = client.get("/api/finance/invoices/public/non-existent-token-12345")
+    assert resp.status_code == 404
+    assert "Invoice not found" in resp.json()["detail"]
+

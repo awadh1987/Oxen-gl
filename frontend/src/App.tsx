@@ -28,6 +28,7 @@ const LandingPageView = React.lazy(() => import('./views/LandingPageView').then(
 const SuperAdminLoginView = React.lazy(() => import('./views/SuperAdminLoginView').then(m => ({ default: m.SuperAdminLoginView })));
 const SuperAdminCockpitView = React.lazy(() => import('./views/SuperAdminCockpitView').then(m => ({ default: m.SuperAdminCockpitView })));
 const PublicSharedInvoiceView = React.lazy(() => import('./views/PublicSharedInvoiceView').then(m => ({ default: m.PublicSharedInvoiceView })));
+const PublicInvoiceView = React.lazy(() => import('./views/PublicInvoiceView').then(m => ({ default: m.PublicInvoiceView })));
 const WorkflowAutomationView = React.lazy(() => import('./views/WorkflowAutomationView').then(m => ({ default: m.WorkflowAutomationView })));
 const DesignSystemStudioView = React.lazy(() => import('./views/DesignSystemStudioView').then(m => ({ default: m.DesignSystemStudioView })));
 const TenantBillingView = React.lazy(() => import('./views/TenantBillingView').then(m => ({ default: m.TenantBillingView })));
@@ -375,6 +376,16 @@ function AppContent() {
             setSharedInvoiceParams(null);
           }}
         />
+      </Suspense>
+    );
+  }
+
+  // Phase 5: Tokenized Magic Link Public Invoice Routing (Unauthenticated External Checkout)
+  if (currentPath.startsWith('/shared/invoice/')) {
+    const token = currentPath.substring('/shared/invoice/'.length).split('/')[0].split('?')[0];
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route path="/shared/invoice/:token" element={<PublicInvoiceView token={token} />} />
       </Suspense>
     );
   }
