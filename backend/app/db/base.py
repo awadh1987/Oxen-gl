@@ -5,6 +5,7 @@ Imported by Alembic and runtime bootstrap to discover all declarative models.
 
 from backend.database import Base
 from backend import models  # noqa: F401
+from backend.models import Invoice  # noqa: F401
 
 # IAM Domain Models
 from backend.app.domains.iam.models import (
@@ -100,6 +101,7 @@ __all__ = [
     "Account",
     "JournalEntry",
     "JournalLine",
+    "Invoice",
     # HR & Payroll
     "Employee",
     "AttendanceLog",

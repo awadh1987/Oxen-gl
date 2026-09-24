@@ -12,7 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
-from .database import Base
+try:
+    from .database import Base
+except ImportError:
+    from database import Base
 from backend.app.domains.inventory.models import Material
 
 
@@ -1741,6 +1744,14 @@ class MasterTenant(TimestampMixin, Base):
     subscription_tier: Mapped[str] = mapped_column(String(32), default="standard", nullable=False)
     max_users: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
     max_storage_gb: Mapped[int] = mapped_column(Integer, default=25, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"), nullable=False)
+
+    # Paddle SaaS Subscription Metadata
+    subscription_plan: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="trial", server_default=text("'trial'"))
+    subscription_status: Mapped[str] = mapped_column(String(32), nullable=False, default="trialing", server_default=text("'trialing'"))
+    paddle_customer_id: Mapped[Optional[str]] = mapped_column(String(128), unique=True, nullable=True, index=True)
+    paddle_subscription_id: Mapped[Optional[str]] = mapped_column(String(128), unique=True, nullable=True, index=True)
+    license_expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     database_config: Mapped["TenantDatabase"] = relationship(
         "TenantDatabase", back_populates="tenant", uselist=False, cascade="all, delete-orphan"
@@ -2057,4 +2068,23 @@ class SystemSequence(TimestampMixin, Base):
     __table_args__ = (
         Index("uq_tenant_entity_fiscal", "tenant_id", "entity_type", text("COALESCE(fiscal_year, 0)"), unique=True),
     )
+
+
+# ==============================================================================
+# Moyasar B2B Invoices Subsystem Models
+# ==============================================================================
+class Invoice(Base):
+    __tablename__ = "invoices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    invoice_number: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), default="SAR", nullable=False)
+
+    # Moyasar Payment Metadata
+    payment_status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    moyasar_transaction_id: Mapped[Optional[str]] = mapped_column(String(128), unique=True, nullable=True, index=True)
+    payment_method: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
 
