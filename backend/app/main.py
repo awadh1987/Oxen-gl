@@ -371,6 +371,9 @@ from backend.app.api.v1 import system as system_api
 app.include_router(system_api.router)
 from backend.api.routes.platform_billing import router as platform_billing_router
 app.include_router(platform_billing_router)
+from backend.api.routes.finance_payments import router as finance_payments_router
+app.include_router(finance_payments_router)
+
 
 
 def get_db() -> Generator[Session, None, None]:
