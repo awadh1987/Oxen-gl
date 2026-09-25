@@ -6,6 +6,7 @@ Create Date: 2026-09-15 01:45:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 revision = '202609150145'
 down_revision = '202609141123'
@@ -16,7 +17,7 @@ def upgrade() -> None:
     op.create_table(
         'tenant_audit_logs',
         sa.Column('id', sa.String(length=36), nullable=False),
-        sa.Column('tenant_id', sa.String(length=36), nullable=True),
+        sa.Column('tenant_id', postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column('action_type', sa.String(length=50), nullable=False),
         sa.Column('actor', sa.String(length=100), nullable=True),
         sa.Column('details', sa.Text(), nullable=False),
