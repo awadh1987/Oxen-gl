@@ -311,18 +311,23 @@ class MasterLoginRequest(BaseModel):
 class TenantLoginRequest(BaseModel):
     workspace_slug: Optional[str] = Field(None, description="Tenant organization slug (e.g. alpha-logistics)")
     tenant_slug: Optional[str] = Field(None, description="Alias for workspace_slug")
-    identity: str = Field(..., description="Tenant user Email or Mobile Phone")
+    identity: Optional[str] = Field(None, description="Tenant user Email or Mobile Phone")
+    email: Optional[str] = Field(None, description="Alias for identity")
     password: str = Field(..., min_length=8)
 
     @model_validator(mode="before")
     @classmethod
     def resolve_slug(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            slug = data.get("workspace_slug") or data.get("tenant_slug")
+            slug = data.get("workspace_slug") or data.get("tenant_slug") or data.get("slug")
             if not slug:
                 raise ValueError("workspace_slug or tenant_slug is required")
             data["workspace_slug"] = slug
             data["tenant_slug"] = slug
+            ident = data.get("identity") or data.get("email") or data.get("username")
+            if not ident:
+                raise ValueError("identity or email is required")
+            data["identity"] = ident
         return data
 
 
@@ -601,25 +606,28 @@ def tenant_login(request: Request, payload: TenantLoginRequest, master_db: Sessi
             found_user_row = None
             for s in target_schemas:
                 try:
-                    query_sql = text(f'SELECT id, email, password_hash, name, role FROM "{s}".users WHERE LOWER(email) = :val OR username = :val LIMIT 1')
-                    res = tenant_db.execute(query_sql, {"val": normalized_val}).mappings().first()
-                    if res:
-                        found_user_row = res
-                        break
+                    with tenant_db.begin_nested():
+                        query_sql = text(f'SELECT id, email, password_hash, name, role FROM "{s}".users WHERE LOWER(email) = :val OR username = :val LIMIT 1')
+                        res = tenant_db.execute(query_sql, {"val": normalized_val}).mappings().first()
+                        if res:
+                            found_user_row = res
+                            break
                 except Exception:
                     pass
             if not found_user_row:
                 try:
-                    res = tenant_db.execute(text('SELECT id, email, password_hash, name, role FROM public.users WHERE LOWER(email) = :val OR username = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
-                    if res:
-                        found_user_row = res
+                    with tenant_db.begin_nested():
+                        res = tenant_db.execute(text('SELECT id, email, password_hash, name, role FROM public.users WHERE LOWER(email) = :val OR username = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
+                        if res:
+                            found_user_row = res
                 except Exception:
                     pass
             if not found_user_row:
                 try:
-                    res = tenant_db.execute(text('SELECT id, email, password_hash, full_name as name, role FROM res_users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
-                    if res:
-                        found_user_row = res
+                    with tenant_db.begin_nested():
+                        res = tenant_db.execute(text('SELECT id, email, password_hash, full_name as name, role FROM res_users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
+                        if res:
+                            found_user_row = res
                 except Exception:
                     pass
 
@@ -661,24 +669,27 @@ def tenant_login(request: Request, payload: TenantLoginRequest, master_db: Sessi
             target_schemas = list(dict.fromkeys([sanitized, tenant.slug, slug, slug.replace("-", "_")]))
             for s in target_schemas:
                 try:
-                    res = tenant_db.execute(text(f'SELECT password_hash FROM "{s}".users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
-                    if res and verify_password(payload.password, res["password_hash"]):
-                        matched_fallback = True
-                        break
+                    with tenant_db.begin_nested():
+                        res = tenant_db.execute(text(f'SELECT password_hash FROM "{s}".users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
+                        if res and verify_password(payload.password, res["password_hash"]):
+                            matched_fallback = True
+                            break
                 except Exception:
                     pass
             if not matched_fallback:
                 try:
-                    res = tenant_db.execute(text('SELECT password_hash FROM res_users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
-                    if res and verify_password(payload.password, res["password_hash"]):
-                        matched_fallback = True
+                    with tenant_db.begin_nested():
+                        res = tenant_db.execute(text('SELECT password_hash FROM res_users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
+                        if res and verify_password(payload.password, res["password_hash"]):
+                            matched_fallback = True
                 except Exception:
                     pass
             if not matched_fallback:
                 try:
-                    res = tenant_db.execute(text('SELECT password_hash FROM public.users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
-                    if res and verify_password(payload.password, res["password_hash"]):
-                        matched_fallback = True
+                    with tenant_db.begin_nested():
+                        res = tenant_db.execute(text('SELECT password_hash FROM public.users WHERE LOWER(email) = :val LIMIT 1'), {"val": normalized_val}).mappings().first()
+                        if res and verify_password(payload.password, res["password_hash"]):
+                            matched_fallback = True
                 except Exception:
                     pass
 
