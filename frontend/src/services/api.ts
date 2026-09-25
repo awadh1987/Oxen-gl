@@ -375,6 +375,62 @@ export interface ApiJournalEntry {
   lines?: ApiJournalLine[];
 }
 
+export interface ApiTrialBalanceAccount {
+  account_code: string;
+  account_name: string;
+  account_name_ar?: string | null;
+  account_type: string;
+  total_debit: number | string;
+  total_credit: number | string;
+  net_balance: number | string;
+  debit_balance: number | string;
+  credit_balance: number | string;
+}
+
+export interface ApiTrialBalanceReport {
+  is_balanced: boolean;
+  total_debit: number | string;
+  total_credit: number | string;
+  discrepancy: number | string;
+  as_of_date: string;
+  accounts: ApiTrialBalanceAccount[];
+}
+
+export interface ApiFinancialReportAccount {
+  account_code: string;
+  account_name: string;
+  account_name_ar?: string | null;
+  account_type: string;
+  amount: number | string;
+  total_debit: number | string;
+  total_credit: number | string;
+}
+
+export interface ApiIncomeStatementReport {
+  total_revenue: number | string;
+  total_expenses: number | string;
+  net_income: number | string;
+  gross_profit: number | string;
+  operating_margin_percentage: number;
+  as_of_date: string;
+  revenue_accounts: ApiFinancialReportAccount[];
+  expense_accounts: ApiFinancialReportAccount[];
+}
+
+export interface ApiBalanceSheetReport {
+  total_assets: number | string;
+  total_liabilities: number | string;
+  total_equity: number | string;
+  current_period_net_income: number | string;
+  total_liabilities_and_equity: number | string;
+  is_balanced: boolean;
+  discrepancy: number | string;
+  as_of_date: string;
+  asset_accounts: ApiFinancialReportAccount[];
+  liability_accounts: ApiFinancialReportAccount[];
+  equity_accounts: ApiFinancialReportAccount[];
+}
+
 export interface CustomerInvoiceCreatePayload {
   partner_id?: string | null;
   invoice_number?: string | null;
@@ -1219,6 +1275,34 @@ export const erpApi = {
     request<ApiProduct[]>('/api/inventory/products', companyId),
   getInventoryValuationSummary: (companyId?: string) =>
     request<ApiInventoryValuationSummary>('/api/inventory/valuation', companyId),
+
+  // Financial Reporting & Analytics Engine (Phase 10)
+  getAnalyticsTrialBalance: (params?: { companyId?: string; tenantId?: string; fromDate?: string; toDate?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.companyId) sp.append('company_id', params.companyId);
+    if (params?.tenantId) sp.append('tenant_id', params.tenantId);
+    if (params?.fromDate) sp.append('from_date', params.fromDate);
+    if (params?.toDate) sp.append('to_date', params.toDate);
+    const qs = sp.toString() ? `?${sp.toString()}` : '';
+    return request<ApiTrialBalanceReport>(`/api/analytics/trial-balance${qs}`, params?.companyId);
+  },
+  getAnalyticsIncomeStatement: (params?: { companyId?: string; tenantId?: string; fromDate?: string; toDate?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.companyId) sp.append('company_id', params.companyId);
+    if (params?.tenantId) sp.append('tenant_id', params.tenantId);
+    if (params?.fromDate) sp.append('from_date', params.fromDate);
+    if (params?.toDate) sp.append('to_date', params.toDate);
+    const qs = sp.toString() ? `?${sp.toString()}` : '';
+    return request<ApiIncomeStatementReport>(`/api/analytics/income-statement${qs}`, params?.companyId);
+  },
+  getAnalyticsBalanceSheet: (params?: { companyId?: string; tenantId?: string; asOfDate?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.companyId) sp.append('company_id', params.companyId);
+    if (params?.tenantId) sp.append('tenant_id', params.tenantId);
+    if (params?.asOfDate) sp.append('as_of_date', params.asOfDate);
+    const qs = sp.toString() ? `?${sp.toString()}` : '';
+    return request<ApiBalanceSheetReport>(`/api/analytics/balance-sheet${qs}`, params?.companyId);
+  },
 
   // Legacy System Resource Excel Import
   importLegacySystemResource: (file: File, companyId?: string) => {

@@ -12,6 +12,7 @@ from backend.app.main import app  # noqa: F401,E402
 from backend.api.routes.hrms_ledger import router as hrms_ledger_router  # noqa: F401,E402
 from backend.api.routes.procurement import router as procurement_router  # noqa: F401,E402
 from backend.api.routes.inventory import router as inventory_router  # noqa: F401,E402
+from backend.api.routes.analytics import router as analytics_router  # noqa: F401,E402
 
-__all__ = ["app", "hrms_ledger_router", "procurement_router", "inventory_router"]
+__all__ = ["app", "hrms_ledger_router", "procurement_router", "inventory_router", "analytics_router"]
 

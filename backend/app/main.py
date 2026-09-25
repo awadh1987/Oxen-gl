@@ -379,6 +379,8 @@ from backend.api.routes.procurement import router as procurement_ledger_router
 app.include_router(procurement_ledger_router)
 from backend.api.routes.inventory import router as inventory_ledger_router
 app.include_router(inventory_ledger_router)
+from backend.api.routes.analytics import router as analytics_ledger_router
+app.include_router(analytics_ledger_router)
 
 
 

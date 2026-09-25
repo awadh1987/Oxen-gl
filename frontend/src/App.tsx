@@ -6,7 +6,7 @@ import { Sidebar, ActiveTab } from './components/Sidebar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AIAssistantWidget } from './components/AIAssistantWidget';
 import type { ExportDocType } from './components/ExportPrintModal';
-import { Building2, Cpu, CreditCard, Layers, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X, Globe, Radio } from 'lucide-react';
+import { Building2, Cpu, CreditCard, Layers, FileSpreadsheet, Landmark, LayoutDashboard, Menu, Palette, Receipt, Scale, Sparkles, Truck, Users, Wrench, X, Globe, Radio, TrendingUp } from 'lucide-react';
 import { UserRole } from './types';
 import { getSubdomain, isApexDomain } from './utils/subdomain';
 import { useNavigate } from './hooks/useNavigate';
@@ -48,6 +48,7 @@ const ResetPasswordView = React.lazy(() => import('./views/ResetPasswordView').t
 const ProcurementView = React.lazy(() => import('./views/ProcurementView').then(m => ({ default: m.ProcurementView })));
 const InventoryView = React.lazy(() => import('./views/InventoryView').then(m => ({ default: m.InventoryView })));
 const HRMSView = React.lazy(() => import('./views/HRMSView').then(m => ({ default: m.HRMSView })));
+const FinancialReportsView = React.lazy(() => import('./views/FinancialReportsView').then(m => ({ default: m.FinancialReportsView })));
 
 const ViewLoadingFallback = () => (
   <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-12 text-center">
@@ -85,7 +86,10 @@ export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
   '/finance/invoices': 'invoicing',
   '/finance/vouchers': 'vouchers',
   '/finance/chart': 'finance-chart',
-  '/finance/trial-balance': 'finance-trial-balance',
+  '/finance/trial-balance': 'financial-reports',
+  '/finance/reports': 'financial-reports',
+  '/finance/income-statement': 'financial-reports',
+  '/finance/balance-sheet': 'financial-reports',
   '/finance/audit-closing': 'finance-audit-closing',
   '/finance/ai-auditor': 'ai-insights',
 
@@ -126,6 +130,7 @@ export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
   vouchers: '/finance/vouchers',
   'finance-chart': '/finance/chart',
   'finance-trial-balance': '/finance/trial-balance',
+  'financial-reports': '/finance/reports',
   'finance-audit-closing': '/finance/audit-closing',
   'ai-insights': '/finance/ai-auditor',
 
@@ -164,7 +169,7 @@ export const getTabFromPath = (path: string): ActiveTab => {
   if (cleanPath.startsWith('/finance/invoices')) return 'invoicing';
   if (cleanPath.startsWith('/finance/vouchers')) return 'vouchers';
   if (cleanPath.startsWith('/finance/chart')) return 'finance-chart';
-  if (cleanPath.startsWith('/finance/trial-balance')) return 'finance-trial-balance';
+  if (cleanPath.startsWith('/finance/reports') || cleanPath.startsWith('/finance/trial-balance') || cleanPath.startsWith('/finance/income-statement') || cleanPath.startsWith('/finance/balance-sheet')) return 'financial-reports';
   if (cleanPath.startsWith('/finance/audit-closing')) return 'finance-audit-closing';
   if (cleanPath.startsWith('/finance/ai-auditor')) return 'ai-insights';
 
@@ -200,6 +205,7 @@ export const tenantNavigation: {
   { id: 'invoicing', path: '/finance/invoices', labelAr: 'الفوترة الضريبية', labelEn: 'ZATCA Invoicing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
   { id: 'vouchers', path: '/finance/vouchers', labelAr: 'السندات المالية', labelEn: 'Financial Vouchers', icon: Receipt, group: 'Finance, Accounting & Control' },
   { id: 'finance-chart', path: '/finance/chart', labelAr: 'شجرة الحسابات', labelEn: 'Chart of Accounts', icon: Landmark, group: 'Finance, Accounting & Control' },
+  { id: 'financial-reports', path: '/finance/reports', labelAr: 'التقارير المالية المجمعة', labelEn: 'Financial Reports Engine', icon: TrendingUp, group: 'Finance, Accounting & Control' },
   { id: 'finance-trial-balance', path: '/finance/trial-balance', labelAr: 'ميزان المراجعة', labelEn: 'Trial Balance', icon: Scale, group: 'Finance, Accounting & Control' },
   { id: 'finance-audit-closing', path: '/finance/audit-closing', labelAr: 'الإقفال السنوي والتدقيق', labelEn: 'Annual Audit Closing', icon: FileSpreadsheet, group: 'Finance, Accounting & Control' },
   { id: 'ai-insights', path: '/finance/ai-auditor', labelAr: 'مدقق العمليات الذكي', labelEn: 'AI Financial Auditor', icon: Sparkles, group: 'Finance, Accounting & Control' },
@@ -251,7 +257,7 @@ function AppContent() {
     const tab = typeof window !== 'undefined' ? getTabFromPath(window.location.pathname) : 'operations';
     const item = tenantNavigation.find(n => n.id === tab);
     if (item?.group) return item.group;
-    if (tab === 'finance-chart' || tab === 'finance-trial-balance' || tab === 'finance-audit-closing' || tab === 'invoicing' || tab === 'vouchers' || tab === 'ai-insights') {
+    if (tab === 'finance-chart' || tab === 'finance-trial-balance' || tab === 'financial-reports' || tab === 'finance-audit-closing' || tab === 'invoicing' || tab === 'vouchers' || tab === 'ai-insights') {
       return 'Finance, Accounting & Control';
     }
     return 'Operations & Logistics';
@@ -263,7 +269,7 @@ function AppContent() {
     const navItem = tenantNavigation.find(n => n.id === tab);
     if (navItem) {
       setSelectedDomain(navItem.group);
-    } else if (tab === 'finance-chart' || tab === 'finance-trial-balance' || tab === 'finance-audit-closing' || tab === 'invoicing' || tab === 'vouchers' || tab === 'ai-insights') {
+    } else if (tab === 'finance-chart' || tab === 'finance-trial-balance' || tab === 'financial-reports' || tab === 'finance-audit-closing' || tab === 'invoicing' || tab === 'vouchers' || tab === 'ai-insights') {
       setSelectedDomain('Finance, Accounting & Control');
     } else {
       setSelectedDomain('Operations & Logistics');
@@ -665,6 +671,7 @@ function AppContent() {
     'fleet-map': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'finance-chart': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     'finance-trial-balance': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
+    'financial-reports': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     'finance-audit-closing': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     approvals: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     procurement: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
@@ -709,7 +716,9 @@ function AppContent() {
       case 'finance-chart':
         return <FinanceReportsView initialMode="chart" />;
       case 'finance-trial-balance':
-        return <FinanceReportsView initialMode="trial-balance" />;
+        return <FinancialReportsView initialReport="trial-balance" />;
+      case 'financial-reports':
+        return <FinancialReportsView />;
       case 'finance-audit-closing':
         return <FinanceReportsView initialMode="audit-closing" />;
       case 'billing':

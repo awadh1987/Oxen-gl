@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   Boxes,
   Users,
+  TrendingUp,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -43,6 +44,7 @@ export type ActiveTab =
   | 'vouchers'
   | 'finance-chart'
   | 'finance-trial-balance'
+  | 'financial-reports'
   | 'finance-audit-closing'
   | 'crushers'
   | 'transporters'
@@ -296,6 +298,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         badge: 'GL',
       },
       {
+        id: 'financial-reports',
+        labelAr: 'التقارير والتحليلات المالية المجمعة',
+        labelEn: 'Financial Reports Engine',
+        path: '/finance/reports',
+        icon: TrendingUp,
+        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
+        badge: 'P&L / BS',
+      },
+      {
         id: 'finance-audit-closing',
         labelAr: 'الإقفال المالي والمراجعة السنوية',
         labelEn: 'Annual Audit Closing',
@@ -420,7 +431,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelAr: 'المالية ودفتر الأستاذ',
         labelEn: 'Finance & GL',
         icon: Receipt,
-        itemIds: ['invoicing', 'vouchers', 'finance-chart', 'finance-trial-balance', 'finance-audit-closing'],
+        itemIds: ['invoicing', 'vouchers', 'finance-chart', 'finance-trial-balance', 'financial-reports', 'finance-audit-closing'],
       },
       {
         id: 'hr',
