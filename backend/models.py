@@ -60,6 +60,12 @@ class ResCompany(TimestampMixin, Base):
     sso_config: Mapped[Optional["TenantSSOConfig"]] = relationship(
         "TenantSSOConfig", back_populates="company", uselist=False, cascade="all, delete-orphan"
     )
+    parent: Mapped[Optional["ResCompany"]] = relationship(
+        "ResCompany", remote_side="ResCompany.id", back_populates="children"
+    )
+    children: Mapped[list["ResCompany"]] = relationship(
+        "ResCompany", back_populates="parent"
+    )
 
     # Multi-Tenant Child Cascades (cascade="all, delete-orphan")
     users: Mapped[list["ResUser"]] = relationship(
@@ -102,7 +108,10 @@ class ResCompany(TimestampMixin, Base):
         "FiscalYear", cascade="all, delete-orphan", passive_deletes=True
     )
     cost_centers: Mapped[list["CostCenter"]] = relationship(
-        "CostCenter", cascade="all, delete-orphan", passive_deletes=True
+        "CostCenter", cascade="all, delete-orphan", passive_deletes=True, back_populates="company"
+    )
+    purchasing_organizations: Mapped[list["PurchasingOrganization"]] = relationship(
+        "PurchasingOrganization", cascade="all, delete-orphan", passive_deletes=True, back_populates="company"
     )
     invoices: Mapped[list["CustomerInvoice"]] = relationship(
         "CustomerInvoice", cascade="all, delete-orphan", passive_deletes=True
@@ -638,14 +647,43 @@ class CostCenter(TimestampMixin, Base):
     parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("cost_centers.id", ondelete="SET NULL"), index=True)
     code: Mapped[str] = mapped_column(String(32), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
+    company: Mapped[ResCompany] = relationship(back_populates="cost_centers")
     parent: Mapped[Optional[CostCenter]] = relationship(remote_side="CostCenter.id", back_populates="children")
     children: Mapped[list[CostCenter]] = relationship(back_populates="parent")
 
     __table_args__ = (
         Index("uq_cost_centers_company_code", "company_id", "code", unique=True),
     )
+
+
+class PurchasingOrganization(TimestampMixin, Base):
+    """Phase 7: Enterprise Purchasing Organization for procurement and tendering negotiations."""
+    __tablename__ = "purchasing_organizations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("res_companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    parent_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("purchasing_organizations.id", ondelete="SET NULL"), index=True, nullable=True)
+    code: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="SAR")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    company: Mapped[ResCompany] = relationship(back_populates="purchasing_organizations")
+    parent: Mapped[Optional["PurchasingOrganization"]] = relationship(remote_side="PurchasingOrganization.id", back_populates="children")
+    children: Mapped[list["PurchasingOrganization"]] = relationship(back_populates="parent")
+
+    __table_args__ = (
+        Index("uq_purchasing_organizations_company_code", "company_id", "code", unique=True),
+        Index("ix_purchasing_organizations_company_active", "company_id", "is_active"),
+    )
+
+
+# Standard alias for PurchasingOrganization
+PurchasingOrg = PurchasingOrganization
 
 
 class AccountMove(TimestampMixin, Base):
@@ -1076,6 +1114,7 @@ class PurchaseOrder(TimestampMixin, Base):
     po_number: Mapped[str] = mapped_column(String(64), nullable=False)
     partner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("res_partners.id"), nullable=False, index=True)
     cost_center_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("cost_centers.id", ondelete="SET NULL"), index=True)
+    purchasing_organization_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("purchasing_organizations.id", ondelete="SET NULL"), index=True, nullable=True)
     order_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     expected_delivery_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
@@ -1088,6 +1127,7 @@ class PurchaseOrder(TimestampMixin, Base):
     company: Mapped[ResCompany] = relationship()
     partner: Mapped[ResPartner] = relationship()
     cost_center: Mapped[Optional[CostCenter]] = relationship()
+    purchasing_organization: Mapped[Optional[PurchasingOrganization]] = relationship()
     goods_receipts: Mapped[list[GoodsReceipt]] = relationship(back_populates="purchase_order")
     supplier_invoices: Mapped[list[SupplierInvoice]] = relationship(back_populates="purchase_order")
 

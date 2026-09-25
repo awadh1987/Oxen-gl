@@ -400,6 +400,9 @@ from backend.api.routes.inventory import router as inventory_ledger_router
 app.include_router(inventory_ledger_router)
 from backend.api.routes.analytics import router as analytics_ledger_router
 app.include_router(analytics_ledger_router)
+from backend.app.api.routers.organization import router as organization_router
+app.include_router(organization_router, prefix="/api/v1")
+app.include_router(organization_router, prefix="/api")
 
 
 

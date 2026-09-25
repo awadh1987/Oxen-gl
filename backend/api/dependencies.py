@@ -28,7 +28,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import ResCompany, ResUser, TenantUser, User
+from backend.models import CostCenter, PurchasingOrganization, ResCompany, ResUser, TenantUser, User
 
 logger = logging.getLogger("oxengl.security")
 
@@ -114,6 +114,134 @@ class TenantContext:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Multi-tenant isolation violation: Cross-company data access is strictly forbidden.",
             )
+
+    def get_accessible_company_ids(self, db: Session) -> list[uuid.UUID]:
+        """
+        Returns all company/branch UUIDs the active user has authority to access:
+        - Super_Admin: All companies
+        - Tenant Admin / Super Admin at Root: Root company + all descendant branches
+        - Branch-scoped user: Only assigned branch + any explicit branch_scope_ids
+        """
+        if self.is_super_admin:
+            all_comps = db.query(ResCompany.id).all()
+            return [c[0] for c in all_comps]
+
+        user_role = normalize_role(self.role)
+        accessible: set[uuid.UUID] = {self.company_id}
+
+        # Check if user has explicit branch_scope_ids in ResUser
+        scope_ids_raw = getattr(self.user, "branch_scope_ids", None)
+        if scope_ids_raw:
+            try:
+                if isinstance(scope_ids_raw, str):
+                    try:
+                        parsed = json.loads(scope_ids_raw)
+                        if isinstance(parsed, list):
+                            for b_id in parsed:
+                                accessible.add(uuid.UUID(str(b_id)))
+                    except Exception:
+                        for b_id in scope_ids_raw.split(","):
+                            b_clean = b_id.strip()
+                            if b_clean:
+                                accessible.add(uuid.UUID(b_clean))
+            except Exception:
+                pass
+
+        # If user is Admin/Executive at a company, traverse all descendant branches
+        if user_role in (ADMIN, "company_admin", "ceo", "coo"):
+            to_visit = [self.company_id]
+            visited = {self.company_id}
+            while to_visit:
+                curr_parent = to_visit.pop(0)
+                children = db.query(ResCompany.id).filter(ResCompany.parent_id == curr_parent).all()
+                for (child_id,) in children:
+                    if child_id not in visited:
+                        visited.add(child_id)
+                        accessible.add(child_id)
+                        to_visit.append(child_id)
+
+        return list(accessible)
+
+    def validate_company_access(self, target_company_id: Union[uuid.UUID, str], db: Session) -> ResCompany:
+        """
+        Validates whether current user has access to a specific Company or Branch.
+        Raises 404 if company does not exist.
+        Raises 403 Forbidden if cross-branch or cross-tenant boundary is violated.
+        """
+        try:
+            target_uuid = uuid.UUID(str(target_company_id))
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid company/branch UUID format: {target_company_id}",
+            )
+
+        target_company = db.query(ResCompany).filter(ResCompany.id == target_uuid).first()
+        if not target_company:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Company or branch '{target_company_id}' not found.",
+            )
+
+        if self.is_super_admin:
+            return target_company
+
+        accessible_ids = self.get_accessible_company_ids(db)
+        if target_uuid not in accessible_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Multi-tenant isolation violation: Cross-branch access outside assigned branch boundary is forbidden.",
+            )
+
+        return target_company
+
+    def validate_cost_center_access(self, cost_center_id: Union[uuid.UUID, str], db: Session) -> CostCenter:
+        """
+        Validates whether current user has access to a specific Cost Center.
+        Raises 404 if cost center not found.
+        Raises 403 if cost center belongs to a company/branch outside user's accessible scope.
+        """
+        try:
+            cc_uuid = uuid.UUID(str(cost_center_id))
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid cost center UUID format: {cost_center_id}",
+            )
+
+        cost_center = db.query(CostCenter).filter(CostCenter.id == cc_uuid).first()
+        if not cost_center:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Cost center '{cost_center_id}' not found.",
+            )
+
+        self.validate_company_access(cost_center.company_id, db)
+        return cost_center
+
+    def validate_purchasing_org_access(self, org_id: Union[uuid.UUID, str], db: Session) -> PurchasingOrganization:
+        """
+        Validates whether current user has access to a specific Purchasing Organization.
+        Raises 404 if purchasing org not found.
+        Raises 403 if purchasing org belongs to a company/branch outside user's accessible scope.
+        """
+        try:
+            org_uuid = uuid.UUID(str(org_id))
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid purchasing organization UUID format: {org_id}",
+            )
+
+        purchasing_org = db.query(PurchasingOrganization).filter(PurchasingOrganization.id == org_uuid).first()
+        if not purchasing_org:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Purchasing organization '{org_id}' not found.",
+            )
+
+        self.validate_company_access(purchasing_org.company_id, db)
+        return purchasing_org
 
 
 # ==============================================================================
@@ -456,8 +584,6 @@ def get_tenant_context(
     request: Request,
     x_company_id: Optional[str] = Header(default=None),
     x_tenant_id: Optional[str] = Header(default=None),
-    company_id: Optional[str] = Query(default=None),
-    tenant_id: Optional[str] = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> TenantContext:
@@ -471,11 +597,13 @@ def get_tenant_context(
     is_super_admin = user_role == SUPER_ADMIN
 
     # Extract target tenant/company requested via header or query params
+    query_company_id = request.query_params.get("company_id")
+    query_tenant_id = request.query_params.get("tenant_id")
     requested_id_str = (
         x_company_id
         or x_tenant_id
-        or company_id
-        or tenant_id
+        or query_company_id
+        or query_tenant_id
         or request.headers.get("x-company-id")
         or request.headers.get("x-tenant-id")
     )
@@ -505,16 +633,35 @@ def get_tenant_context(
                 detail="User has no assigned company/tenant boundary.",
             )
 
-    # Multi-Tenant Isolation Enforcement:
-    # If a non-superadmin caller specifies a tenant/company that does NOT match their own, REJECT with 403 Forbidden!
-    if not is_super_admin and requested_uuid and str(requested_uuid) != str(user_cid):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Multi-tenant isolation violation: Access to data of another company or tenant is strictly prohibited.",
-        )
+    # Multi-Tenant & Branch Isolation Enforcement:
+    if is_super_admin:
+        effective_company_id = requested_uuid if requested_uuid else user_cid
+    elif requested_uuid and str(requested_uuid) != str(user_cid):
+        # Validate if caller has explicit branch scope or administrative authority over this descendant branch
+        is_accessible = False
+        scope_ids_raw = getattr(current_user, "branch_scope_ids", None)
+        if scope_ids_raw and str(requested_uuid) in str(scope_ids_raw):
+            is_accessible = True
+        elif user_role in (ADMIN, "company_admin", "ceo", "coo"):
+            curr = db.query(ResCompany).filter(ResCompany.id == requested_uuid).first()
+            visited = set()
+            while curr and curr.parent_id and curr.id not in visited:
+                visited.add(curr.id)
+                if curr.parent_id == user_cid:
+                    is_accessible = True
+                    break
+                curr = db.query(ResCompany).filter(ResCompany.id == curr.parent_id).first()
+
+        if not is_accessible:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Multi-tenant isolation violation: Access to data of another company or tenant is strictly prohibited.",
+            )
+        effective_company_id = requested_uuid
+    else:
+        effective_company_id = user_cid
 
     effective_tenant_id = user_cid
-    effective_company_id = user_cid
 
     return TenantContext(
         tenant_id=effective_tenant_id,
