@@ -353,6 +353,9 @@ app.add_middleware(
 
 app.add_middleware(CorrelationIdMiddleware)
 
+from backend.app.domains.auth import onboard_tenant
+app.include_router(onboard_tenant.router)
+
 app.include_router(two_tier_auth_router)
 app.include_router(iam_auth_router)
 app.include_router(recovery_auth_router)
@@ -364,8 +367,6 @@ app.include_router(finance_router)
 app.include_router(reports_router)
 from backend.app.domains.finance import audit_export
 app.include_router(audit_export.router)
-from backend.app.domains.auth import onboard_tenant
-app.include_router(onboard_tenant.router)
 app.include_router(logistics_router)
 app.include_router(customs_router, prefix="/api/v1/logistics/customs/manifests")
 app.include_router(customs_router, prefix="/api/logistics/customs/manifests")

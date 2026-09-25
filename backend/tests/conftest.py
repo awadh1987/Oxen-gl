@@ -90,6 +90,7 @@ async def warmup_redis():
     """Warms up async Redis TCP socket and SQLAlchemy mappers to avoid cold-start penalties in SLA tests."""
     try:
         from app.core.redis import redis_client
+        await redis_client.connection_pool.disconnect()
         await redis_client.ping()
     except Exception:
         pass

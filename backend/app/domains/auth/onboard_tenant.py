@@ -1,8 +1,9 @@
 # File: backend/app/domains/auth/onboard_tenant.py
 import re
 import uuid
-from typing import Optional
-from fastapi import APIRouter, HTTPException, status, Depends
+import logging
+from typing import Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks
 from pydantic import BaseModel, Field
 from passlib.context import CryptContext
 from sqlalchemy import text
@@ -11,6 +12,13 @@ from backend.app.database import SessionLocal
 from backend.app.domains.planning.models import ResCompany
 from backend.app.domains.finance.models import AccountChart
 from backend.models import ResUser, AccountAccount, AccountJournal, FiscalYear, StockLocation
+
+try:
+    from backend.app.services.notification_service import VerificationService
+except ImportError:
+    from app.services.notification_service import VerificationService
+
+logger = logging.getLogger("oxengl.onboarding")
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Tenant Provisioning & Onboarding"])
 
@@ -24,12 +32,54 @@ pwd_context = CryptContext(
 )
 
 class TenantRegistrationPayload(BaseModel):
-    company_name_ar: str = Field(..., min_length=3, max_length=150)
+    company_name_ar: Optional[str] = Field(None, min_length=3, max_length=150)
     company_name_en: str = Field(..., min_length=3, max_length=150)
     domain_slug: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-z0-9_-]+$")
     admin_email: str = Field(..., min_length=5, max_length=100)
     admin_password: Optional[str] = Field(None, min_length=6, max_length=128)
     password: Optional[str] = Field(None, min_length=6, max_length=128)
+    phone_number: Optional[str] = Field(None, max_length=30)
+
+class RegisterInitRequest(BaseModel):
+    company_name_en: str = Field(..., min_length=3, max_length=150)
+    company_name_ar: Optional[str] = Field(None, min_length=3, max_length=150)
+    admin_email: Optional[str] = Field(None, min_length=5, max_length=100)
+    email: Optional[str] = Field(None, min_length=5, max_length=100)
+    domain_slug: str = Field(..., min_length=3, max_length=50, pattern=r"^[a-z0-9_-]+$")
+    phone_number: Optional[str] = Field(None, max_length=30)
+    phone: Optional[str] = Field(None, max_length=30)
+    admin_password: Optional[str] = Field(None, min_length=6, max_length=128)
+    password: Optional[str] = Field(None, min_length=6, max_length=128)
+
+    @property
+    def resolved_email(self) -> str:
+        return self.admin_email or self.email or ""
+
+    @property
+    def resolved_phone(self) -> Optional[str]:
+        return self.phone_number or self.phone
+
+
+class RegisterVerifyRequest(BaseModel):
+    admin_email: Optional[str] = Field(None, min_length=5, max_length=100)
+    email: Optional[str] = Field(None, min_length=5, max_length=100)
+    otp_code: Optional[str] = Field(None, min_length=4, max_length=10)
+    otp: Optional[str] = Field(None, min_length=4, max_length=10)
+    company_name_en: Optional[str] = Field(None, min_length=3, max_length=150)
+    company_name_ar: Optional[str] = Field(None, min_length=3, max_length=150)
+    domain_slug: Optional[str] = Field(None, min_length=3, max_length=50)
+    phone_number: Optional[str] = Field(None, max_length=30)
+    phone: Optional[str] = Field(None, max_length=30)
+    admin_password: Optional[str] = Field(None, min_length=6, max_length=128)
+    password: Optional[str] = Field(None, min_length=6, max_length=128)
+
+    @property
+    def resolved_email(self) -> str:
+        return self.admin_email or self.email or ""
+
+    @property
+    def resolved_otp(self) -> str:
+        return self.otp_code or self.otp or ""
 
 
 def generate_balanced_brand_palette(seed: Optional[str] = None) -> tuple[str, str]:
@@ -305,23 +355,38 @@ def seed_tenant_default_records(db: Session, company_id: uuid.UUID | str, curren
     except Exception as exc:
         logger.warning(f"Failed to seed stock location for {company_uuid}: {exc}")
 
-@router.post("/register-tenant", status_code=status.HTTP_201_CREATED)
-async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
+def execute_tenant_provisioning(db: Session, payload_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Synchronized multi-tenant tenant onboarding pipeline.
-    Parses plain-text password input, hashes via cryptographic matrix, and registers the administrator.
+    Atomic multi-tenant tenant provisioning core:
+    - Allocates ResCompany record
+    - Synchronizes tenants table
+    - Auto-seeds 5-depth hierarchical Chart of Accounts and operational defaults
+    - Creates Admin ResUser & users records with Argon2/PBKDF2 hashing
+    - Dynamically provisions PostgreSQL isolated schema & clones base tables
+    - Syncs master_tenants and tenant_users for multi-plane consistency
+    - Generates authenticated session bearer token
     """
-    db = SessionLocal()
-    slug_cleaned = payload.domain_slug.lower().strip()
-    if not re.match(r"^[a-z0-9_-]+$", slug_cleaned):
+    company_name_en = payload_data.get("company_name_en")
+    company_name_ar = payload_data.get("company_name_ar") or company_name_en
+    slug_cleaned = (payload_data.get("domain_slug") or "").lower().strip()
+    norm_email = (payload_data.get("admin_email") or "").strip().lower()
+    raw_password = payload_data.get("admin_password") or payload_data.get("password") or "OxenGL2026!Secure"
+    phone_number = payload_data.get("phone_number")
+
+    if not slug_cleaned or not re.match(r"^[a-z0-9_-]+$", slug_cleaned):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Domain slug may only contain lowercase letters, numbers, hyphens, and underscores."
         )
-    norm_email = payload.admin_email.strip().lower()
-    raw_password = payload.admin_password or payload.password or "OxenGL2026!Secure"
+
+    if not norm_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrator email is required."
+        )
+
     hashed_pwd = pwd_context.hash(raw_password)
-    
+
     try:
         # 1. Enforce safety validation check against the newly indexed slug field
         existing_tenant = db.query(ResCompany).filter(
@@ -332,13 +397,13 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Workspace domain slug is already allocated to another enterprise account."
             )
-            
+
         # 2. Allocate core enterprise company registry entry
         company_uuid = uuid.uuid4()
         primary_color, secondary_color = generate_balanced_brand_palette(slug_cleaned)
         new_company = ResCompany(
             id=company_uuid,
-            name=payload.company_name_en or payload.company_name_ar,
+            name=company_name_en or company_name_ar,
             slug=slug_cleaned,
             currency="SAR",
             is_active=True,
@@ -352,29 +417,29 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
         new_company.is_active = True
         new_company.status = "ACTIVE"
         if hasattr(new_company, 'name_ar'):
-            setattr(new_company, 'name_ar', payload.company_name_ar)
+            setattr(new_company, 'name_ar', company_name_ar)
         if hasattr(new_company, 'name_en'):
-            setattr(new_company, 'name_en', payload.company_name_en)
-        
+            setattr(new_company, 'name_en', company_name_en)
+
         db.add(new_company)
-        db.flush()  # Extract structural ID parameter cleanly
+        db.flush()
 
         # Also align with tenants table if present
         try:
             with db.begin_nested():
                 db.execute(
                     text("INSERT INTO tenants (id, company_name, schema_name) VALUES (:id, :name, :schema) ON CONFLICT (id) DO UPDATE SET company_name = :name, schema_name = :schema"),
-                    {"id": company_uuid, "name": payload.company_name_en or payload.company_name_ar, "schema": slug_cleaned}
+                    {"id": company_uuid, "name": company_name_en or company_name_ar, "schema": slug_cleaned}
                 )
         except Exception:
             pass
-        
+
         # 3. Fire the template seed routine to auto-inject default financial records, journals, fiscal year, and warehouse
         seed_tenant_default_records(db, company_id=company_uuid, currency="SAR")
 
         # 4. Provision & Seed Super Admin User with Hashed Password
         admin_user_id = uuid.uuid4()
-        
+
         # 4a. Sync into res_users table
         res_user = db.query(ResUser).filter(ResUser.email == norm_email).first()
         if not res_user:
@@ -382,7 +447,7 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
                 id=admin_user_id,
                 firebase_uid=f"native:{norm_email}",
                 email=norm_email,
-                full_name=payload.company_name_en or "Administrator",
+                full_name=company_name_en or "Administrator",
                 password_hash=hashed_pwd,
                 company_id=company_uuid,
                 role="Admin",
@@ -424,7 +489,7 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
                         if has_name:
                             insert_cols.append("name")
                             insert_vals.append(":name")
-                            params["name"] = payload.company_name_en or "Administrator"
+                            params["name"] = company_name_en or "Administrator"
                         if has_role:
                             insert_cols.append("role")
                             insert_vals.append(":role")
@@ -433,7 +498,7 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
                             insert_cols.append("username")
                             insert_vals.append(":username")
                             params["username"] = f"{norm_email.split('@')[0]}_{slug_cleaned.replace('-', '_')[:8]}_{uuid.uuid4().hex[:4]}"
-                        
+
                         db.execute(text(f"INSERT INTO users ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})"), params)
         except Exception:
             pass
@@ -449,7 +514,11 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
             with db.begin_nested():
                 # 1. Create the tenant schema dynamically using safe identifier quotation
                 db.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{sanitized_slug}";'))
+        except Exception as e:
+            logger.warning(f"Error creating schema {sanitized_slug}: {e}")
 
+        try:
+            with db.begin_nested():
                 # 2. Clone base tables directly into the new schema layer
                 db.execute(text(f'CREATE TABLE IF NOT EXISTS "{sanitized_slug}".users (LIKE public.users INCLUDING ALL);'))
 
@@ -465,7 +534,7 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
                         "username": f"{norm_email.split('@')[0]}_{sanitized_slug[:8]}",
                         "email": norm_email,
                         "pwd": hashed_pwd,
-                        "name": payload.company_name_en or payload.company_name_ar or "Administrator",
+                        "name": company_name_en or company_name_ar or "Administrator",
                         "role": "Admin",
                         "status": "ACTIVE",
                     })
@@ -477,16 +546,16 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
         # 4d. Synchronize master_tenants and tenant_users for multi-plane consistency
         try:
             with db.begin_nested():
-                unique_mobile = f"+9665{uuid.uuid4().int % 90000000 + 10000000:08d}"
+                unique_mobile = phone_number or f"+9665{uuid.uuid4().int % 90000000 + 10000000:08d}"
                 db.execute(text('''
                     INSERT INTO master_tenants (id, name, slug, owner_full_name, owner_email, owner_mobile, status, subscription_tier, max_users, max_storage_gb)
                     VALUES (:id, :name, :slug, :owner_name, :owner_email, :mobile, 'active', 'standard', 10, 25)
                     ON CONFLICT (id) DO UPDATE SET slug = :slug, status = 'active', name = :name;
                 '''), {
                     "id": company_uuid,
-                    "name": payload.company_name_en or payload.company_name_ar,
+                    "name": company_name_en or company_name_ar,
                     "slug": slug_cleaned,
-                    "owner_name": payload.company_name_en or payload.company_name_ar,
+                    "owner_name": company_name_en or company_name_ar,
                     "owner_email": norm_email,
                     "mobile": unique_mobile,
                 })
@@ -498,14 +567,29 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
                     "id": admin_user_id,
                     "email": norm_email,
                     "mobile": unique_mobile,
-                    "first_name": (payload.company_name_en or "Admin").split()[0],
-                    "last_name": (payload.company_name_en or "User").split()[1] if len((payload.company_name_en or "User").split()) > 1 else "User",
+                    "first_name": (company_name_en or "Admin").split()[0],
+                    "last_name": (company_name_en or "User").split()[1] if len((company_name_en or "User").split()) > 1 else "User",
                     "pwd": hashed_pwd,
                 })
         except Exception:
             pass
-        
+
         db.commit()
+
+        # Generate session token if available
+        session_token = None
+        try:
+            from backend.app.main import create_session_token
+            session_token = create_session_token(
+                subject=str(admin_user_id),
+                company_id=company_uuid,
+                role="Admin",
+                tenant_slug=slug_cleaned,
+                domain_slug=slug_cleaned,
+            )
+        except Exception:
+            pass
+
         return {
             "status": "PROVISIONED",
             "message": "Enterprise workspace container generated with default ledger templates and seeded administrator.",
@@ -515,10 +599,143 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
             "admin_user_id": str(admin_user_id),
             "primary_color": primary_color,
             "secondary_color": secondary_color,
+            "access_token": session_token,
+            "token_type": "bearer" if session_token else None,
         }
     except Exception as e:
         db.rollback()
-        if isinstance(e, HTTPException): raise e
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Onboarding fault: {str(e)}")
+
+
+@router.post("/register-init", status_code=status.HTTP_200_OK)
+async def initiate_tenant_registration(req: RegisterInitRequest, background_tasks: BackgroundTasks):
+    """
+    Step 1 of Multi-Factor Tenant Onboarding:
+    Validates domain slug and administrator email availability, generates a 6-digit OTP,
+    caches registration data in Redis (5-min TTL), and asynchronously dispatches verification via Email/SMS.
+    """
+    slug_cleaned = req.domain_slug.lower().strip()
+    if not re.match(r"^[a-z0-9_-]+$", slug_cleaned):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Domain slug may only contain lowercase letters, numbers, hyphens, and underscores."
+        )
+
+    norm_email = req.resolved_email.strip().lower()
+    if not norm_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrative email is required."
+        )
+
+    # Pre-validation check against database
+    db = SessionLocal()
+    try:
+        existing_tenant = db.query(ResCompany).filter(
+            (ResCompany.domain_slug == slug_cleaned) | (ResCompany.slug == slug_cleaned)
+        ).first()
+        if existing_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Workspace domain slug is already allocated to another enterprise account."
+            )
+
+        existing_user = db.query(ResUser).filter(ResUser.email == norm_email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An account with this administrator email already exists."
+            )
     finally:
         db.close()
+
+    # Generate 6-digit OTP stored in Redis
+    otp = await VerificationService.generate_and_store_otp(norm_email)
+
+    # Store registration metadata in Redis pending OTP verification
+    reg_data = {
+        "company_name_en": req.company_name_en,
+        "company_name_ar": req.company_name_ar or req.company_name_en,
+        "domain_slug": slug_cleaned,
+        "admin_email": norm_email,
+        "phone_number": req.resolved_phone,
+        "admin_password": req.admin_password or req.password or "OxenGL2026!Secure",
+    }
+    await VerificationService.store_registration_payload(norm_email, reg_data)
+
+    # Asynchronously dispatch notifications without blocking API response
+    background_tasks.add_task(VerificationService.dispatch_email_otp, norm_email, otp, req.company_name_en)
+    if req.resolved_phone:
+        background_tasks.add_task(VerificationService.dispatch_sms_otp, req.resolved_phone, otp)
+
+    return {
+        "status": "OTP_DISPATCHED",
+        "message": "Verification code dispatched. Expires in 5 minutes.",
+        "admin_email": norm_email,
+        "email": norm_email,
+        "domain_slug": slug_cleaned,
+        "expires_in": 300,
+    }
+
+
+@router.post("/register-verify", status_code=status.HTTP_201_CREATED)
+async def verify_and_provision_tenant(req: RegisterVerifyRequest):
+    """
+    Step 2 of Multi-Factor Tenant Onboarding:
+    Validates the 6-digit OTP against Redis. Once validated, executes atomic
+    database provisioning, seeds the 5-depth chart of accounts, and links default records.
+    """
+    norm_email = req.resolved_email.strip().lower()
+    otp_code = req.resolved_otp.strip()
+    if not norm_email or not otp_code:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both email and otp verification code are required."
+        )
+
+    is_valid = await VerificationService.verify_otp(norm_email, otp_code)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification code."
+        )
+
+    # Retrieve cached registration payload from Redis
+    cached = await VerificationService.get_registration_payload(norm_email) or {}
+
+    # Merge cached data with explicit request overrides
+    merged_data = {**cached}
+    for k, v in req.model_dump().items():
+        if v is not None and k != "otp_code":
+            merged_data[k] = v
+
+    if not merged_data.get("domain_slug") or not (merged_data.get("company_name_en") or merged_data.get("company_name_ar")):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Missing required workspace registration metadata. Please restart registration."
+        )
+
+    db = SessionLocal()
+    try:
+        result = execute_tenant_provisioning(db, merged_data)
+        # Invalidate cached payload upon successful provision
+        await VerificationService.delete_registration_payload(norm_email)
+        return result
+    finally:
+        db.close()
+
+
+@router.post("/register-tenant", status_code=status.HTTP_201_CREATED)
+async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
+    """
+    Synchronized multi-tenant tenant onboarding pipeline (direct registration).
+    Maintained for automated integrations and test backward-compatibility.
+    """
+    db = SessionLocal()
+    try:
+        return execute_tenant_provisioning(db, payload.model_dump())
+    finally:
+        db.close()
+
