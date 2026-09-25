@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { QRCodeSVG } from 'qrcode.react';
 import { useApp } from '../context/AppContext';
 import { CustomerInvoice, InvoiceItem, OperationRecord, DocumentAttachment } from '../types';
-import { erpApi, ApiCustomerInvoice } from '../services/api';
+import { erpApi, ApiCustomerInvoice, ApiJournalEntry } from '../services/api';
 import {
   FileText,
   Printer,
@@ -58,6 +58,7 @@ export const CustomerInvoicingView: React.FC = () => {
     logAuditAction,
     addAttachmentToRecord,
     removeAttachmentFromRecord,
+    showToast,
   } = useApp();
   const isAr = language === 'ar';
 
@@ -506,14 +507,31 @@ export const CustomerInvoicingView: React.FC = () => {
     }
   };
 
+  const isFinalized = useMemo(() => {
+    return (
+      invoiceStatus === 'Approved' ||
+      invoiceStatus === 'Paid' ||
+      currentBackendInvoice?.status === 'Approved' ||
+      currentBackendInvoice?.status === 'Issued'
+    );
+  }, [invoiceStatus, currentBackendInvoice?.status]);
+
+  const isPostedToLedger = useMemo(() => {
+    return Boolean(
+      currentBackendInvoice?.is_posted || currentBackendInvoice?.journal_entry_id
+    );
+  }, [currentBackendInvoice?.is_posted, currentBackendInvoice?.journal_entry_id]);
+
   // Step 3: Issue Invoice and Post Balanced Double-Entry to General Ledger
   const handleIssueToGeneralLedger = async () => {
     if (!currentCompany?.id || !currentBackendInvoice?.id) return;
     if (isUnbalanced) {
+      const msg = isAr ? 'لا يمكن ترحيل قيد غير متوازن لدفتر الأستاذ العام' : 'Cannot post unbalanced entry to GL.';
       setFeedback({
         type: 'error',
-        message: isAr ? 'لا يمكن ترحيل قيد غير متوازن لدفتر الأستاذ العام' : 'Cannot post unbalanced entry to GL.',
+        message: msg,
       });
+      showToast(msg, 'error');
       return;
     }
     setActionLoading(true);
@@ -523,6 +541,17 @@ export const CustomerInvoicingView: React.FC = () => {
       setCurrentBackendInvoice(issued);
       setInvoiceStatus('Paid');
 
+      // Post to double-entry general ledger
+      try {
+        const ledgerEntry = await erpApi.postInvoiceToLedger(issued.id, currentCompany.id);
+        if (ledgerEntry) {
+          issued.is_posted = true;
+          issued.journal_entry_id = ledgerEntry.id;
+        }
+      } catch (ledgerErr) {
+        console.warn('Post invoice to ledger notice:', ledgerErr);
+      }
+
       // Trigger backend ZATCA compliance processing
       try {
         await erpApi.processZatcaInvoice(currentCompany.id, issued.id);
@@ -530,12 +559,15 @@ export const CustomerInvoicingView: React.FC = () => {
         console.warn('Backend ZATCA compliance trigger notice:', zatcaErr);
       }
 
+      const successMsg = isAr
+        ? `تم إصدار الفاتورة وترحيل القيد المحاسبي المزدوج آلياً إلى دفتر الأستاذ العام وتوثيق الامتثال لـ ZATCA بنجاح! رقم القيد: ${issued.move_id || 'POSTED'}`
+        : `Invoice issued, posted to General Ledger, and ZATCA compliance logged! GL Move: ${issued.move_id || 'POSTED'}`;
       setFeedback({
         type: 'success',
-        message: isAr
-          ? `تم إصدار الفاتورة وترحيل القيد المحاسبي المزدوج آلياً إلى دفتر الأستاذ العام وتوثيق الامتثال لـ ZATCA بنجاح! رقم القيد: ${issued.move_id || 'POSTED'}`
-          : `Invoice issued, posted to General Ledger, and ZATCA compliance logged! GL Move: ${issued.move_id || 'POSTED'}`,
+        message: successMsg,
       });
+      showToast(successMsg, 'success');
+
       logAuditAction({
         userId: currentUser.id,
         userName: currentUser.fullNameAr || currentUser.fullName,
@@ -548,10 +580,79 @@ export const CustomerInvoicingView: React.FC = () => {
       });
       await loadBackendInvoices();
     } catch (err: any) {
+      const errMsg = err.message || (isAr ? 'فشل إصدار الفاتورة وترحيل القيد' : 'Failed to issue invoice to ledger.');
       setFeedback({
         type: 'error',
-        message: err.message || (isAr ? 'فشل إصدار الفاتورة وترحيل القيد' : 'Failed to issue invoice to ledger.'),
+        message: errMsg,
       });
+      showToast(errMsg, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Step 4: Post Finalized Customer Invoice directly to Double-Entry General Ledger (AR & Revenue)
+  const handlePostToLedger = async () => {
+    const targetInvoice = currentBackendInvoice || backendInvoices.find((b) => b.invoice_number === invoiceNumber);
+    const invoiceIdToPost = targetInvoice?.id || invoiceNumber;
+
+    if (!invoiceIdToPost) {
+      showToast(isAr ? 'تعذر العثور على الفاتورة لترحيلها إلى دفتر الأستاذ' : 'Cannot find invoice to post to ledger', 'error');
+      return;
+    }
+
+    if (isUnbalanced) {
+      const msg = isAr ? 'لا يمكن ترحيل قيد غير متوازن لدفتر الأستاذ العام' : 'Cannot post unbalanced entry to GL.';
+      setFeedback({ type: 'error', message: msg });
+      showToast(msg, 'error');
+      return;
+    }
+
+    setActionLoading(true);
+    setFeedback(null);
+    try {
+      const entry: ApiJournalEntry = await erpApi.postInvoiceToLedger(String(invoiceIdToPost), currentCompany?.id);
+
+      if (currentBackendInvoice) {
+        setCurrentBackendInvoice({
+          ...currentBackendInvoice,
+          is_posted: true,
+          journal_entry_id: entry.id,
+        });
+      }
+      setBackendInvoices((prev) =>
+        prev.map((inv) =>
+          inv.id === targetInvoice?.id || inv.invoice_number === invoiceNumber
+            ? { ...inv, is_posted: true, journal_entry_id: entry.id }
+            : inv
+        )
+      );
+
+      const drText = formatCurrency(entry.total_debit, language);
+      const crText = formatCurrency(entry.total_credit, language);
+      const successMsg = isAr
+        ? `تم ترحيل الفاتورة بنجاح إلى دفتر الأستاذ العام (سند رقم: ${entry.entry_number}) - مدين (AR): ${drText} / دائن (Revenue): ${crText}`
+        : `Successfully posted invoice to General Ledger (Voucher #${entry.entry_number}) - Debit (AR): ${drText} / Credit (Revenue): ${crText}`;
+
+      setFeedback({ type: 'success', message: successMsg });
+      showToast(successMsg, 'success');
+
+      logAuditAction({
+        userId: currentUser.id,
+        userName: currentUser.fullNameAr || currentUser.fullName,
+        userRole: currentUser.role,
+        action: 'POST_LEDGER',
+        entityType: 'Invoice',
+        entityId: invoiceNumber,
+        summary: `ترحيل مبيعات الفاتورة لدفتر الأستاذ (${invoiceNumber})`,
+        newData: { invoiceNumber, journalEntryId: entry.id, entryNumber: entry.entry_number },
+      });
+
+      await loadBackendInvoices();
+    } catch (err: any) {
+      const errMsg = err?.message || (isAr ? 'فشل ترحيل الفاتورة إلى دفتر الأستاذ العام' : 'Failed to post invoice to ledger.');
+      setFeedback({ type: 'error', message: errMsg });
+      showToast(errMsg, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -815,6 +916,12 @@ Myon Economic Contracting Co. Ltd.`;
                     <span>{isAr ? 'معرف القيد المالي:' : 'GL Move ID:'} {currentBackendInvoice.move_id}</span>
                   </div>
                 )}
+                {currentBackendInvoice?.journal_entry_id && (
+                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-violet-200 bg-violet-50/90 px-2.5 py-1 text-[11px] font-mono font-bold text-violet-900 shadow-xs">
+                    <BookOpen className="h-3.5 w-3.5 text-violet-600" />
+                    <span>{isAr ? 'سند دفتر الأستاذ:' : 'GL Ledger Voucher:'} {String(currentBackendInvoice.journal_entry_id).slice(0, 8)}...</span>
+                  </div>
+                )}
                 {currentBackendInvoice?.public_token && (
                   <button
                     type="button"
@@ -879,6 +986,39 @@ Myon Economic Contracting Co. Ltd.`;
                   <span>{isAr ? 'تصدير ومشاركة الحزمة' : 'Export & Share Bundle'}</span>
                 </button>
               </>
+            )}
+
+            {/* Finalized Invoices: Post to Ledger Action */}
+            {isFinalized && !isPostedToLedger && !isGuestUser && (isAdmin || canApproveInvoices) && (
+              <button
+                id="workflow-post-to-ledger-btn"
+                disabled={actionLoading || isUnbalanced}
+                onClick={handlePostToLedger}
+                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 px-5 py-2.5 text-xs font-black text-white shadow-lg shadow-indigo-600/30 hover:opacity-95 disabled:opacity-50 transition-all"
+                title={isAr ? 'ترحيل قيود المبيعات والذمم المدينة لدفتر الأستاذ العام' : 'Post AR and Sales Revenue to General Ledger'}
+              >
+                {actionLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                <span>{isAr ? 'ترحيل إلى دفتر الأستاذ (Post to Ledger)' : 'Post to Ledger'}</span>
+              </button>
+            )}
+
+            {/* Finalized Invoices: Posted to Ledger Badge */}
+            {isFinalized && isPostedToLedger && (
+              <div
+                id="workflow-posted-ledger-badge"
+                className="flex items-center gap-1.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 px-4 py-2.5 text-xs font-black text-emerald-700 shadow-xs"
+                title={isAr ? 'تم ترحيل هذه الفاتورة إلى دفتر الأستاذ العام بنجاح' : 'Invoice is posted to General Ledger'}
+              >
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span>
+                  {isAr ? 'مُرحل لدفتر الأستاذ' : 'Posted to Ledger'}
+                  {currentBackendInvoice?.journal_entry_id && (
+                    <span className="ml-1 text-[10px] text-emerald-600 font-mono">
+                      (#{String(currentBackendInvoice.journal_entry_id).slice(0, 8)})
+                    </span>
+                  )}
+                </span>
+              </div>
             )}
 
             {/* Issued / Paid Stage: Share actions */}

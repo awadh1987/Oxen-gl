@@ -625,6 +625,8 @@ class CustomerInvoiceRead(ORMReadModel):
     created_at: datetime
     updated_at: datetime
     public_token: Optional[str] = None
+    journal_entry_id: Optional[UUID] = None
+    is_posted: bool = False
 
 
 class InvoiceOut(CustomerInvoiceRead):

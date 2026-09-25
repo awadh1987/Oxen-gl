@@ -292,6 +292,8 @@ export interface ApiCustomerInvoice {
   created_at: string;
   updated_at: string;
   public_token?: string | null;
+  journal_entry_id?: string | null;
+  is_posted?: boolean;
 }
 
 export type InvoiceOut = ApiCustomerInvoice;
@@ -839,6 +841,10 @@ export const erpApi = {
   issueCustomerInvoice: (companyId: string, invoiceId: string) => request<ApiCustomerInvoice>(`/api/customer-invoices/${invoiceId}/issue`, companyId, {
     method: 'POST',
   }),
+  postInvoiceToLedger: (invoiceId: string, companyId?: string) =>
+    request<ApiJournalEntry>(`/api/finance/invoices/${invoiceId}/post-ledger`, companyId, {
+      method: 'POST',
+    }),
   processZatcaInvoice: (companyId: string, invoiceId: string) => request<any>(`/api/compliance/zatca/process-invoice/${invoiceId}`, companyId, {
     method: 'POST',
   }),

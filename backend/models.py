@@ -720,9 +720,12 @@ class CustomerInvoice(TimestampMixin, Base):
     approved_by: Mapped[Optional[str]] = mapped_column(String(255))
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     issued_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    journal_entry_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("finance_journal_entries.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_posted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     partner: Mapped[Optional[ResPartner]] = relationship()
     move: Mapped[Optional[AccountMove]] = relationship()
+    journal_entry: Mapped[Optional["FinanceJournalEntry"]] = relationship("FinanceJournalEntry", foreign_keys=[journal_entry_id])
 
     @property
     def public_token(self) -> Optional[str]:
@@ -2112,6 +2115,10 @@ class Invoice(Base):
     payment_method: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     public_token = Column(String(64), unique=True, index=True, nullable=True, default=lambda: str(uuid.uuid4()))
+    journal_entry_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("finance_journal_entries.id", ondelete="SET NULL"), nullable=True, index=True)
+    is_posted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    journal_entry: Mapped[Optional["FinanceJournalEntry"]] = relationship("FinanceJournalEntry", foreign_keys=[journal_entry_id])
 
 
 # ==============================================================================
