@@ -476,7 +476,20 @@ function AppContent() {
     }
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/admin/tenants" element={<SuperAdminTenantsView />} />
+        <Route
+          path="/admin/tenants"
+          element={
+            <ProtectedRoute
+              tier="master"
+              allowedRoles={['Super_Admin']}
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={leaveWorkspace}
+              onNavigateHome={() => setIsLoggedIn(false)}
+            >
+              <SuperAdminTenantsView />
+            </ProtectedRoute>
+          }
+        />
       </Suspense>
     );
   }
@@ -496,7 +509,20 @@ function AppContent() {
     }
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/admin/logs" element={<SuperAdminLogsView />} />
+        <Route
+          path="/admin/logs"
+          element={
+            <ProtectedRoute
+              tier="master"
+              allowedRoles={['Super_Admin']}
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={leaveWorkspace}
+              onNavigateHome={() => setIsLoggedIn(false)}
+            >
+              <SuperAdminLogsView />
+            </ProtectedRoute>
+          }
+        />
       </Suspense>
     );
   }
@@ -516,7 +542,20 @@ function AppContent() {
     }
     return (
       <Suspense fallback={<ViewLoadingFallback />}>
-        <Route path="/admin/analytics" element={<SuperAdminAnalyticsView />} />
+        <Route
+          path="/admin/analytics"
+          element={
+            <ProtectedRoute
+              tier="master"
+              allowedRoles={['Super_Admin']}
+              isLoggedIn={isLoggedIn}
+              onRequireLogin={leaveWorkspace}
+              onNavigateHome={() => setIsLoggedIn(false)}
+            >
+              <SuperAdminAnalyticsView />
+            </ProtectedRoute>
+          }
+        />
       </Suspense>
     );
   }
@@ -652,34 +691,34 @@ function AppContent() {
 
   // View-level RBAC role mappings
   const viewRoleRequirements: Record<ActiveTab, UserRole[] | undefined> = {
-    hub: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    dashboard: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    planning: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    operations: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    maintenance: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    invoicing: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Guest'],
+    hub: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    dashboard: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    planning: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    operations: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    maintenance: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    invoicing: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only', 'Guest'],
     vouchers: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     billing: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
-    crushers: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
-    transporters: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
+    crushers: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
+    transporters: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only'],
     'ai-insights': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     'executive-admin': ['Super_Admin', 'Admin', 'COO'],
     'master-data': ['Super_Admin', 'Admin', 'COO'],
     'workflow-builder': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'design-studio': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'tenant-settings': ['Super_Admin', 'Admin', 'COO'],
-    'fleet-map': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    'finance-chart': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
-    'finance-trial-balance': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
-    'financial-reports': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
+    'fleet-map': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    'finance-chart': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
+    'finance-trial-balance': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
+    'financial-reports': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
     'finance-audit-closing': ['Super_Admin', 'Admin', 'COO', 'Accountant'],
     approvals: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
-    procurement: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
-    inventory: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry'],
-    hr: ['Super_Admin', 'Admin', 'COO', 'Accountant'],
-    mfa: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    customs: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
-    'admin-hub': ['Super_Admin', 'Admin'],
+    procurement: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only'],
+    inventory: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only'],
+    hr: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
+    mfa: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    customs: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
+    'admin-hub': ['Super_Admin'],
   };
 
   const renderActiveViewContent = () => {

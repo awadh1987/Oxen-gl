@@ -171,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelAr: 'لوحة القيادة والمؤشرات',
         labelEn: 'Executive Dashboard',
         icon: LayoutDashboard,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Read_Only', 'Super_Admin'],
         badge: isAr ? 'رئيسي' : 'Core',
       },
       {
@@ -180,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Planning Department',
         path: '/operations/planning',
         icon: Layers,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Read_Only', 'Super_Admin'],
         badge: 'Tier 1-3',
       },
       {
@@ -189,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Daily Operations Entry',
         path: '/operations/daily',
         icon: Truck,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Read_Only', 'Super_Admin'],
         badge: isDriverMode ? (isAr ? 'نشط' : 'Active') : null,
       },
       {
@@ -198,7 +198,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Customs Clearance',
         path: '/operations/customs',
         icon: Globe,
-        roles: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
+        roles: ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
         badge: 'ZATCA P2',
       },
 
@@ -209,7 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Procurement & S2P',
         path: '/operations/procurement',
         icon: ShoppingCart,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Super_Admin'],
         badge: 'S2P',
       },
       {
@@ -218,7 +218,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Inventory & Valuation',
         path: '/operations/inventory',
         icon: Boxes,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Super_Admin'],
         badge: 'GL',
       },
 
@@ -229,7 +229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Live Fleet Radar & Map',
         path: '/operations/fleet-map',
         icon: Radio,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest', 'Read_Only', 'Super_Admin'],
         badge: isAr ? 'رادار حي' : 'Live GPS',
       },
       {
@@ -238,7 +238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Fleet Maintenance & Fuel',
         path: '/operations/fleet-maintenance',
         icon: Wrench,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Super_Admin'],
         badge: isAr ? 'أوامر ووقود' : 'Fleet Ops',
       },
       {
@@ -247,7 +247,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Service Suppliers',
         path: '/operations/transporters',
         icon: Scale,
-        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Super_Admin'],
         badge: isAr ? 'تتبع الفاقد' : 'Wastage',
       },
       {
@@ -256,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Material Suppliers',
         path: '/operations/crushers',
         icon: Building2,
-        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Read_Only', 'Super_Admin'],
         badge: null,
       },
 
@@ -267,7 +267,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Customer Invoicing (ZATCA)',
         path: '/finance/invoices',
         icon: FileSpreadsheet,
-        roles: ['Admin', 'COO', 'Accountant', 'Guest', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Guest', 'Read_Only', 'Super_Admin'],
         badge: 'ZATCA',
       },
       {
@@ -285,7 +285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Chart of Accounts',
         path: '/finance/chart',
         icon: Network,
-        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Read_Only', 'Super_Admin'],
         badge: '5-Deep',
       },
       {
@@ -294,7 +294,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Trial Balance',
         path: '/finance/trial-balance',
         icon: Scale,
-        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Read_Only', 'Super_Admin'],
         badge: 'GL',
       },
       {
@@ -303,7 +303,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Financial Reports Engine',
         path: '/finance/reports',
         icon: TrendingUp,
-        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Read_Only', 'Super_Admin'],
         badge: 'P&L / BS',
       },
       {
@@ -323,7 +323,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         labelEn: 'Human Resources (HR)',
         path: '/operations/hr',
         icon: Users,
-        roles: ['Admin', 'COO', 'Accountant', 'Super_Admin'],
+        roles: ['Admin', 'COO', 'Accountant', 'Read_Only', 'Super_Admin'],
         badge: 'HRMS',
       },
 
@@ -511,8 +511,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (isDriverMode) {
       items = items.filter((item) => item.id === 'operations' || item.id === 'transporters');
     }
+
+    // Conditionally hide navigation tabs based on active permissions
+    const activeRole = currentUser?.role ?? 'Guest';
+    items = items.filter((item) => {
+      if (activeRole === 'Super_Admin') return true;
+      return item.roles.includes(activeRole);
+    });
+
     return items;
-  }, [allMenuItems, authTier, tenantId, availableViews, isDriverMode]);
+  }, [allMenuItems, authTier, tenantId, availableViews, isDriverMode, currentUser?.role]);
 
   const menuItemsMap = useMemo(() => {
     const map = new Map<ActiveTab, MenuItemDef>();
@@ -745,20 +753,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             const isActive = activeTab === item.id;
 
                             if (!isAllowed) {
-                              return (
-                                <div
-                                  key={item.id}
-                                  className="flex cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-1.5 text-slate-600 opacity-60"
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    {renderIconNode(item.icon, 'h-3.5 w-3.5 text-slate-600')}
-                                    <span className="text-[11px] font-medium">
-                                      {isAr ? item.labelAr : item.labelEn}
-                                    </span>
-                                  </div>
-                                  <Lock className="h-3 w-3 text-slate-600" />
-                                </div>
-                              );
+                              return null;
                             }
 
                             return (
@@ -829,15 +824,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         const label = isAr ? item.labelAr : item.labelEn;
 
                         if (!isAllowed) {
-                          return (
-                            <div
-                              key={item.id}
-                              title={`${label} (${isAr ? 'مقيد' : 'Restricted'})`}
-                              className="flex h-9 w-9 mx-auto items-center justify-center rounded-xl text-slate-600 opacity-40 cursor-not-allowed"
-                            >
-                              {renderIconNode(item.icon, 'h-4 w-4')}
-                            </div>
-                          );
+                          return null;
                         }
 
                         return (

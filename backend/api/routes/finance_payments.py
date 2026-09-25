@@ -13,8 +13,9 @@ from decimal import Decimal
 from typing import Any, List, Optional
 
 import requests
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Security, status
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 try:
@@ -26,6 +27,12 @@ try:
         FinanceJournalLine,
         ResCompany,
     )
+    from backend.api.dependencies import (
+        TenantContext,
+        get_tenant_context,
+        require_admin_or_accountant,
+        require_write_access,
+    )
 except ImportError:
     from database import get_db
     from models import (
@@ -34,6 +41,12 @@ except ImportError:
         FinanceJournalEntry,
         FinanceJournalLine,
         ResCompany,
+    )
+    from dependencies import (  # type: ignore
+        TenantContext,
+        get_tenant_context,
+        require_admin_or_accountant,
+        require_write_access,
     )
 
 logger = logging.getLogger(__name__)
@@ -239,6 +252,9 @@ async def get_public_invoice(
 def post_invoice_to_ledger(
     invoice_id: str,
     db: Session = Depends(get_db),
+    _write_perm=Security(require_write_access),
+    _role_perm=Security(require_admin_or_accountant),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """
     Approves a customer invoice and posts a balanced double-entry journal entry
@@ -290,6 +306,11 @@ def post_invoice_to_ledger(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Customer invoice '{invoice_id}' not found.",
         )
+
+    # Multi-tenant and company isolation check
+    check_cid = customer_invoice.company_id if customer_invoice else getattr(invoice, "company_id", None)
+    if check_cid:
+        context.check_access(target_company_id=check_cid)
 
     # 2. Check already posted
     if invoice and invoice.is_posted:
@@ -416,9 +437,30 @@ def post_invoice_to_ledger(
 @router.get("/invoices", status_code=status.HTTP_200_OK)
 def list_invoices(
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """Lists invoices with payment and general ledger status."""
-    invoices = db.query(Invoice).order_by(Invoice.id.desc()).all()
+    query = db.query(Invoice)
+    if not context.is_super_admin and context.company_id:
+        allowed_nums = [
+            row[0]
+            for row in db.query(CustomerInvoice.invoice_number)
+            .filter(CustomerInvoice.company_id == context.company_id)
+            .all()
+        ]
+        allowed_jes = [
+            row[0]
+            for row in db.query(FinanceJournalEntry.id)
+            .filter(FinanceJournalEntry.company_id == context.company_id)
+            .all()
+        ]
+        query = query.filter(
+            or_(
+                Invoice.invoice_number.in_(allowed_nums),
+                Invoice.journal_entry_id.in_(allowed_jes),
+            )
+        )
+    invoices = query.order_by(Invoice.id.desc()).all()
     return [
         {
             "id": inv.id,
@@ -439,6 +481,7 @@ def list_invoices(
 def get_invoice_details(
     invoice_id: str,
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """Retrieve details for a single invoice."""
     invoice = None
@@ -455,6 +498,14 @@ def get_invoice_details(
 
     if not invoice:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invoice not found")
+
+    cust_inv = db.query(CustomerInvoice).filter(CustomerInvoice.invoice_number == invoice.invoice_number).first()
+    if cust_inv and cust_inv.company_id:
+        context.check_access(target_company_id=cust_inv.company_id)
+    elif getattr(invoice, "journal_entry_id", None):
+        je = db.query(FinanceJournalEntry).filter(FinanceJournalEntry.id == invoice.journal_entry_id).first()
+        if je and je.company_id:
+            context.check_access(je.tenant_id, je.company_id)
 
     return {
         "id": invoice.id,

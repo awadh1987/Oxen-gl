@@ -14,10 +14,19 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import desc, select, func
 from sqlalchemy.orm import Session
+
+from backend.api.dependencies import (
+    TenantContext,
+    get_tenant_context,
+    require_write_access,
+    require_admin_or_accountant,
+    require_admin,
+    StandardRole,
+)
 
 try:
     from backend.database import get_db
@@ -215,20 +224,21 @@ def _format_movement_response(movement: InventoryMovement, db: Session) -> Inven
 
 @router.get("/warehouses", response_model=List[WarehouseResponse])
 def list_warehouses(
-    db: Session = Depends(get_db),
     company_id: Optional[uuid.UUID] = None,
+    context: TenantContext = Depends(get_tenant_context),
+    db: Session = Depends(get_db),
 ):
-    """List warehouses; auto-seed a default warehouse if none exist."""
-    query = db.query(Warehouse)
-    if company_id:
-        query = query.filter(Warehouse.company_id == company_id)
+    """List warehouses strictly filtered by caller company boundary."""
+    context.check_access(None, company_id)
+    target_cid = company_id if (context.is_super_admin and company_id) else context.company_id
+
+    query = db.query(Warehouse).filter(Warehouse.company_id == target_cid)
     warehouses = query.order_by(Warehouse.code).all()
 
     if not warehouses:
-        cid = _resolve_company_id(db, company_id)
         default_wh = Warehouse(
             id=uuid.uuid4(),
-            company_id=cid,
+            company_id=target_cid,
             code="WH-MAIN",
             name="المستودع اللوجستي الرئيسي / Central Hub",
             address="King Fahd Industrial Port Logistics Yard",
@@ -242,13 +252,16 @@ def list_warehouses(
     return warehouses
 
 
-@router.post("/warehouses", response_model=WarehouseResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/warehouses", response_model=WarehouseResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access), Security(require_admin)])
 def create_warehouse(
     payload: WarehouseCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Create a new warehouse location."""
-    cid = _resolve_company_id(db, payload.company_id)
+    """Create a new warehouse location strictly isolated to caller's company."""
+    context.check_access(None, payload.company_id)
+    cid = payload.company_id if (context.is_super_admin and payload.company_id) else context.company_id
+
     existing = db.query(Warehouse).filter(Warehouse.company_id == cid, Warehouse.code == payload.code).first()
     if existing:
         raise HTTPException(
@@ -272,23 +285,28 @@ def create_warehouse(
 
 @router.get("/products", response_model=List[ProductResponse])
 def list_products(
-    db: Session = Depends(get_db),
     company_id: Optional[uuid.UUID] = None,
+    context: TenantContext = Depends(get_tenant_context),
+    db: Session = Depends(get_db),
 ):
-    """List products from product catalog."""
-    query = db.query(ProductProduct)
-    if company_id:
-        query = query.filter(ProductProduct.company_id == company_id)
+    """List products strictly filtered by caller company boundary."""
+    context.check_access(None, company_id)
+    target_cid = company_id if (context.is_super_admin and company_id) else context.company_id
+
+    query = db.query(ProductProduct).filter(ProductProduct.company_id == target_cid)
     return query.order_by(ProductProduct.name).limit(100).all()
 
 
-@router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def create_product(
     payload: ProductCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Create a product catalog item."""
-    cid = _resolve_company_id(db, payload.company_id)
+    """Create a product catalog item within caller's isolated company."""
+    context.check_access(None, payload.company_id)
+    cid = payload.company_id if (context.is_super_admin and payload.company_id) else context.company_id
+
     existing = db.query(ProductProduct).filter(ProductProduct.sku == payload.sku).first()
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Product SKU '{payload.sku}' already exists.")
@@ -321,9 +339,15 @@ def list_inventory_movements(
     movement_type: Optional[str] = None,
     is_posted: Optional[bool] = None,
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """List inventory movements with joined warehouse and product details."""
     query = db.query(InventoryMovement)
+    if context.company_id:
+        query = query.filter(InventoryMovement.company_id == context.company_id)
+    elif context.tenant_id:
+        query = query.filter(InventoryMovement.tenant_id == context.tenant_id)
+
     if warehouse_id:
         query = query.filter(InventoryMovement.warehouse_id == warehouse_id)
     if product_id:
@@ -341,11 +365,13 @@ def list_inventory_movements(
 def get_inventory_movement(
     movement_id: uuid.UUID,
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """Retrieve details for a single inventory movement."""
     movement = db.query(InventoryMovement).filter(InventoryMovement.id == movement_id).first()
     if not movement:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventory movement not found.")
+    context.check_access(movement.tenant_id, movement.company_id)
     return _format_movement_response(movement, db)
 
 
@@ -353,15 +379,21 @@ def get_inventory_movement(
 def create_inventory_movement(
     payload: InventoryMovementCreate,
     db: Session = Depends(get_db),
+    _write_perm=Security(require_write_access),
+    _role_perm=Security(require_admin_or_accountant),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """Create a new stock movement or adjustment."""
-    cid = _resolve_company_id(db, payload.company_id)
-    tenant_id = payload.tenant_id or cid
+    target_company_id = payload.company_id or context.company_id
+    context.check_access(payload.tenant_id or context.tenant_id, target_company_id)
+    cid = _resolve_company_id(db, target_company_id)
+    tenant_id = context.tenant_id or payload.tenant_id or cid
 
-    # Ensure warehouse exists
+    # Ensure warehouse exists and belongs to authorized scope
     wh = db.query(Warehouse).filter(Warehouse.id == payload.warehouse_id).first()
     if not wh:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Warehouse '{payload.warehouse_id}' not found.")
+    context.check_access(wh.tenant_id, wh.company_id)
 
     qty = Decimal(str(payload.quantity))
     unit_cost = Decimal(str(payload.unit_cost))
@@ -403,6 +435,9 @@ def create_inventory_movement(
 def post_inventory_movement_to_ledger(
     movement_id: uuid.UUID,
     db: Session = Depends(get_db),
+    _write_perm=Security(require_write_access),
+    _role_perm=Security(require_admin_or_accountant),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """
     Approves an inventory movement/adjustment and posts a balanced double-entry
@@ -417,6 +452,7 @@ def post_inventory_movement_to_ledger(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Inventory movement '{movement_id}' not found.",
         )
+    context.check_access(movement.tenant_id, movement.company_id)
 
     if movement.is_posted:
         if movement.journal_entry_id:
@@ -539,9 +575,15 @@ def post_inventory_movement_to_ledger(
 def get_inventory_valuation_summary(
     warehouse_id: Optional[uuid.UUID] = None,
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ):
     """Retrieve aggregate inventory valuation and posting metrics."""
     query = db.query(InventoryMovement)
+    if context.company_id:
+        query = query.filter(InventoryMovement.company_id == context.company_id)
+    elif context.tenant_id:
+        query = query.filter(InventoryMovement.tenant_id == context.tenant_id)
+
     if warehouse_id:
         query = query.filter(InventoryMovement.warehouse_id == warehouse_id)
 
@@ -556,3 +598,4 @@ def get_inventory_valuation_summary(
         posted_movements=posted_count,
         pending_movements=pending_count,
     )
+

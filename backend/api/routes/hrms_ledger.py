@@ -11,10 +11,19 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from pydantic import BaseModel, Field, ConfigDict, computed_field
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
+
+from backend.api.dependencies import (
+    TenantContext,
+    get_tenant_context,
+    require_write_access,
+    require_admin_or_accountant,
+    require_admin,
+    StandardRole,
+)
 
 try:
     from backend.database import get_db
@@ -209,31 +218,36 @@ def list_attendance_logs(
     employee_id: Optional[uuid.UUID] = None,
     tenant_id: Optional[uuid.UUID] = None,
     limit: int = Query(50, ge=1, le=500),
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Retrieve biometric attendance logs filtered by employee or tenant."""
-    query = select(HrmsAttendanceLog).order_by(desc(HrmsAttendanceLog.check_in))
+    """Retrieve biometric attendance logs strictly filtered by caller tenant."""
+    context.check_access(tenant_id)
+    target_tenant = tenant_id if (context.is_super_admin and tenant_id) else context.tenant_id
+
+    query = select(HrmsAttendanceLog).where(HrmsAttendanceLog.tenant_id == target_tenant).order_by(desc(HrmsAttendanceLog.check_in))
     if employee_id:
         query = query.where(HrmsAttendanceLog.employee_id == employee_id)
-    if tenant_id:
-        query = query.where(HrmsAttendanceLog.tenant_id == tenant_id)
     query = query.limit(limit)
     return db.execute(query).scalars().all()
 
 
-@router.post("/attendance", response_model=AttendanceLogResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/attendance", response_model=AttendanceLogResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access)])
 def record_attendance(
     payload: AttendanceLogCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
     """Record a biometric attendance clock-in or clock-out event with cryptographic verification."""
-    effective_tenant_id = payload.tenant_id or payload.company_id
-    if not effective_tenant_id:
-        emp = db.query(Employee).filter(Employee.id == payload.employee_id).first()
-        if emp:
-            effective_tenant_id = emp.tenant_id
-        else:
-            effective_tenant_id = uuid.uuid4()
+    context.check_access(payload.tenant_id, payload.company_id)
+    effective_tenant_id = (payload.tenant_id or payload.company_id) if (context.is_super_admin and (payload.tenant_id or payload.company_id)) else context.tenant_id
+
+    emp = db.query(Employee).filter(Employee.id == payload.employee_id).first()
+    if emp and not context.is_super_admin and emp.tenant_id != effective_tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Multi-tenant isolation violation: Employee belongs to a different tenant.",
+        )
 
     check_in_time = payload.check_in or datetime.now(timezone.utc)
     log = HrmsAttendanceLog(
@@ -256,12 +270,15 @@ def record_attendance(
 @router.get("/attendance/{log_id}", response_model=AttendanceLogResponse)
 def get_attendance_log(
     log_id: uuid.UUID,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Get single biometric attendance log by ID."""
+    """Get single biometric attendance log by ID with strict tenant boundary check."""
     log = db.query(HrmsAttendanceLog).filter(HrmsAttendanceLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attendance log not found.")
+    if not context.is_super_admin and log.tenant_id != context.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to attendance log forbidden.")
     return log
 
 
@@ -273,24 +290,29 @@ def get_attendance_log(
 def list_employees(
     department: Optional[str] = None,
     tenant_id: Optional[uuid.UUID] = None,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """List employees in directory with optional department filtering."""
-    query = select(Employee)
+    """List employees in directory strictly filtered by tenant boundary."""
+    context.check_access(tenant_id)
+    target_tenant = tenant_id if (context.is_super_admin and tenant_id) else context.tenant_id
+
+    query = select(Employee).where(Employee.tenant_id == target_tenant)
     if department:
         query = query.where(Employee.department == department)
-    if tenant_id:
-        query = query.where(Employee.tenant_id == tenant_id)
     return db.execute(query).scalars().all()
 
 
-@router.post("/employees", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/employees", response_model=EmployeeResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def create_employee(
     payload: EmployeeCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Register a new employee record."""
-    effective_tenant_id = payload.tenant_id or payload.company_id or uuid.uuid4()
+    """Register a new employee record within caller's isolated tenant."""
+    context.check_access(payload.tenant_id, payload.company_id)
+    effective_tenant_id = (payload.tenant_id or payload.company_id) if (context.is_super_admin and (payload.tenant_id or payload.company_id)) else context.tenant_id
+
     code = payload.employee_code or payload.employeeNumber or f"EMP-{uuid.uuid4().hex[:6].upper()}"
     raw_name = payload.name or payload.nameEn or payload.nameAr or ""
     parts = raw_name.strip().split() if raw_name.strip() else []
@@ -321,12 +343,15 @@ def create_employee(
 @router.get("/employees/{employee_id}", response_model=EmployeeResponse)
 def get_employee(
     employee_id: uuid.UUID,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Fetch employee by ID."""
+    """Fetch employee by ID with strict tenant boundary check."""
     emp = db.query(Employee).filter(Employee.id == employee_id).first()
     if not emp:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found.")
+    if not context.is_super_admin and emp.tenant_id != context.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to employee record forbidden.")
     return emp
 
 
@@ -338,10 +363,15 @@ def get_employee(
 def list_payroll_runs(
     pay_period: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
+    tenant_id: Optional[uuid.UUID] = None,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """List payroll runs with optional pay-period or status filters."""
-    query = select(PayrollRun)
+    """List payroll runs strictly isolated to tenant."""
+    context.check_access(tenant_id)
+    target_tenant = tenant_id if (context.is_super_admin and tenant_id) else context.tenant_id
+
+    query = select(PayrollRun).where(PayrollRun.tenant_id == target_tenant)
     if pay_period:
         query = query.where(PayrollRun.pay_period == pay_period)
     if status_filter:
@@ -349,16 +379,19 @@ def list_payroll_runs(
     return db.execute(query).scalars().all()
 
 
-@router.post("/payroll", response_model=PayrollRunResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/payroll", response_model=PayrollRunResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def create_payroll_run(
     payload: PayrollRunCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Draft a new payroll run calculation."""
-    effective_tenant_id = payload.tenant_id or payload.company_id
-    if not effective_tenant_id:
-        emp = db.query(Employee).filter(Employee.id == payload.employee_id).first()
-        effective_tenant_id = emp.tenant_id if emp else uuid.uuid4()
+    """Draft a new payroll run calculation in caller's tenant."""
+    context.check_access(payload.tenant_id, payload.company_id)
+    effective_tenant_id = (payload.tenant_id or payload.company_id) if (context.is_super_admin and (payload.tenant_id or payload.company_id)) else context.tenant_id
+
+    emp = db.query(Employee).filter(Employee.id == payload.employee_id).first()
+    if emp and not context.is_super_admin and emp.tenant_id != effective_tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employee belongs to another tenant.")
 
     net_pay = payload.gross_earnings + payload.allowances - payload.deductions
     run = PayrollRun(
@@ -378,18 +411,22 @@ def create_payroll_run(
     return run
 
 
-@router.post("/payroll/{run_id}/post-ledger", response_model=JournalEntryResponse)
+@router.post("/payroll/{run_id}/post-ledger", response_model=JournalEntryResponse, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def post_payroll_to_ledger(
     run_id: uuid.UUID,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
     """
     Approves a payroll draft run and posts a balanced double-entry journal entry to the GL.
-    Enforces debit/credit mathematical invariance.
+    Enforces debit/credit mathematical invariance and tenant boundary.
     """
     run = db.query(PayrollRun).filter(PayrollRun.id == run_id).first()
     if not run:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payroll run not found.")
+
+    if not context.is_super_admin and run.tenant_id != context.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to payroll run forbidden.")
 
     gross = Decimal(str(run.gross_earnings))
     allowances = Decimal(str(run.allowances))
@@ -421,8 +458,6 @@ def post_payroll_to_ledger(
     db.flush()
 
     # Create balanced journal lines:
-    # Debits: Salaries Expense (511000), Allowances Expense (512000)
-    # Credits: Bank / Cash (111101), Deductions Payable (211200)
     lines = [
         FinanceJournalLine(
             id=uuid.uuid4(),
@@ -461,7 +496,6 @@ def post_payroll_to_ledger(
             credit=deductions,
         ),
     ]
-    # Filter out 0-amount lines to satisfy line constraints
     active_lines = [l for l in lines if l.debit > 0 or l.credit > 0]
     db.add_all(active_lines if active_lines else lines)
 
@@ -480,32 +514,38 @@ def list_journal_entries(
     status_filter: Optional[str] = Query(None, alias="status"),
     tenant_id: Optional[uuid.UUID] = None,
     limit: int = Query(50, ge=1, le=500),
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """List financial journal entries."""
-    query = select(FinanceJournalEntry).order_by(desc(FinanceJournalEntry.entry_date))
+    """List financial journal entries strictly isolated to tenant."""
+    context.check_access(tenant_id)
+    target_tenant = tenant_id if (context.is_super_admin and tenant_id) else context.tenant_id
+
+    query = select(FinanceJournalEntry).where(FinanceJournalEntry.tenant_id == target_tenant).order_by(desc(FinanceJournalEntry.entry_date))
     if status_filter:
         query = query.where(FinanceJournalEntry.status == status_filter)
-    if tenant_id:
-        query = query.where(FinanceJournalEntry.tenant_id == tenant_id)
     query = query.limit(limit)
     return db.execute(query).scalars().all()
 
 
-@router.post("/journal-entries", response_model=JournalEntryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/journal-entries", response_model=JournalEntryResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def create_journal_entry(
     payload: JournalEntryCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
     """
     Create a balanced double-entry financial journal entry.
-    Enforces strict mathematical invariance (Sum(Debit) == Sum(Credit)).
+    Enforces strict mathematical invariance (Sum(Debit) == Sum(Credit)) and tenant boundary.
     """
     if not payload.lines:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Journal entry must contain at least one debit and credit line.",
         )
+
+    context.check_access(payload.tenant_id, payload.company_id)
+    effective_tenant_id = (payload.tenant_id or payload.company_id) if (context.is_super_admin and (payload.tenant_id or payload.company_id)) else context.tenant_id
 
     total_debit = sum((line.debit for line in payload.lines), Decimal("0.0000"))
     total_credit = sum((line.credit for line in payload.lines), Decimal("0.0000"))
@@ -517,7 +557,6 @@ def create_journal_entry(
             detail=f"Double-entry violation: Total debits ({total_debit}) must equal total credits ({total_credit}).",
         )
 
-    effective_tenant_id = payload.tenant_id or payload.company_id or uuid.uuid4()
     entry_number = payload.entry_number or f"JE-{uuid.uuid4().hex[:8].upper()}"
 
     entry = FinanceJournalEntry(
@@ -556,10 +595,14 @@ def create_journal_entry(
 @router.get("/journal-entries/{entry_id}", response_model=JournalEntryResponse)
 def get_journal_entry(
     entry_id: uuid.UUID,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Retrieve journal entry details and associated lines."""
+    """Retrieve journal entry details and associated lines with strict tenant isolation."""
     entry = db.query(FinanceJournalEntry).filter(FinanceJournalEntry.id == entry_id).first()
     if not entry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found.")
+    if not context.is_super_admin and entry.tenant_id != context.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to journal entry forbidden.")
     return entry
+

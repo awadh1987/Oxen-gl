@@ -29,6 +29,10 @@ try:
         FinanceJournalLine,
         ResCompany,
     )
+    from backend.api.dependencies import (
+        TenantContext,
+        get_tenant_context,
+    )
 except ImportError:
     from database import get_db
     from models import (
@@ -37,10 +41,15 @@ except ImportError:
         FinanceJournalLine,
         ResCompany,
     )
+    from dependencies import (  # type: ignore
+        TenantContext,
+        get_tenant_context,
+    )
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/analytics", tags=["Financial Reporting & Analytics Engine"])
+
 
 
 # ==============================================================================
@@ -186,16 +195,24 @@ def get_trial_balance(
     from_date: Optional[datetime] = Query(None, description="Filter transactions starting from this date"),
     to_date: Optional[datetime] = Query(None, description="Filter transactions up to this date"),
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ) -> TrialBalanceResponse:
     """
     Computes consolidated Trial Balance directly aggregating from active FinanceJournalLine entries.
     Sums debits and credits per account to verify general ledger balance invariance.
     """
-    # 1. Load available chart of accounts for rich naming
+    # 1. Access verification & tenant boundary enforcement
+    if company_id or tenant_id:
+        context.check_access(target_tenant_id=tenant_id, target_company_id=company_id)
+
+    target_comp = company_id or (context.company_id if not context.is_super_admin else None)
+    target_ten = tenant_id or (context.tenant_id if not context.is_super_admin else None)
+
+    # 2. Load available chart of accounts for rich naming
     db_accounts = db.query(Account).all()
     db_accounts_map = {acc.code: acc for acc in db_accounts}
 
-    # 2. Build aggregated query over FinanceJournalLine & FinanceJournalEntry
+    # 3. Build aggregated query over FinanceJournalLine & FinanceJournalEntry
     query = (
         db.query(
             FinanceJournalLine.account_code,
@@ -207,21 +224,23 @@ def get_trial_balance(
     )
 
     # Multi-tenant and company boundary filtering
-    filter_uuid = None
-    target_param = company_id or tenant_id
-    if target_param:
+    if target_comp:
         try:
-            filter_uuid = uuid.UUID(str(target_param))
+            cid_uuid = uuid.UUID(str(target_comp))
+            query = query.filter(FinanceJournalEntry.company_id == cid_uuid)
         except ValueError:
             pass
-
-    if filter_uuid:
-        query = query.filter(
-            or_(
-                FinanceJournalEntry.company_id == filter_uuid,
-                FinanceJournalEntry.tenant_id == filter_uuid,
-            )
-        )
+    elif target_ten:
+        try:
+            tid_uuid = uuid.UUID(str(target_ten))
+            query = query.filter(FinanceJournalEntry.tenant_id == tid_uuid)
+        except ValueError:
+            pass
+    elif not context.is_super_admin:
+        if context.company_id:
+            query = query.filter(FinanceJournalEntry.company_id == context.company_id)
+        elif context.tenant_id:
+            query = query.filter(FinanceJournalEntry.tenant_id == context.tenant_id)
 
     if from_date:
         query = query.filter(FinanceJournalEntry.entry_date >= from_date)
@@ -282,11 +301,18 @@ def get_income_statement(
     from_date: Optional[datetime] = Query(None, description="Filter starting from this date"),
     to_date: Optional[datetime] = Query(None, description="Filter up to this date"),
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ) -> IncomeStatementResponse:
     """
     Computes Income Statement (P&L) from active FinanceJournalLine entries.
     Filters for Revenue (Credit normal) and Expense (Debit normal) accounts to determine Net Income.
     """
+    if company_id or tenant_id:
+        context.check_access(target_tenant_id=tenant_id, target_company_id=company_id)
+
+    target_comp = company_id or (context.company_id if not context.is_super_admin else None)
+    target_ten = tenant_id or (context.tenant_id if not context.is_super_admin else None)
+
     db_accounts = db.query(Account).all()
     db_accounts_map = {acc.code: acc for acc in db_accounts}
 
@@ -300,21 +326,23 @@ def get_income_statement(
         .filter(FinanceJournalEntry.status != "CANCELLED")
     )
 
-    filter_uuid = None
-    target_param = company_id or tenant_id
-    if target_param:
+    if target_comp:
         try:
-            filter_uuid = uuid.UUID(str(target_param))
+            cid_uuid = uuid.UUID(str(target_comp))
+            query = query.filter(FinanceJournalEntry.company_id == cid_uuid)
         except ValueError:
             pass
-
-    if filter_uuid:
-        query = query.filter(
-            or_(
-                FinanceJournalEntry.company_id == filter_uuid,
-                FinanceJournalEntry.tenant_id == filter_uuid,
-            )
-        )
+    elif target_ten:
+        try:
+            tid_uuid = uuid.UUID(str(target_ten))
+            query = query.filter(FinanceJournalEntry.tenant_id == tid_uuid)
+        except ValueError:
+            pass
+    elif not context.is_super_admin:
+        if context.company_id:
+            query = query.filter(FinanceJournalEntry.company_id == context.company_id)
+        elif context.tenant_id:
+            query = query.filter(FinanceJournalEntry.tenant_id == context.tenant_id)
 
     if from_date:
         query = query.filter(FinanceJournalEntry.entry_date >= from_date)
@@ -392,6 +420,7 @@ def get_balance_sheet(
     tenant_id: Optional[str] = Query(None, description="Optional Tenant UUID filter"),
     as_of_date: Optional[datetime] = Query(None, description="As-of date filter"),
     db: Session = Depends(get_db),
+    context: TenantContext = Depends(get_tenant_context),
 ) -> BalanceSheetResponse:
     """
     Computes Balance Sheet (Statement of Financial Position) from active FinanceJournalLine entries.
@@ -399,6 +428,12 @@ def get_balance_sheet(
     and incorporates Current Period Net Income into total equity to guarantee balance sheet equilibrium:
     Assets == Liabilities + Equity (+ Net Income).
     """
+    if company_id or tenant_id:
+        context.check_access(target_tenant_id=tenant_id, target_company_id=company_id)
+
+    target_comp = company_id or (context.company_id if not context.is_super_admin else None)
+    target_ten = tenant_id or (context.tenant_id if not context.is_super_admin else None)
+
     db_accounts = db.query(Account).all()
     db_accounts_map = {acc.code: acc for acc in db_accounts}
 
@@ -412,21 +447,23 @@ def get_balance_sheet(
         .filter(FinanceJournalEntry.status != "CANCELLED")
     )
 
-    filter_uuid = None
-    target_param = company_id or tenant_id
-    if target_param:
+    if target_comp:
         try:
-            filter_uuid = uuid.UUID(str(target_param))
+            cid_uuid = uuid.UUID(str(target_comp))
+            query = query.filter(FinanceJournalEntry.company_id == cid_uuid)
         except ValueError:
             pass
-
-    if filter_uuid:
-        query = query.filter(
-            or_(
-                FinanceJournalEntry.company_id == filter_uuid,
-                FinanceJournalEntry.tenant_id == filter_uuid,
-            )
-        )
+    elif target_ten:
+        try:
+            tid_uuid = uuid.UUID(str(target_ten))
+            query = query.filter(FinanceJournalEntry.tenant_id == tid_uuid)
+        except ValueError:
+            pass
+    elif not context.is_super_admin:
+        if context.company_id:
+            query = query.filter(FinanceJournalEntry.company_id == context.company_id)
+        elif context.tenant_id:
+            query = query.filter(FinanceJournalEntry.tenant_id == context.tenant_id)
 
     if as_of_date:
         query = query.filter(FinanceJournalEntry.entry_date <= as_of_date)

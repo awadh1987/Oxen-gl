@@ -14,10 +14,19 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
+
+from backend.api.dependencies import (
+    TenantContext,
+    get_tenant_context,
+    require_write_access,
+    require_admin_or_accountant,
+    require_admin,
+    StandardRole,
+)
 
 try:
     from backend.database import get_db
@@ -240,29 +249,38 @@ def _seed_initial_procurement_data_if_needed(db: Session, tenant_id: uuid.UUID, 
 # Vendor Endpoints
 # ==============================================================================
 
+# ==============================================================================
+# Vendor Endpoints
+# ==============================================================================
+
 @router.get("/vendors", response_model=List[VendorResponse])
 def list_vendors(
     tenant_id: Optional[uuid.UUID] = None,
     limit: int = Query(100, ge=1, le=500),
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Retrieve vendors list with active status."""
-    query = select(Vendor).order_by(desc(Vendor.created_at))
-    if tenant_id:
-        query = query.where(Vendor.tenant_id == tenant_id)
+    """Retrieve vendors list strictly isolated to tenant."""
+    context.check_access(tenant_id)
+    target_tenant = tenant_id if (context.is_super_admin and tenant_id) else context.tenant_id
+
+    query = select(Vendor).where(Vendor.tenant_id == target_tenant).order_by(desc(Vendor.created_at))
     return db.scalars(query.limit(limit)).all()
 
 
-@router.post("/vendors", response_model=VendorResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/vendors", response_model=VendorResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def create_vendor(
     payload: VendorCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Register a new vendor/supplier."""
-    tenant_id = payload.tenant_id or uuid.uuid4()
+    """Register a new vendor/supplier within caller's isolated tenant."""
+    context.check_access(payload.tenant_id)
+    effective_tenant_id = payload.tenant_id if (context.is_super_admin and payload.tenant_id) else context.tenant_id
+
     vendor = Vendor(
         id=uuid.uuid4(),
-        tenant_id=tenant_id,
+        tenant_id=effective_tenant_id,
         vendor_code=payload.vendor_code,
         name=payload.name,
         commercial_registration=payload.commercial_registration,
@@ -290,17 +308,18 @@ def list_procurement_bills(
     match_status: Optional[str] = Query(None),
     is_posted: Optional[bool] = Query(None),
     limit: int = Query(100, ge=1, le=500),
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
     """
-    List vendor bills with vendor details, 3-way match status, and ledger posting status.
+    List vendor bills strictly filtered by caller tenant boundary.
     """
-    default_tenant = tenant_id or uuid.uuid4()
-    _seed_initial_procurement_data_if_needed(db, default_tenant, default_tenant)
+    context.check_access(tenant_id)
+    target_tenant = tenant_id if (context.is_super_admin and tenant_id) else context.tenant_id
 
-    query = select(VendorBill).order_by(desc(VendorBill.created_at))
-    if tenant_id:
-        query = query.where(VendorBill.tenant_id == tenant_id)
+    _seed_initial_procurement_data_if_needed(db, target_tenant, target_tenant)
+
+    query = select(VendorBill).where(VendorBill.tenant_id == target_tenant).order_by(desc(VendorBill.created_at))
     if match_status:
         query = query.where(VendorBill.match_status == match_status)
     if is_posted is not None:
@@ -353,12 +372,16 @@ def list_procurement_bills(
 @router.get("/bills/{bill_id}", response_model=ProcurementBillResponse)
 def get_procurement_bill(
     bill_id: uuid.UUID,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Retrieve details for a single procurement bill."""
+    """Retrieve details for a single procurement bill with strict tenant boundary."""
     bill = db.query(VendorBill).filter(VendorBill.id == bill_id).first()
     if not bill:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Procurement bill not found.")
+
+    if not context.is_super_admin and bill.tenant_id != context.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access to procurement bill forbidden.")
 
     vendor_name = None
     if bill.vendor_id:
@@ -395,14 +418,16 @@ def get_procurement_bill(
     )
 
 
-@router.post("/bills", response_model=ProcurementBillResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/bills", response_model=ProcurementBillResponse, status_code=status.HTTP_201_CREATED, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def create_procurement_bill(
     payload: ProcurementBillCreate,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
-    """Create a new vendor / procurement bill."""
-    tenant_id = payload.tenant_id or uuid.uuid4()
-    company_id = payload.company_id or tenant_id
+    """Create a new vendor / procurement bill within caller's tenant."""
+    context.check_access(payload.tenant_id, payload.company_id)
+    effective_tenant_id = (payload.tenant_id or payload.company_id) if (context.is_super_admin and (payload.tenant_id or payload.company_id)) else context.tenant_id
+    effective_company_id = payload.company_id if (context.is_super_admin and payload.company_id) else context.company_id
 
     total_billed = payload.total_billed
     if total_billed is None:
@@ -417,8 +442,8 @@ def create_procurement_bill(
 
     bill = VendorBill(
         id=uuid.uuid4(),
-        tenant_id=tenant_id,
-        company_id=company_id,
+        tenant_id=effective_tenant_id,
+        company_id=effective_company_id,
         invoice_number=payload.invoice_number,
         vendor_id=payload.vendor_id,
         purchase_order_id=payload.purchase_order_id or uuid.uuid4(),
@@ -469,16 +494,17 @@ def create_procurement_bill(
 # Phase 7 Core: Post to Double-Entry General Ledger
 # ==============================================================================
 
-@router.post("/bills/{bill_id}/post-ledger", response_model=JournalEntryResponse)
+@router.post("/bills/{bill_id}/post-ledger", response_model=JournalEntryResponse, dependencies=[Security(require_write_access), Security(require_admin_or_accountant)])
 def post_procurement_bill_to_ledger(
     bill_id: uuid.UUID,
+    context: TenantContext = Depends(get_tenant_context),
     db: Session = Depends(get_db),
 ):
     """
     Approves a 3-way matched procurement bill and posts a balanced double-entry
     journal entry to the General Ledger.
     
-    Enforces debit/credit mathematical invariance:
+    Enforces debit/credit mathematical invariance and tenant boundary:
       total_debit (Expense + VAT Input) == total_credit (Accounts Payable)
     """
     bill = db.query(VendorBill).filter(VendorBill.id == bill_id).first()
@@ -486,6 +512,12 @@ def post_procurement_bill_to_ledger(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Procurement bill '{bill_id}' not found.",
+        )
+
+    if not context.is_super_admin and bill.tenant_id != context.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Multi-tenant isolation violation: Access to procurement bill forbidden.",
         )
 
     if bill.is_posted:
@@ -503,8 +535,6 @@ def post_procurement_bill_to_ledger(
     total_billed = Decimal(str(bill.total_billed))
 
     # Mathematical invariance verification gate
-    # Total Debits: Net Purchases / Expense + VAT Input
-    # Total Credits: Accounts Payable (Trade Creditors)
     total_debit = amount + tax_amount
     total_credit = total_billed
 
@@ -537,9 +567,6 @@ def post_procurement_bill_to_ledger(
     db.flush()
 
     # Balanced Journal Lines:
-    # 1. Debit: Direct Procurement / Material Expense (510000)
-    # 2. Debit: VAT Input / Recoverable Tax (115000)
-    # 3. Credit: Accounts Payable / Trade Creditors (211000)
     lines = [
         FinanceJournalLine(
             id=uuid.uuid4(),
@@ -570,7 +597,6 @@ def post_procurement_bill_to_ledger(
         ),
     ]
 
-    # Filter out 0-amount lines to satisfy line constraints
     active_lines = [l for l in lines if l.debit > 0 or l.credit > 0]
     db.add_all(active_lines if active_lines else lines)
 
