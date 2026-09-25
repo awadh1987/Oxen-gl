@@ -21,7 +21,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import Depends, Header, HTTPException, Query, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -95,7 +95,7 @@ class TenantContext:
     role: str
     is_super_admin: bool
 
-    def check_access(self, target_tenant_id: Optional[uuid.UUID], target_company_id: Optional[uuid.UUID] = None) -> None:
+    def check_access(self, target_tenant_id: Optional[Union[uuid.UUID, str]], target_company_id: Optional[Union[uuid.UUID, str]] = None) -> None:
         """
         Enforces tenant boundary. If target ID belongs to another tenant/company,
         raises HTTP 403 Forbidden unless the caller is Super_Admin.
@@ -103,13 +103,13 @@ class TenantContext:
         if self.is_super_admin:
             return
 
-        if target_tenant_id and target_tenant_id != self.tenant_id:
+        if target_tenant_id and str(target_tenant_id) != str(self.tenant_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Multi-tenant isolation violation: Cross-tenant data access is strictly forbidden.",
             )
 
-        if target_company_id and target_company_id != self.company_id:
+        if target_company_id and str(target_company_id) != str(self.company_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Multi-tenant isolation violation: Cross-company data access is strictly forbidden.",
@@ -507,7 +507,7 @@ def get_tenant_context(
 
     # Multi-Tenant Isolation Enforcement:
     # If a non-superadmin caller specifies a tenant/company that does NOT match their own, REJECT with 403 Forbidden!
-    if not is_super_admin and requested_uuid and requested_uuid != user_cid:
+    if not is_super_admin and requested_uuid and str(requested_uuid) != str(user_cid):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Multi-tenant isolation violation: Access to data of another company or tenant is strictly prohibited.",

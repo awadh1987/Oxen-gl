@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from backend.app.database import SessionLocal
 from backend.app.domains.planning.models import ResCompany
 from backend.app.domains.finance.models import AccountChart
-from backend.models import ResUser
+from backend.models import ResUser, AccountAccount, AccountJournal, FiscalYear, StockLocation
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Tenant Provisioning & Onboarding"])
 
@@ -59,15 +59,25 @@ def generate_balanced_brand_palette(seed: Optional[str] = None) -> tuple[str, st
     return CURATED_PALETTES[hash_val % len(CURATED_PALETTES)]
 
 
-def seed_default_chart_of_accounts(db: Session, tenant_id: str, slug: str = "tenant"):
+def seed_default_chart_of_accounts(db: Session, tenant_id: str | uuid.UUID, slug: str = "tenant"):
     """
     Automated Seeding Hook: Attaches a standardized 5-deep nested corporate 
     Chart of Accounts skeleton framework to the newly provisioned tenant slot.
     """
-    try:
-        tenant_uuid = uuid.UUID(str(tenant_id)) if isinstance(tenant_id, str) else tenant_id
-        from datetime import datetime, timezone
+    import logging
+    logger = logging.getLogger("oxengl.onboarding")
+    tenant_uuid = uuid.UUID(str(tenant_id)) if isinstance(tenant_id, str) else tenant_id
+    from datetime import datetime, timezone
 
+    # If accounts already exist for this tenant, return immediately to maintain idempotency
+    existing_root = db.execute(
+        text("SELECT 1 FROM accounts WHERE tenant_id = :tid LIMIT 1"),
+        {"tid": tenant_uuid}
+    ).first()
+    if existing_root:
+        return
+
+    try:
         with db.begin_nested():
             def get_code(base_code: str) -> str:
                 exists = db.execute(
@@ -162,8 +172,138 @@ def seed_default_chart_of_accounts(db: Session, tenant_id: str, slug: str = "ten
             )
             db.add(operating_cash)
             db.flush()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"Error seeding chart of accounts for tenant {tenant_uuid}: {exc}")
+
+
+def seed_tenant_default_records(db: Session, company_id: uuid.UUID | str, currency: str = "SAR") -> None:
+    """
+    Automated Seeding Pipeline: Provisions all foundational enterprise financial
+    and operational baseline records for a newly registered tenant:
+    1. 5-depth hierarchical Chart of Accounts (accounts table)
+    2. General Ledger accounts (account_accounts table)
+    3. Standard financial journals (account_journals table)
+    4. Current fiscal year (fiscal_years table)
+    5. Main internal warehouse location (stock_locations table)
+    """
+    import logging
+    from datetime import datetime, timezone
+    logger = logging.getLogger("oxengl.onboarding")
+    company_uuid = uuid.UUID(str(company_id)) if isinstance(company_id, str) else company_id
+
+    # 1. 5-Depth Hierarchical Chart of Accounts
+    try:
+        seed_default_chart_of_accounts(db, tenant_id=company_uuid)
+    except Exception as exc:
+        logger.warning(f"Failed to seed chart of accounts for {company_uuid}: {exc}")
+
+    # 2. General Ledger Accounts (account_accounts)
+    DEFAULT_GL_ACCOUNTS = (
+        ("101000", "Operating Cash / Bank", "asset"),
+        ("120000", "Accounts Receivable", "asset"),
+        ("130000", "Stock Valuation / Material Inventory", "asset"),
+        ("201000", "Accounts Payable - Raw Materials", "liability"),
+        ("202000", "Accounts Payable - Freight & Logistics", "liability"),
+        ("203000", "VAT Payable", "liability"),
+        ("401000", "Sales Revenue", "revenue"),
+        ("501000", "Cost of Goods Sold - Materials", "expense"),
+        ("503000", "In-Transit Loss & Spillage Expense", "expense"),
+    )
+    try:
+        with db.begin_nested():
+            existing_gl_codes = set(
+                row[0] for row in db.execute(
+                    text("SELECT code FROM account_accounts WHERE company_id = :cid"),
+                    {"cid": company_uuid}
+                ).all()
+            )
+            for code, name, itype in DEFAULT_GL_ACCOUNTS:
+                if code not in existing_gl_codes:
+                    db.add(AccountAccount(
+                        id=uuid.uuid4(),
+                        company_id=company_uuid,
+                        code=code,
+                        name=name,
+                        internal_type=itype,
+                        currency=currency,
+                    ))
+            db.flush()
+    except Exception as exc:
+        logger.warning(f"Failed to seed general ledger accounts for {company_uuid}: {exc}")
+
+    # 3. Standard Financial Journals (account_journals)
+    DEFAULT_JOURNALS = (
+        ("GEN", "General Operations Journal", "general", "MISC"),
+        ("SALE", "Customer Invoicing Journal", "sale", "INV"),
+        ("PURCH", "Vendor Bills Journal", "purchase", "BILL"),
+        ("BANK", "Bank Operations Journal", "bank", "BNK"),
+        ("CASH", "Cash Receipts and Petty Cash", "cash", "CSH"),
+    )
+    try:
+        with db.begin_nested():
+            existing_journal_codes = set(
+                row[0] for row in db.execute(
+                    text("SELECT code FROM account_journals WHERE company_id = :cid"),
+                    {"cid": company_uuid}
+                ).all()
+            )
+            for code, name, jtype, prefix in DEFAULT_JOURNALS:
+                if code not in existing_journal_codes:
+                    db.add(AccountJournal(
+                        id=uuid.uuid4(),
+                        company_id=company_uuid,
+                        code=code,
+                        name=name,
+                        journal_type=jtype,
+                        sequence_prefix=prefix,
+                        next_sequence=1,
+                        is_active=True,
+                    ))
+            db.flush()
+    except Exception as exc:
+        logger.warning(f"Failed to seed account journals for {company_uuid}: {exc}")
+
+    # 4. Current Fiscal Year (fiscal_years)
+    try:
+        with db.begin_nested():
+            now_utc = datetime.now(timezone.utc)
+            current_year = now_utc.year
+            fy_name = f"FY-{current_year}"
+            existing_fy = db.execute(
+                text("SELECT 1 FROM fiscal_years WHERE company_id = :cid AND name = :name"),
+                {"cid": company_uuid, "name": fy_name}
+            ).first()
+            if not existing_fy:
+                db.add(FiscalYear(
+                    id=uuid.uuid4(),
+                    company_id=company_uuid,
+                    name=fy_name,
+                    date_start=datetime(current_year, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                    date_end=datetime(current_year, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+                    state="open",
+                ))
+            db.flush()
+    except Exception as exc:
+        logger.warning(f"Failed to seed fiscal year for {company_uuid}: {exc}")
+
+    # 5. Main Stock Location (stock_locations)
+    try:
+        with db.begin_nested():
+            existing_loc = db.execute(
+                text("SELECT 1 FROM stock_locations WHERE company_id = :cid AND name = 'Main Warehouse'"),
+                {"cid": company_uuid}
+            ).first()
+            if not existing_loc:
+                db.add(StockLocation(
+                    id=uuid.uuid4(),
+                    company_id=company_uuid,
+                    name="Main Warehouse",
+                    location_type="internal",
+                    is_active=True,
+                ))
+            db.flush()
+    except Exception as exc:
+        logger.warning(f"Failed to seed stock location for {company_uuid}: {exc}")
 
 @router.post("/register-tenant", status_code=status.HTTP_201_CREATED)
 async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
@@ -229,8 +369,8 @@ async def register_new_enterprise_tenant(payload: TenantRegistrationPayload):
         except Exception:
             pass
         
-        # 3. Fire the template seed routine to auto-inject the 5-depth accounting array
-        seed_default_chart_of_accounts(db, tenant_id=str(company_uuid), slug=slug_cleaned)
+        # 3. Fire the template seed routine to auto-inject default financial records, journals, fiscal year, and warehouse
+        seed_tenant_default_records(db, company_id=company_uuid, currency="SAR")
 
         # 4. Provision & Seed Super Admin User with Hashed Password
         admin_user_id = uuid.uuid4()

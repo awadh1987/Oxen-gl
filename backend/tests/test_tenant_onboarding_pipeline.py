@@ -1,11 +1,12 @@
 # File: backend/tests/test_tenant_onboarding_pipeline.py
+import uuid
 import pytest
 from fastapi.testclient import TestClient
 from backend.app.main import app  # Master FastAPI core instance
 from backend.app.database import SessionLocal
 from backend.app.domains.planning.models import ResCompany
 from backend.app.domains.finance.models import AccountChart
-from backend.models import ResUser
+from backend.models import ResUser, AccountAccount, AccountJournal, FiscalYear, StockLocation
 
 client = TestClient(app)  # Virtualized browser test harness client
 
@@ -16,12 +17,13 @@ def test_end_to_end_tenant_onboarding_seeds_5_deep_ledger():
     linked 5-depth hierarchical Chart of Accounts list.
     """
     # 1. Establish unique test variables to avoid index collision conflicts
-    test_slug = "quantum-logistics-test"
+    random_suffix = uuid.uuid4().hex[:6]
+    test_slug = f"quantum-test-{random_suffix}"
     onboarding_payload = {
-        "company_name_ar": "شركة كوانتوم اللوجستية التجريبية",
-        "company_name_en": "Quantum Logistics Test Group",
+        "company_name_ar": f"شركة كوانتوم اللوجستية التجريبية {random_suffix}",
+        "company_name_en": f"Quantum Logistics Test Group {random_suffix}",
         "domain_slug": test_slug,
-        "admin_email": "sre-audit@quantum-logistics-test.com"
+        "admin_email": f"sre-audit-{random_suffix}@quantum-test.com"
     }
 
     # 2. Fire live HTTP POST mutation request into the onboarding channel
@@ -75,11 +77,28 @@ def test_end_to_end_tenant_onboarding_seeds_5_deep_ledger():
         level_5 = next(a for a in tenant_ledger_accounts if a.account_code == "11110-01")
         assert level_5.parent_id == level_4.id
         
-        print(f"\n✅ SUCCESS: E2E Tenant Provisioning validated. Hierarchy Depth: 5 Levels linked under Tenant ID: {generated_tenant_id}")
+        # Verify GL accounts, journals, fiscal year, and stock location
+        gl_accounts = db.query(AccountAccount).filter(AccountAccount.company_id == generated_tenant_id).all()
+        assert len(gl_accounts) >= 9, f"Expected at least 9 GL accounts, found {len(gl_accounts)}"
+
+        journals = db.query(AccountJournal).filter(AccountJournal.company_id == generated_tenant_id).all()
+        assert len(journals) >= 5, f"Expected at least 5 journals, found {len(journals)}"
+
+        fiscal_years = db.query(FiscalYear).filter(FiscalYear.company_id == generated_tenant_id).all()
+        assert len(fiscal_years) >= 1, f"Expected active fiscal year, found {len(fiscal_years)}"
+
+        locations = db.query(StockLocation).filter(StockLocation.company_id == generated_tenant_id).all()
+        assert len(locations) >= 1, f"Expected internal warehouse location, found {len(locations)}"
+
+        print(f"\n✅ SUCCESS: E2E Tenant Provisioning validated. Hierarchy Depth: 5 Levels + Defaults linked under Tenant ID: {generated_tenant_id}")
 
     finally:
         # Clean teardown pass: remove mock records to keep staging tables clean
         db.query(AccountChart).filter(AccountChart.tenant_id == generated_tenant_id).delete()
+        db.query(StockLocation).filter(StockLocation.company_id == generated_tenant_id).delete()
+        db.query(AccountJournal).filter(AccountJournal.company_id == generated_tenant_id).delete()
+        db.query(AccountAccount).filter(AccountAccount.company_id == generated_tenant_id).delete()
+        db.query(FiscalYear).filter(FiscalYear.company_id == generated_tenant_id).delete()
         db.query(ResUser).filter(ResUser.company_id == generated_tenant_id).delete()
         db.query(ResCompany).filter(ResCompany.id == generated_tenant_id).delete()
         db.commit()

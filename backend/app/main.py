@@ -313,6 +313,24 @@ def verify_migration_managed_schema() -> None:
 				"CRITICAL SECURITY CONFIGURATION ERROR: Production JWT secret is unconfigured or using an insecure default. "
 				"Set JWT_SECRET to a strong, high-entropy secret (>= 32 bytes) in environment configuration."
 			)
+	try:
+		with SessionLocal() as db:
+			db.execute(text("ALTER TABLE weighbridge_tickets ADD COLUMN IF NOT EXISTS uom VARCHAR(32) DEFAULT 'MT';"))
+			db.execute(text("ALTER TABLE accounts ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES accounts(id) ON DELETE SET NULL;"))
+			db.execute(text("ALTER TABLE accounts DROP CONSTRAINT IF EXISTS accounts_code_key;"))
+			db.execute(text("""
+				DO $$
+				BEGIN
+					IF NOT EXISTS (
+						SELECT 1 FROM pg_constraint WHERE conname = 'uq_accounts_tenant_code'
+					) THEN
+						ALTER TABLE accounts ADD CONSTRAINT uq_accounts_tenant_code UNIQUE (tenant_id, code);
+					END IF;
+				END $$;
+			"""))
+			db.commit()
+	except Exception as exc:
+		logging.getLogger("uvicorn.error").warning(f"Schema self-healing check warning: {exc}")
 	return None
 
 
