@@ -92,18 +92,18 @@ export PYTHONPATH="${PROJECT_DIR}:${PROJECT_DIR}/backend"
 echo "⚙️  Step 5: Launching Multi-Container Application Mesh..."
 
 # 5a. FastAPI Backend Engine
-echo "  🚀 Starting Async FastAPI Engine (port 8000 on 127.0.0.1)..."
-"${VENV_DIR}/bin/python" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload --reload-dir "${PROJECT_DIR}/backend" &
+echo "  🚀 Starting Async FastAPI Engine (port 8000 on 127.0.0.1, concurrency limit: 100)..."
+"${VENV_DIR}/bin/python" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --limit-concurrency 100 &
 UVICORN_PID=$!
 
 # 5b. Celery Worker Queue
-echo "  🚀 Starting Celery Worker Tasks Queue..."
-"${VENV_DIR}/bin/celery" -A backend.app.core.celery_app.celery_app worker --loglevel=info &
+echo "  🚀 Starting Celery Worker Tasks Queue (bounded concurrency: 2 for 2GB host)..."
+"${VENV_DIR}/bin/celery" -A backend.app.core.celery_app.celery_app worker --concurrency=2 --loglevel=info &
 CELERY_PID=$!
 
 # 5c. Next.js / Vite React User Portal
-echo "  🚀 Starting Frontend User Portal (port 3000 on 127.0.0.1)..."
-(cd "${PROJECT_DIR}/frontend" && HOST=127.0.0.1 NODE_ENV=production node dist/server.cjs) &
+echo "  🚀 Starting Frontend User Portal (port 3000 on 127.0.0.1, max-old-space: 256MB)..."
+(cd "${PROJECT_DIR}/frontend" && HOST=127.0.0.1 NODE_ENV=production NODE_OPTIONS="--max-old-space-size=256" node dist/server.cjs) &
 FRONTEND_PID=$!
 
 echo "  ⏳ Verifying runtime health of initialized services..."

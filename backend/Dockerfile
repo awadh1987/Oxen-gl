@@ -1,4 +1,9 @@
-FROM python:3.12-slim
+# ==============================================================================
+# Production Dockerfile for OxenGL FastAPI Backend Engine
+# Optimized for 2GB RAM host with explicit worker & concurrency bounds
+# ==============================================================================
+
+FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -6,13 +11,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl gcc python3-dev libpq-dev && rm -rf /var/lib/apt/lists/*
+# Install minimal runtime dependencies (curl for healthcheck, libpq for PostgreSQL)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libpq5 \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
+# Install python dependencies
 COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
+# Copy backend application source
 COPY . ./backend
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Healthcheck for container orchestration
+HEALTHCHECK --interval=20s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8000/api/v1/health 2>/dev/null || curl -f http://localhost:8000/docs 2>/dev/null || exit 1
+
+# Launch uvicorn with 2 workers to stay well within the 2GB host memory budget (~150MB per worker)
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--limit-concurrency", "100"]
