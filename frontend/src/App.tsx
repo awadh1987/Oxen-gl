@@ -49,6 +49,7 @@ const ProcurementView = React.lazy(() => import('./views/ProcurementView').then(
 const InventoryView = React.lazy(() => import('./views/InventoryView').then(m => ({ default: m.InventoryView })));
 const HRMSView = React.lazy(() => import('./views/HRMSView').then(m => ({ default: m.HRMSView })));
 const OrganizationProfile = React.lazy(() => import('./views/settings/OrganizationProfile').then(m => ({ default: m.OrganizationProfile })));
+const CorporateVault = React.lazy(() => import('./views/settings/CorporateVault').then(m => ({ default: m.CorporateVault })));
 const FinancialReportsView = React.lazy(() => import('./views/FinancialReportsView').then(m => ({ default: m.FinancialReportsView })));
 
 const ViewLoadingFallback = () => (
@@ -104,6 +105,15 @@ export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
   '/settings/org-chart': 'organization-profile',
   '/settings/org-profile': 'organization-profile',
 
+  // Corporate Profile & Document Vault (Phase 8 UNOPS)
+  '/compliance/vault': 'corporate-vault',
+  '/compliance': 'corporate-vault',
+  '/compliance/cv': 'corporate-vault',
+  '/compliance/documents': 'corporate-vault',
+  '/settings/compliance': 'corporate-vault',
+  '/settings/vault': 'corporate-vault',
+  '/settings/corporate-vault': 'corporate-vault',
+
   // Dev Studio (Hidden developer route)
   '/dev-studio': 'design-studio',
 
@@ -145,6 +155,7 @@ export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
   'workflow-builder': '/settings/workflows',
   'design-studio': '/dev-studio',
   'organization-profile': '/settings/organization',
+  'corporate-vault': '/compliance/vault',
 
   hub: '/operations/daily',
   dashboard: '/operations/daily',
@@ -184,6 +195,7 @@ export const getTabFromPath = (path: string): ActiveTab => {
   if (cleanPath.startsWith('/settings/tenant')) return 'tenant-settings';
   if (cleanPath.startsWith('/settings/workflows')) return 'workflow-builder';
   if (cleanPath.startsWith('/settings/organization') || cleanPath.startsWith('/settings/org-chart')) return 'organization-profile';
+  if (cleanPath.startsWith('/compliance') || cleanPath.startsWith('/settings/compliance') || cleanPath.startsWith('/settings/vault') || cleanPath.startsWith('/settings/corporate-vault')) return 'corporate-vault';
   if (cleanPath.startsWith('/dev-studio')) return 'design-studio';
 
   return 'operations';
@@ -714,6 +726,7 @@ function AppContent() {
     'design-studio': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'tenant-settings': ['Super_Admin', 'Admin', 'COO'],
     'organization-profile': ['Super_Admin', 'Admin', 'COO'],
+    'corporate-vault': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
     'fleet-map': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
     'finance-chart': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
     'finance-trial-balance': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
@@ -792,6 +805,8 @@ function AppContent() {
         );
       case 'organization-profile':
         return <OrganizationProfile />;
+      case 'corporate-vault':
+        return <CorporateVault />;
       default:
         return <DashboardView onNavigateToTab={(tab) => setActiveTab(tab)} />;
     }

@@ -62,6 +62,7 @@ export type ActiveTab =
   | 'mfa'
   | 'customs'
   | 'organization-profile'
+  | 'corporate-vault'
   | 'admin-hub';
 
 interface SidebarProps {
@@ -388,6 +389,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         badge: 'RLS',
       },
       {
+        id: 'corporate-vault',
+        labelAr: 'ملف المنشأة وخزينة الامتثال (UNOPS)',
+        labelEn: 'Corporate Profile & Vault (UNOPS)',
+        path: '/compliance/vault',
+        icon: FileCheck2,
+        roles: ['Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest', 'Super_Admin'],
+        badge: 'UNOPS',
+      },
+      {
         id: 'organization-profile',
         labelAr: 'الهيكل التنظيمي للمنشأة والفروع',
         labelEn: 'Enterprise Organization Profile',
@@ -453,12 +463,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       },
       {
         id: 'governance',
-        labelAr: 'الحوكمة والنظام',
-        labelEn: 'System Governance',
+        labelAr: 'الحوكمة والامتثال',
+        labelEn: 'Governance & Compliance',
         icon: ShieldCheck,
         // 'ai-insights' intentionally omitted — canonical entry is the top sub-nav ribbon
         // (/finance/ai-auditor). The floating AIAssistantWidget drawer is the secondary entry.
         itemIds: [
+          'corporate-vault',
           'organization-profile',
           'master-data',
           'billing',

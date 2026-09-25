@@ -1407,7 +1407,93 @@ export const erpApi = {
     request<any>(`/api/v1/organization/purchasing-orgs/${id}`, companyId, {
       method: 'DELETE',
     }),
+
+  // Corporate Profile & Document Vault (Phase 8 UNOPS Standard)
+  getCorporateCvPayload: (companyId?: string, includeBranches: boolean = true) =>
+    request<any>(
+      `/api/v1/corporate/cv-payload?include_branches=${includeBranches}${companyId ? `&company_id=${encodeURIComponent(companyId)}` : ''}`,
+      companyId
+    ),
+  getCorporateDocuments: (
+    params?: { companyId?: string; documentType?: string; verificationStatus?: string },
+    activeCompanyId?: string
+  ) => {
+    const query = new URLSearchParams();
+    if (params?.companyId) query.append('company_id', params.companyId);
+    if (params?.documentType) query.append('document_type', params.documentType);
+    if (params?.verificationStatus) query.append('verification_status', params.verificationStatus);
+    const queryString = query.toString();
+    return request<TenantDocumentRecord[]>(
+      queryString ? `/api/v1/corporate/documents?${queryString}` : '/api/v1/corporate/documents',
+      activeCompanyId || params?.companyId
+    );
+  },
+  getCorporateDocumentById: (id: string, companyId?: string) =>
+    request<TenantDocumentRecord>(`/api/v1/corporate/documents/${id}`, companyId),
+  createCorporateDocument: (payload: CreateTenantDocumentPayload, companyId?: string) =>
+    request<TenantDocumentRecord>('/api/v1/corporate/documents', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateCorporateDocument: (id: string, payload: UpdateTenantDocumentPayload, companyId?: string) =>
+    request<TenantDocumentRecord>(`/api/v1/corporate/documents/${id}`, companyId, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteCorporateDocument: (id: string, companyId?: string) =>
+    request<void>(`/api/v1/corporate/documents/${id}`, companyId, {
+      method: 'DELETE',
+    }),
 };
+
+export interface TenantDocumentRecord {
+  id: string;
+  company_id: string;
+  document_type: string;
+  title: string;
+  file_path: string;
+  file_name: string;
+  file_size_bytes?: number | null;
+  mime_type?: string | null;
+  issuing_authority?: string | null;
+  document_number?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  verification_status: 'UNVERIFIED' | 'VERIFIED' | 'EXPIRED' | 'REJECTED';
+  verified_at?: string | null;
+  verified_by_user_id?: string | null;
+  notes?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTenantDocumentPayload {
+  document_type: string;
+  title: string;
+  file_path: string;
+  file_name: string;
+  file_size_bytes?: number | null;
+  mime_type?: string | null;
+  issuing_authority?: string | null;
+  document_number?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  notes?: string | null;
+  company_id?: string | null;
+}
+
+export interface UpdateTenantDocumentPayload {
+  document_type?: string;
+  title?: string;
+  issuing_authority?: string | null;
+  document_number?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  verification_status?: 'UNVERIFIED' | 'VERIFIED' | 'EXPIRED' | 'REJECTED';
+  notes?: string | null;
+  is_active?: boolean;
+}
 
 export interface OrgCostCenter {
   id: string;
