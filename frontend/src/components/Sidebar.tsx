@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   Boxes,
   Users,
+  FolderTree,
   TrendingUp,
   ChevronLeft,
   ChevronRight,
@@ -60,6 +61,7 @@ export type ActiveTab =
   | 'hr'
   | 'mfa'
   | 'customs'
+  | 'organization-profile'
   | 'admin-hub';
 
 interface SidebarProps {
@@ -385,6 +387,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         roles: ['Admin', 'COO', 'Super_Admin'],
         badge: 'RLS',
       },
+      {
+        id: 'organization-profile',
+        labelAr: 'الهيكل التنظيمي للمنشأة والفروع',
+        labelEn: 'Enterprise Organization Profile',
+        path: '/settings/organization',
+        icon: FolderTree,
+        roles: ['Admin', 'COO', 'Super_Admin'],
+        badge: 'SAP-Tree',
+      },
       ...(currentUser?.role === 'Super_Admin' || authTier === 'master'
         ? [
             {
@@ -448,6 +459,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // 'ai-insights' intentionally omitted — canonical entry is the top sub-nav ribbon
         // (/finance/ai-auditor). The floating AIAssistantWidget drawer is the secondary entry.
         itemIds: [
+          'organization-profile',
           'master-data',
           'billing',
           'workflow-builder',

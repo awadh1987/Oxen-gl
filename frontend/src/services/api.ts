@@ -1346,7 +1346,127 @@ export const erpApi = {
       body: formData,
     });
   },
+
+  // Enterprise Organizational Management (Phase 7 SAP-Style Profiles)
+  getOrgTree: (rootId?: string, companyId?: string) =>
+    request<OrgTreeNode[]>(
+      rootId ? `/api/v1/organization/tree?root_id=${encodeURIComponent(rootId)}` : '/api/v1/organization/tree',
+      companyId
+    ),
+  getOrgCompanies: (companyId?: string) =>
+    request<any[]>('/api/v1/organization/companies', companyId),
+  createOrgCompany: (payload: CreateBranchPayload, companyId?: string) =>
+    request<any>('/api/v1/organization/companies', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateOrgCompany: (id: string, payload: Partial<CreateBranchPayload>, companyId?: string) =>
+    request<any>(`/api/v1/organization/companies/${id}`, companyId, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteOrgCompany: (id: string, companyId?: string) =>
+    request<any>(`/api/v1/organization/companies/${id}`, companyId, {
+      method: 'DELETE',
+    }),
+  getCostCenters: (companyIdFilter?: string, activeCompanyId?: string) =>
+    request<OrgCostCenter[]>(
+      companyIdFilter ? `/api/v1/organization/cost-centers?company_id=${encodeURIComponent(companyIdFilter)}` : '/api/v1/organization/cost-centers',
+      activeCompanyId
+    ),
+  createCostCenter: (payload: CreateCostCenterPayload, companyId?: string) =>
+    request<OrgCostCenter>('/api/v1/organization/cost-centers', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateCostCenter: (id: string, payload: Partial<CreateCostCenterPayload>, companyId?: string) =>
+    request<OrgCostCenter>(`/api/v1/organization/cost-centers/${id}`, companyId, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteCostCenter: (id: string, companyId?: string) =>
+    request<any>(`/api/v1/organization/cost-centers/${id}`, companyId, {
+      method: 'DELETE',
+    }),
+  getPurchasingOrgs: (companyIdFilter?: string, activeCompanyId?: string) =>
+    request<OrgPurchasingOrg[]>(
+      companyIdFilter ? `/api/v1/organization/purchasing-orgs?company_id=${encodeURIComponent(companyIdFilter)}` : '/api/v1/organization/purchasing-orgs',
+      activeCompanyId
+    ),
+  createPurchasingOrg: (payload: CreatePurchasingOrgPayload, companyId?: string) =>
+    request<OrgPurchasingOrg>('/api/v1/organization/purchasing-orgs', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updatePurchasingOrg: (id: string, payload: Partial<CreatePurchasingOrgPayload>, companyId?: string) =>
+    request<OrgPurchasingOrg>(`/api/v1/organization/purchasing-orgs/${id}`, companyId, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deletePurchasingOrg: (id: string, companyId?: string) =>
+    request<any>(`/api/v1/organization/purchasing-orgs/${id}`, companyId, {
+      method: 'DELETE',
+    }),
 };
+
+export interface OrgCostCenter {
+  id: string;
+  company_id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OrgPurchasingOrg {
+  id: string;
+  company_id: string;
+  code: string;
+  name: string;
+  currency: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface OrgTreeNode {
+  id: string;
+  name: string;
+  slug: string;
+  org_type: 'company_code' | 'branch';
+  currency: string;
+  is_active: boolean;
+  parent_id?: string | null;
+  branches: OrgTreeNode[];
+  cost_centers: OrgCostCenter[];
+  purchasing_organizations: OrgPurchasingOrg[];
+}
+
+export interface CreateBranchPayload {
+  name: string;
+  slug?: string;
+  parent_id?: string | null;
+  currency?: string;
+  is_active?: boolean;
+}
+
+export interface CreateCostCenterPayload {
+  company_id: string;
+  code: string;
+  name: string;
+  description?: string;
+  is_active?: boolean;
+}
+
+export interface CreatePurchasingOrgPayload {
+  company_id: string;
+  code: string;
+  name: string;
+  currency?: string;
+  is_active?: boolean;
+}
 
 export interface ApiInventoryMovement {
   id: string;

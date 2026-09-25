@@ -48,6 +48,7 @@ const ResetPasswordView = React.lazy(() => import('./views/ResetPasswordView').t
 const ProcurementView = React.lazy(() => import('./views/ProcurementView').then(m => ({ default: m.ProcurementView })));
 const InventoryView = React.lazy(() => import('./views/InventoryView').then(m => ({ default: m.InventoryView })));
 const HRMSView = React.lazy(() => import('./views/HRMSView').then(m => ({ default: m.HRMSView })));
+const OrganizationProfile = React.lazy(() => import('./views/settings/OrganizationProfile').then(m => ({ default: m.OrganizationProfile })));
 const FinancialReportsView = React.lazy(() => import('./views/FinancialReportsView').then(m => ({ default: m.FinancialReportsView })));
 
 const ViewLoadingFallback = () => (
@@ -99,6 +100,9 @@ export const ROUTE_TAB_MAP: Record<string, ActiveTab> = {
   '/settings/master-data': 'master-data',
   '/settings/tenant': 'tenant-settings',
   '/settings/workflows': 'workflow-builder',
+  '/settings/organization': 'organization-profile',
+  '/settings/org-chart': 'organization-profile',
+  '/settings/org-profile': 'organization-profile',
 
   // Dev Studio (Hidden developer route)
   '/dev-studio': 'design-studio',
@@ -140,6 +144,7 @@ export const TAB_ROUTE_MAP: Record<ActiveTab, string> = {
   'tenant-settings': '/settings/tenant',
   'workflow-builder': '/settings/workflows',
   'design-studio': '/dev-studio',
+  'organization-profile': '/settings/organization',
 
   hub: '/operations/daily',
   dashboard: '/operations/daily',
@@ -178,6 +183,7 @@ export const getTabFromPath = (path: string): ActiveTab => {
   if (cleanPath.startsWith('/settings/master-data')) return 'master-data';
   if (cleanPath.startsWith('/settings/tenant')) return 'tenant-settings';
   if (cleanPath.startsWith('/settings/workflows')) return 'workflow-builder';
+  if (cleanPath.startsWith('/settings/organization') || cleanPath.startsWith('/settings/org-chart')) return 'organization-profile';
   if (cleanPath.startsWith('/dev-studio')) return 'design-studio';
 
   return 'operations';
@@ -707,6 +713,7 @@ function AppContent() {
     'workflow-builder': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'design-studio': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Guest'],
     'tenant-settings': ['Super_Admin', 'Admin', 'COO'],
+    'organization-profile': ['Super_Admin', 'Admin', 'COO'],
     'fleet-map': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Data_Entry', 'Read_Only', 'Guest'],
     'finance-chart': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
     'finance-trial-balance': ['Super_Admin', 'Admin', 'COO', 'Accountant', 'Read_Only'],
@@ -783,6 +790,8 @@ function AppContent() {
             tenantSlug={(brandConfig as any)?.slug || 'horizon-logistics'}
           />
         );
+      case 'organization-profile':
+        return <OrganizationProfile />;
       default:
         return <DashboardView onNavigateToTab={(tab) => setActiveTab(tab)} />;
     }
