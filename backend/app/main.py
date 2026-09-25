@@ -403,6 +403,9 @@ app.include_router(analytics_ledger_router)
 from backend.app.api.routers.organization import router as organization_router
 app.include_router(organization_router, prefix="/api/v1")
 app.include_router(organization_router, prefix="/api")
+from backend.app.api.routers.corporate_cv import router as corporate_cv_router
+app.include_router(corporate_cv_router, prefix="/api/v1")
+app.include_router(corporate_cv_router, prefix="/api")
 
 
 

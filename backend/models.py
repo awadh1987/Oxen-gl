@@ -113,6 +113,9 @@ class ResCompany(TimestampMixin, Base):
     purchasing_organizations: Mapped[list["PurchasingOrganization"]] = relationship(
         "PurchasingOrganization", cascade="all, delete-orphan", passive_deletes=True, back_populates="company"
     )
+    tenant_documents: Mapped[list["TenantDocument"]] = relationship(
+        "TenantDocument", cascade="all, delete-orphan", passive_deletes=True, back_populates="company"
+    )
     invoices: Mapped[list["CustomerInvoice"]] = relationship(
         "CustomerInvoice", cascade="all, delete-orphan", passive_deletes=True
     )
@@ -558,6 +561,44 @@ class OperationAttachment(TimestampMixin, Base):
     file_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), nullable=False)
     uploaded_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+
+class TenantDocument(TimestampMixin, Base):
+    """
+    Corporate Vault model storing verified commercial registrations, ZATCA tax certificates,
+    ISO compliance documents, and other RFP attachments linked to res_companies.
+    """
+    __tablename__ = "tenant_documents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("res_companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    document_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    document_number: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    mime_type: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, default="application/pdf")
+    issue_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    expiry_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    issuing_authority: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(32), nullable=False, default="UNVERIFIED", server_default="UNVERIFIED", index=True)
+    verified_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_by: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True, default=dict)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+
+    company: Mapped["ResCompany"] = relationship("ResCompany", back_populates="tenant_documents")
+
+    __table_args__ = (
+        CheckConstraint(
+            "verification_status IN ('UNVERIFIED', 'VERIFIED', 'EXPIRED', 'REJECTED')",
+            name="ck_tenant_document_verification_status",
+        ),
+        Index("ix_tenant_docs_company_type", "company_id", "document_type"),
+        Index("ix_tenant_docs_company_expiry", "company_id", "expiry_date"),
+    )
 
 
 class TransporterLedger(TimestampMixin, Base):
