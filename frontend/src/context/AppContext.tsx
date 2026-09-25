@@ -338,6 +338,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 4000);
   };
 
+  useEffect(() => {
+    const handleGlobalToast = (event: Event) => {
+      const customEvent = event as CustomEvent<{ message: string; type?: 'info' | 'success' | 'warning' | 'error' }>;
+      if (customEvent.detail?.message) {
+        showToast(customEvent.detail.message, customEvent.detail.type || 'error');
+      }
+    };
+    window.addEventListener('oxengl-toast', handleGlobalToast);
+    return () => {
+      window.removeEventListener('oxengl-toast', handleGlobalToast);
+    };
+  }, []);
+
   const [language, setLanguageState] = useState<'ar' | 'en'>(() => {
     const stored = (localStorage.getItem(LOCALE_STORAGE_KEY) as 'ar' | 'en') || (localStorage.getItem('oxengl_language') as 'ar' | 'en');
     return stored === 'en' ? 'en' : 'ar';

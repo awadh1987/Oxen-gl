@@ -533,7 +533,7 @@ export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> =
       </div>
 
       {/* 2. Top Tier Metrics KPI Ribbon */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="rounded-2xl border border-slate-800/90 bg-[#090f1c] p-4 shadow-lg backdrop-blur-md">
           <div className="flex items-center justify-between text-slate-400">
             <span className="text-xs font-semibold uppercase">{isAr ? 'إجمالي الأسطول' : 'Total Vehicles'}</span>
@@ -674,7 +674,7 @@ export const DashboardView: React.FC<{ onNavigateToTab?: (tab: any) => void }> =
               </span>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-2.5">
                 <span className="text-[10px] text-slate-500 font-medium uppercase">{isAr ? 'السرعة الحالية' : 'Velocity'}</span>
                 <p className="text-base font-bold text-slate-200 mt-0.5">{selectedVehicle?.speed_kmh} km/h</p>

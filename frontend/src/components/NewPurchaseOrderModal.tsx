@@ -163,7 +163,7 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* PO Number */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label htmlFor="po-number-input" className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 <span className="flex items-center gap-1">
                   <Hash className="h-3 w-3 text-slate-400" />
                   {isAr ? 'رقم أمر الشراء' : 'PO Number'}
@@ -171,6 +171,8 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
                 </span>
               </label>
               <input
+                id="po-number-input"
+                name="po_number"
                 type="text"
                 disabled={true}
                 value={poNumber}
@@ -186,13 +188,15 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
 
             {/* Vendor / Supplier */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label htmlFor="po-vendor-name-input" className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 <span className="flex items-center gap-1">
                   <Building2 className="h-3 w-3 text-slate-400" />
                   {isAr ? 'اسم المورد / الشريك *' : 'Vendor / Partner *'}
                 </span>
               </label>
               <input
+                id="po-vendor-name-input"
+                name="vendor_name"
                 type="text"
                 required
                 value={vendorName}
@@ -210,13 +214,15 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Category */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label htmlFor="po-category-select" className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 <span className="flex items-center gap-1">
                   <Tag className="h-3 w-3 text-slate-400" />
                   {isAr ? 'تصنيف المشتريات' : 'Category'}
                 </span>
               </label>
               <select
+                id="po-category-select"
+                name="category"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className={`w-full rounded-xl border px-3.5 py-2.5 text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-[#F05627] ${
@@ -242,13 +248,15 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
 
             {/* Total Amount */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label htmlFor="po-total-amount-input" className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 <span className="flex items-center gap-1">
                   <DollarSign className="h-3 w-3 text-slate-400" />
                   {isAr ? 'القيمة الإجمالية (ريال سعودي) *' : 'Total Amount (SAR) *'}
                 </span>
               </label>
               <input
+                id="po-total-amount-input"
+                name="total_amount"
                 type="number"
                 required
                 min="1"
@@ -267,13 +275,15 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Delivery Date */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label htmlFor="po-delivery-date-input" className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3 text-slate-400" />
                   {isAr ? 'تاريخ التوريد المتوقع *' : 'Expected Delivery Date *'}
                 </span>
               </label>
               <input
+                id="po-delivery-date-input"
+                name="delivery_date"
                 type="date"
                 required
                 value={deliveryDate}
@@ -288,13 +298,15 @@ export const NewPurchaseOrderModal: React.FC<NewPurchaseOrderModalProps> = ({
 
             {/* Notes */}
             <div>
-              <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
+              <label htmlFor="po-notes-input" className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
                 <span className="flex items-center gap-1">
                   <FileText className="h-3 w-3 text-slate-400" />
                   {isAr ? 'ملاحظات أمر الشراء' : 'Purchase Order Notes'}
                 </span>
               </label>
               <input
+                id="po-notes-input"
+                name="notes"
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

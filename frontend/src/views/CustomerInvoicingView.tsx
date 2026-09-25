@@ -1067,10 +1067,12 @@ Myon Economic Contracting Co. Ltd.`;
       <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs no-print">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <div>
-            <label className="mb-1 block text-xs font-bold text-slate-700">
+            <label htmlFor="invoicing-customer-select" className="mb-1 block text-xs font-bold text-slate-700">
               {isAr ? 'اختيار العميل المطلوب محاسبته *' : 'Select Customer *'}
             </label>
             <select
+              id="invoicing-customer-select"
+              name="customer_id"
               value={selectedCustomerId}
               onChange={(e) => setSelectedCustomerId(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -1084,10 +1086,12 @@ Myon Economic Contracting Co. Ltd.`;
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-bold text-slate-700">
+            <label htmlFor="invoicing-month-select" className="mb-1 block text-xs font-bold text-slate-700">
               {isAr ? 'الشهر المالي *' : 'Billing Month *'}
             </label>
             <select
+              id="invoicing-month-select"
+              name="billing_month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(Number(e.target.value))}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -1101,10 +1105,12 @@ Myon Economic Contracting Co. Ltd.`;
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-bold text-slate-700">
+            <label htmlFor="invoicing-year-select" className="mb-1 block text-xs font-bold text-slate-700">
               {isAr ? 'السنة المالية' : 'Year'}
             </label>
             <select
+              id="invoicing-year-select"
+              name="billing_year"
               value={selectedYear}
               onChange={(e) => setSelectedYear(Number(e.target.value))}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-900 focus:border-orange-500 focus:bg-white focus:outline-none"
@@ -1115,10 +1121,12 @@ Myon Economic Contracting Co. Ltd.`;
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-bold text-slate-700">
+            <label htmlFor="invoicing-workflow-select" className="mb-1 block text-xs font-bold text-slate-700">
               {isAr ? 'حالة الاعتماد وسير العمل' : 'Workflow Stage'}
             </label>
             <select
+              id="invoicing-workflow-select"
+              name="workflow_stage"
               value={invoiceStatus}
               onChange={(e) => {
                 const val = e.target.value as any;
@@ -1136,6 +1144,18 @@ Myon Economic Contracting Co. Ltd.`;
           </div>
         </div>
       </div>
+
+      {/* Loading Indicator Banner */}
+      {isLoadingBackend && (
+        <div className="flex items-center gap-2.5 rounded-2xl border border-orange-200 bg-orange-50/80 p-3.5 text-xs font-bold text-orange-900 shadow-xs animate-pulse no-print">
+          <RefreshCw className="h-4 w-4 animate-spin text-orange-600 shrink-0" />
+          <span>
+            {isAr
+              ? 'جاري تجميع حركات التوريد وتذاكر الميزان من قاعدة البيانات لحساب الفاتورة...'
+              : 'Aggregating operational trips and scale tickets from backend database...'}
+          </span>
+        </div>
+      )}
 
       {/* 4. Official Saudi ZATCA Tax Invoice Document (فاتورة ضريبية رسمية) */}
       <div
@@ -1204,23 +1224,38 @@ Myon Economic Contracting Co. Ltd.`;
 
         {/* Aggregate Items Table */}
         <div className="w-full overflow-x-auto">
-          <table className="w-full text-right text-xs">
+          <table className="w-full text-start text-xs">
             <thead>
               <tr className="border-y-2 border-slate-900 bg-slate-100 font-bold text-slate-900">
-                <th className="py-3 px-3">#</th>
-                <th className="py-3 px-3">{isAr ? 'نوع المادة / البند' : 'Material Description'}</th>
+                <th className="py-3 px-3 text-start">#</th>
+                <th className="py-3 px-3 text-start">{isAr ? 'نوع المادة / البند' : 'Material Description'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'عدد الرحلات' : 'Trips'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'الوزن المحمل (MT طن)' : 'Loaded (MT)'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'الوزن الصافي (MT طن)' : 'Delivered (MT)'}</th>
                 <th className="py-3 px-3 text-center">{isAr ? 'الفاقد (MT طن)' : 'Loss (MT)'}</th>
-                <th className="py-3 px-3">{isAr ? 'سعر الوحدة (ر.س/MT طن)' : 'Rate / MT'}</th>
-                <th className="py-3 px-3">{isAr ? 'المبلغ (بدون ضريبة)' : 'Amount'}</th>
-                <th className="py-3 px-3">{isAr ? 'الضريبة 15%' : 'VAT 15%'}</th>
-                <th className="py-3 px-3">{isAr ? 'الإجمالي (ر.س)' : 'Total (SAR)'}</th>
+                <th className="py-3 px-3 text-end">{isAr ? 'سعر الوحدة (ر.س/MT طن)' : 'Rate / MT'}</th>
+                <th className="py-3 px-3 text-end">{isAr ? 'المبلغ (بدون ضريبة)' : 'Amount'}</th>
+                <th className="py-3 px-3 text-end">{isAr ? 'الضريبة 15%' : 'VAT 15%'}</th>
+                <th className="py-3 px-3 text-end">{isAr ? 'الإجمالي (ر.س)' : 'Total (SAR)'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {invoiceItems.length === 0 ? (
+              {isLoadingBackend ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <tr key={`inv-skel-${idx}`} className="animate-pulse">
+                    <td className="py-3 px-3"><div className="h-4 bg-slate-200 rounded w-4" /></td>
+                    <td className="py-3 px-3"><div className="h-4 bg-slate-200 rounded w-36" /></td>
+                    <td className="py-3 px-3 text-center"><div className="h-4 bg-slate-200 rounded w-10 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><div className="h-4 bg-slate-200 rounded w-14 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><div className="h-4 bg-slate-200 rounded w-14 mx-auto" /></td>
+                    <td className="py-3 px-3 text-center"><div className="h-4 bg-slate-200 rounded w-10 mx-auto" /></td>
+                    <td className="py-3 px-3 text-end"><div className="h-4 bg-slate-200 rounded w-16 ms-auto" /></td>
+                    <td className="py-3 px-3 text-end"><div className="h-4 bg-slate-200 rounded w-20 ms-auto" /></td>
+                    <td className="py-3 px-3 text-end"><div className="h-4 bg-slate-200 rounded w-16 ms-auto" /></td>
+                    <td className="py-3 px-3 text-end"><div className="h-4 bg-slate-200 rounded w-24 ms-auto" /></td>
+                  </tr>
+                ))
+              ) : invoiceItems.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-slate-400">
                     {isAr ? 'لا توجد رحلات مسجلة لهذا العميل في الشهر المحدد' : 'No trips found for this customer and month'}
@@ -1235,10 +1270,10 @@ Myon Economic Contracting Co. Ltd.`;
                     <td className="py-3 px-3 text-center text-slate-600">{item.loadedWeight}</td>
                     <td className="py-3 px-3 text-center font-bold text-slate-900">{item.deliveredWeight}</td>
                     <td className="py-3 px-3 text-center text-rose-600 font-semibold">{item.wastageWeight}</td>
-                    <td className="py-3 px-3 font-mono">{item.unitPrice}</td>
-                    <td className="py-3 px-3 font-semibold text-slate-900">{formatCurrency(item.subtotal, language)}</td>
-                    <td className="py-3 px-3 text-slate-700">{formatCurrency(item.vatAmount, language)}</td>
-                    <td className="py-3 px-3 font-black text-neutral-950">{formatCurrency(item.total, language)}</td>
+                    <td className="py-3 px-3 text-end font-mono">{item.unitPrice}</td>
+                    <td className="py-3 px-3 text-end font-semibold text-slate-900">{formatCurrency(item.subtotal, language)}</td>
+                    <td className="py-3 px-3 text-end text-slate-700">{formatCurrency(item.vatAmount, language)}</td>
+                    <td className="py-3 px-3 text-end font-black text-neutral-950">{formatCurrency(item.total, language)}</td>
                   </tr>
                 ))
               )}

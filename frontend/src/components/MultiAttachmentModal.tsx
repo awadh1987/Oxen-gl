@@ -210,6 +210,7 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
                 </label>
                 <input
                   id="camera-scan-input"
+                  name="camera_scan"
                   type="file"
                   accept="image/*"
                   capture="environment"
@@ -225,6 +226,7 @@ export const MultiAttachmentModal: React.FC<MultiAttachmentModalProps> = ({
                 </label>
                 <input
                   id="file-upload-input"
+                  name="file_upload"
                   type="file"
                   accept="image/*,application/pdf"
                   onChange={handleFileSelect}

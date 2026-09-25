@@ -68,6 +68,89 @@ body,
 }
 
 /* ==========================================================================
+   RTL & Localization Standardization for Arabic & Financial Tables
+   ========================================================================== */
+
+/* Directional Base Alignment */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="ltr"] {
+  text-align: left;
+}
+
+/* Text alignment for table headers and body cells */
+[dir="rtl"] table th.text-start,
+[dir="rtl"] table td.text-start,
+[dir="rtl"] .text-start {
+  text-align: right !important;
+}
+
+[dir="ltr"] table th.text-start,
+[dir="ltr"] table td.text-start,
+[dir="ltr"] .text-start {
+  text-align: left !important;
+}
+
+[dir="rtl"] table th.text-end,
+[dir="rtl"] table td.text-end,
+[dir="rtl"] .text-end {
+  text-align: left !important;
+}
+
+[dir="ltr"] table th.text-end,
+[dir="ltr"] table td.text-end,
+[dir="ltr"] .text-end {
+  text-align: right !important;
+}
+
+/* Standard financial table numeric columns: right-aligned with monospace tabular figures */
+.financial-num,
+.tabular-nums,
+td.financial-num,
+th.financial-num {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* RTL-aware icon flipping for back/forward navigation */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Responsive Table Wrapper with Smooth Mobile Touch Scrolling */
+.responsive-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Skeleton Loading Shimmer Animation */
+@keyframes oxengl-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0.6) 25%, rgba(241, 245, 249, 0.9) 50%, rgba(226, 232, 240, 0.6) 75%);
+  background-size: 200% 100%;
+  animation: oxengl-shimmer 1.5s infinite;
+}
+
+.dark .skeleton-shimmer,
+[data-theme-mode="dark"] .skeleton-shimmer {
+  background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 25%, rgba(51, 65, 85, 0.8) 50%, rgba(30, 41, 59, 0.6) 75%);
+  background-size: 200% 100%;
+  animation: oxengl-shimmer 1.5s infinite;
+}
+
+/* ==========================================================================
    OxenGL Enterprise Design System Custom Utilities & Keyframes
    ========================================================================== */
 

@@ -38,6 +38,36 @@ interface FinancialReportsViewProps {
   initialReport?: FinancialReportType;
 }
 
+const TableSkeletonRows: React.FC<{ rows?: number; cols?: number }> = ({ rows = 5, cols = 7 }) => (
+  <>
+    {Array.from({ length: rows }).map((_, rIdx) => (
+      <tr key={`skel-row-${rIdx}`} className="animate-pulse">
+        {Array.from({ length: cols }).map((_, cIdx) => (
+          <td key={`skel-col-${cIdx}`} className="py-3 px-4">
+            <div
+              className={`h-4 bg-slate-200/80 rounded ${
+                cIdx === 1 ? 'w-48' : cIdx === 0 ? 'w-16' : 'w-24 ms-auto'
+              }`}
+            />
+          </td>
+        ))}
+      </tr>
+    ))}
+  </>
+);
+
+const KpiSkeletonCards: React.FC = () => (
+  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-pulse">
+    {[1, 2, 3, 4].map((i) => (
+      <div key={i} className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
+        <div className="h-3 bg-slate-200 rounded w-1/2" />
+        <div className="h-7 bg-slate-200 rounded w-3/4" />
+        <div className="h-2.5 bg-slate-100 rounded w-1/3" />
+      </div>
+    ))}
+  </div>
+);
+
 export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
   initialReport = 'trial-balance',
 }) => {
@@ -279,6 +309,18 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
         </div>
       )}
 
+      {/* Loading Indicator Banner */}
+      {isLoading && (
+        <div className="flex items-center gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-3.5 text-xs font-bold text-indigo-900 shadow-xs animate-pulse">
+          <RefreshCw className="h-4 w-4 animate-spin text-indigo-600 shrink-0" />
+          <span>
+            {isAr
+              ? 'جاري تجميع وترحيل قيود دفتر الأستاذ العام وحساب الأرصدة التراكمية...'
+              : 'Aggregating and calculating real-time general ledger balances...'}
+          </span>
+        </div>
+      )}
+
       {/* ==================================================================== */}
       {/* REPORT 1: TRIAL BALANCE VIEW                                         */}
       {/* ==================================================================== */}
@@ -291,7 +333,11 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                 {isAr ? 'إجمالي المدين (Debits)' : 'Total Debits'}
               </span>
               <div className="mt-2 text-2xl font-black text-slate-900">
-                {formatCurrency(Number(trialBalance?.total_debit || 0), language)}
+                {isLoading ? (
+                  <div className="h-7 w-28 bg-slate-200 rounded animate-pulse my-0.5" />
+                ) : (
+                  formatCurrency(Number(trialBalance?.total_debit || 0), language)
+                )}
               </div>
               <span className="text-[10px] text-slate-400 font-mono">
                 {trialBalance?.accounts.length || 0} {isAr ? 'حساب نشط' : 'active accounts'}
@@ -303,7 +349,11 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                 {isAr ? 'إجمالي الدائن (Credits)' : 'Total Credits'}
               </span>
               <div className="mt-2 text-2xl font-black text-slate-900">
-                {formatCurrency(Number(trialBalance?.total_credit || 0), language)}
+                {isLoading ? (
+                  <div className="h-7 w-28 bg-slate-200 rounded animate-pulse my-0.5" />
+                ) : (
+                  formatCurrency(Number(trialBalance?.total_credit || 0), language)
+                )}
               </div>
               <span className="text-[10px] text-slate-400 font-mono">
                 {isAr ? 'مطابقة متوازنة' : 'Double-entry parity'}
@@ -319,7 +369,11 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                   trialBalance?.is_balanced ? 'text-emerald-600' : 'text-rose-600'
                 }`}
               >
-                {formatCurrency(Number(trialBalance?.discrepancy || 0), language)}
+                {isLoading ? (
+                  <div className="h-7 w-28 bg-slate-200 rounded animate-pulse my-0.5" />
+                ) : (
+                  formatCurrency(Number(trialBalance?.discrepancy || 0), language)
+                )}
               </div>
               <span className="text-[10px] text-slate-400 font-mono">
                 {trialBalance?.is_balanced
@@ -360,6 +414,8 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
             <div className="flex items-center gap-2 flex-1 max-w-md">
               <Search className="h-4 w-4 text-slate-400" />
               <input
+                id="trial-balance-search"
+                name="search_query"
                 type="text"
                 placeholder={isAr ? 'بحث برقم الحساب أو الاسم...' : 'Search by account code or name...'}
                 value={searchQuery}
@@ -422,7 +478,9 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {filteredTrialBalanceAccounts.length === 0 ? (
+                {isLoading ? (
+                  <TableSkeletonRows rows={6} cols={7} />
+                ) : filteredTrialBalanceAccounts.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-slate-400">
                       {isAr ? 'لا توجد حركات مالية مسجلة' : 'No general ledger entries found.'}
@@ -588,17 +646,21 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {incomeStatement?.revenue_accounts.map((acc) => (
-                  <tr key={acc.account_code}>
-                    <td className="py-2.5 font-mono text-slate-700">{acc.account_code}</td>
-                    <td className="py-2.5 font-bold text-slate-900">
-                      {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
-                    </td>
-                    <td className="py-2.5 text-end font-mono font-bold text-emerald-700">
-                      {formatCurrency(Number(acc.amount), language)}
-                    </td>
-                  </tr>
-                ))}
+                {isLoading ? (
+                  <TableSkeletonRows rows={3} cols={3} />
+                ) : (
+                  incomeStatement?.revenue_accounts.map((acc) => (
+                    <tr key={acc.account_code}>
+                      <td className="py-2.5 font-mono text-slate-700">{acc.account_code}</td>
+                      <td className="py-2.5 font-bold text-slate-900">
+                        {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
+                      </td>
+                      <td className="py-2.5 text-end font-mono font-bold text-emerald-700">
+                        {formatCurrency(Number(acc.amount), language)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -626,17 +688,21 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-medium">
-                {incomeStatement?.expense_accounts.map((acc) => (
-                  <tr key={acc.account_code}>
-                    <td className="py-2.5 font-mono text-slate-700">{acc.account_code}</td>
-                    <td className="py-2.5 font-bold text-slate-900">
-                      {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
-                    </td>
-                    <td className="py-2.5 text-end font-mono font-bold text-rose-700">
-                      {formatCurrency(Number(acc.amount), language)}
-                    </td>
-                  </tr>
-                ))}
+                {isLoading ? (
+                  <TableSkeletonRows rows={4} cols={3} />
+                ) : (
+                  incomeStatement?.expense_accounts.map((acc) => (
+                    <tr key={acc.account_code}>
+                      <td className="py-2.5 font-mono text-slate-700">{acc.account_code}</td>
+                      <td className="py-2.5 font-bold text-slate-900">
+                        {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
+                      </td>
+                      <td className="py-2.5 text-end font-mono font-bold text-rose-700">
+                        {formatCurrency(Number(acc.amount), language)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -755,17 +821,21 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {balanceSheet?.asset_accounts.map((acc) => (
-                    <tr key={acc.account_code}>
-                      <td className="py-2.5 font-mono text-slate-700">{acc.account_code}</td>
-                      <td className="py-2.5 font-bold text-slate-900">
-                        {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
-                      </td>
-                      <td className="py-2.5 text-end font-mono font-bold text-blue-900">
-                        {formatCurrency(Number(acc.amount), language)}
-                      </td>
-                    </tr>
-                  ))}
+                  {isLoading ? (
+                    <TableSkeletonRows rows={4} cols={3} />
+                  ) : (
+                    balanceSheet?.asset_accounts.map((acc) => (
+                      <tr key={acc.account_code}>
+                        <td className="py-2.5 font-mono text-slate-700">{acc.account_code}</td>
+                        <td className="py-2.5 font-bold text-slate-900">
+                          {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
+                        </td>
+                        <td className="py-2.5 text-end font-mono font-bold text-blue-900">
+                          {formatCurrency(Number(acc.amount), language)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-slate-900 font-black text-slate-900">
@@ -798,17 +868,21 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                 </span>
                 <table className="w-full text-start text-xs mb-4">
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {balanceSheet?.liability_accounts.map((acc) => (
-                      <tr key={acc.account_code}>
-                        <td className="py-2 font-mono text-slate-700 w-24">{acc.account_code}</td>
-                        <td className="py-2 font-bold text-slate-900">
-                          {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
-                        </td>
-                        <td className="py-2 text-end font-mono font-bold text-amber-900">
-                          {formatCurrency(Number(acc.amount), language)}
-                        </td>
-                      </tr>
-                    ))}
+                    {isLoading ? (
+                      <TableSkeletonRows rows={3} cols={3} />
+                    ) : (
+                      balanceSheet?.liability_accounts.map((acc) => (
+                        <tr key={acc.account_code}>
+                          <td className="py-2 font-mono text-slate-700 w-24">{acc.account_code}</td>
+                          <td className="py-2 font-bold text-slate-900">
+                            {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
+                          </td>
+                          <td className="py-2 text-end font-mono font-bold text-amber-900">
+                            {formatCurrency(Number(acc.amount), language)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                     <tr className="border-t border-slate-200 font-black">
                       <td colSpan={2} className="py-2 text-slate-600">
                         {isAr ? 'مجموع الخصوم' : 'Total Liabilities'}
@@ -828,17 +902,21 @@ export const FinancialReportsView: React.FC<FinancialReportsViewProps> = ({
                 </span>
                 <table className="w-full text-start text-xs">
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {balanceSheet?.equity_accounts.map((acc) => (
-                      <tr key={acc.account_code}>
-                        <td className="py-2 font-mono text-slate-700 w-24">{acc.account_code}</td>
-                        <td className="py-2 font-bold text-slate-900">
-                          {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
-                        </td>
-                        <td className="py-2 text-end font-mono font-bold text-purple-900">
-                          {formatCurrency(Number(acc.amount), language)}
-                        </td>
-                      </tr>
-                    ))}
+                    {isLoading ? (
+                      <TableSkeletonRows rows={3} cols={3} />
+                    ) : (
+                      balanceSheet?.equity_accounts.map((acc) => (
+                        <tr key={acc.account_code}>
+                          <td className="py-2 font-mono text-slate-700 w-24">{acc.account_code}</td>
+                          <td className="py-2 font-bold text-slate-900">
+                            {isAr && acc.account_name_ar ? acc.account_name_ar : acc.account_name}
+                          </td>
+                          <td className="py-2 text-end font-mono font-bold text-purple-900">
+                            {formatCurrency(Number(acc.amount), language)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                     {/* Current Period Net Income integration */}
                     <tr className="bg-purple-50/50">
                       <td className="py-2 font-mono text-purple-700 w-24">P&L-NET</td>

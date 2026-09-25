@@ -349,6 +349,8 @@ export const ProcurementView: React.FC = () => {
         <div className="relative min-w-[260px]">
           <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 rtl:right-3.5 rtl:left-auto ltr:left-3.5 ltr:right-auto" />
           <input
+            id="procurement-search-input"
+            name="procurement_search"
             type="text"
             placeholder={
               activeTab === 'matching'
@@ -413,16 +415,24 @@ export const ProcurementView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredBills.length === 0 ? (
+                {loadingBills ? (
+                  Array.from({ length: 4 }).map((_, idx) => (
+                    <tr key={`bill-skel-${idx}`} className="animate-pulse">
+                      <td className="py-3.5 px-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-28" /></td>
+                      <td className="py-3.5 px-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-36" /></td>
+                      <td className="py-3.5 px-4"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-24" /></td>
+                      <td className="py-3.5 px-4 text-end"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-16 ms-auto" /></td>
+                      <td className="py-3.5 px-4 text-end"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-16 ms-auto" /></td>
+                      <td className="py-3.5 px-4 text-end"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20 ms-auto" /></td>
+                      <td className="py-3.5 px-4 text-center"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20 mx-auto" /></td>
+                      <td className="py-3.5 px-4 text-center"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-20 mx-auto" /></td>
+                      <td className="py-3.5 px-4 text-center"><div className="h-4 bg-slate-200 dark:bg-slate-800 rounded w-16 mx-auto" /></td>
+                    </tr>
+                  ))
+                ) : filteredBills.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-8 text-center text-slate-400">
-                      {loadingBills
-                        ? isAr
-                          ? 'جاري تحميل الفواتير...'
-                          : 'Loading vendor bills...'
-                        : isAr
-                        ? 'لا توجد فواتير موردين مطابقة'
-                        : 'No vendor bills found.'}
+                      {isAr ? 'لا توجد فواتير موردين مطابقة' : 'No vendor bills found.'}
                     </td>
                   </tr>
                 ) : (

@@ -754,6 +754,26 @@ async function request<T>(path: string, companyId?: string, options?: RequestIni
       console.error(`[API Error ${response.status}] ${path}:`, errorDetail);
     }
 
+    // Global Error Interceptor: 403, 422, and 500 piped into toast notification system
+    if (typeof window !== 'undefined') {
+      let toastMsg = '';
+      if (response.status === 403) {
+        toastMsg = errorDetail || 'Access forbidden: You do not have permission for this resource (403).';
+      } else if (response.status === 422) {
+        toastMsg = errorDetail ? `Validation error: ${errorDetail}` : 'Unprocessable Entity: Form validation failed (422).';
+      } else if (response.status >= 500) {
+        toastMsg = errorDetail ? `Server error: ${errorDetail}` : `Internal server error (${response.status}). Please try again later.`;
+      }
+
+      if (toastMsg) {
+        window.dispatchEvent(
+          new CustomEvent('oxengl-toast', {
+            detail: { message: toastMsg, type: 'error' },
+          })
+        );
+      }
+    }
+
     // Global 401/403 Interceptor
     if (response.status === 401 || response.status === 403) {
       if (typeof window !== 'undefined') {

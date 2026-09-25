@@ -381,6 +381,8 @@ export const InventoryView: React.FC = () => {
           <div className="relative min-w-[200px]">
             <Search className="w-4 h-4 text-slate-500 absolute top-1/2 -translate-y-1/2 start-3" />
             <input
+              id="inventory-search-input"
+              name="inventory_search"
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -392,6 +394,8 @@ export const InventoryView: React.FC = () => {
           <div className="flex items-center gap-1.5">
             <Building2 className="w-4 h-4 text-slate-500 shrink-0" />
             <select
+              id="warehouse-filter-select"
+              name="warehouse_filter"
               value={selectedWarehouse}
               onChange={(e) => setSelectedWarehouse(e.target.value)}
               className="bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 text-xs text-white focus:outline-none focus:border-amber-500 transition"
@@ -425,7 +429,21 @@ export const InventoryView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {filteredMovements.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={`inv-skel-${idx}`} className="animate-pulse">
+                    <td className="py-3.5 px-4"><div className="h-4 bg-slate-800 rounded w-24" /></td>
+                    <td className="py-3.5 px-4"><div className="h-4 bg-slate-800 rounded w-36" /></td>
+                    <td className="py-3.5 px-4"><div className="h-4 bg-slate-800 rounded w-28" /></td>
+                    <td className="py-3.5 px-4"><div className="h-4 bg-slate-800 rounded w-20" /></td>
+                    <td className="py-3.5 px-4 text-end"><div className="h-4 bg-slate-800 rounded w-16 ms-auto" /></td>
+                    <td className="py-3.5 px-4 text-end"><div className="h-4 bg-slate-800 rounded w-16 ms-auto" /></td>
+                    <td className="py-3.5 px-4 text-end"><div className="h-4 bg-slate-800 rounded w-20 ms-auto" /></td>
+                    <td className="py-3.5 px-4 text-center"><div className="h-4 bg-slate-800 rounded w-20 mx-auto" /></td>
+                    <td className="py-3.5 px-4 text-center"><div className="h-4 bg-slate-800 rounded w-16 mx-auto" /></td>
+                  </tr>
+                ))
+              ) : filteredMovements.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-500">
                     <Boxes className="w-10 h-10 mx-auto text-slate-600 mb-2 opacity-60" />
@@ -577,10 +595,12 @@ export const InventoryView: React.FC = () => {
             <form onSubmit={handleCreateAdjustment} className="space-y-4">
               {/* Warehouse */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label htmlFor="adj-warehouse-select" className="block text-xs font-semibold text-slate-300 mb-1.5">
                   {isAr ? 'المستودع المستهدف' : 'Target Warehouse'} *
                 </label>
                 <select
+                  id="adj-warehouse-select"
+                  name="warehouse_id"
                   value={formData.warehouse_id}
                   onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500"
@@ -596,10 +616,12 @@ export const InventoryView: React.FC = () => {
 
               {/* Product */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label htmlFor="adj-product-select" className="block text-xs font-semibold text-slate-300 mb-1.5">
                   {isAr ? 'الصنف / المادة' : 'Product / Material'}
                 </label>
                 <select
+                  id="adj-product-select"
+                  name="product_id"
                   value={formData.product_id}
                   onChange={(e) => {
                     const sel = products.find((p) => p.id === e.target.value);
@@ -623,10 +645,12 @@ export const InventoryView: React.FC = () => {
               {/* Movement Type */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  <label htmlFor="adj-movement-type-select" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     {isAr ? 'نوع الحركة' : 'Movement Type'}
                   </label>
                   <select
+                    id="adj-movement-type-select"
+                    name="movement_type"
                     value={formData.movement_type}
                     onChange={(e) => setFormData({ ...formData, movement_type: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-amber-500"
@@ -640,10 +664,12 @@ export const InventoryView: React.FC = () => {
 
                 {/* Quantity */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  <label htmlFor="adj-quantity-input" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     {isAr ? 'الكمية (+ أو -)' : 'Quantity (+ / -)'} *
                   </label>
                   <input
+                    id="adj-quantity-input"
+                    name="quantity"
                     type="number"
                     step="any"
                     value={formData.quantity}
@@ -657,10 +683,12 @@ export const InventoryView: React.FC = () => {
               {/* Unit Cost & Total Value Preview */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  <label htmlFor="adj-unit-cost-input" className="block text-xs font-semibold text-slate-300 mb-1.5">
                     {isAr ? 'تكلفة الوحدة (SAR)' : 'Unit Cost (SAR)'} *
                   </label>
                   <input
+                    id="adj-unit-cost-input"
+                    name="unit_cost"
                     type="number"
                     step="0.01"
                     value={formData.unit_cost}
@@ -681,10 +709,12 @@ export const InventoryView: React.FC = () => {
 
               {/* Reason */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                <label htmlFor="adj-reason-input" className="block text-xs font-semibold text-slate-300 mb-1.5">
                   {isAr ? 'السبب / الملاحظات' : 'Reason / Justification'}
                 </label>
                 <input
+                  id="adj-reason-input"
+                  name="reason"
                   type="text"
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
