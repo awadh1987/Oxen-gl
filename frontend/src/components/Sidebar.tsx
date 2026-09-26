@@ -142,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const token = localStorage.getItem('oxengl_auth_jwt') || localStorage.getItem('token');
     const fetchTenantConfig = async () => {
       try {
-        const response = await fetch('/api/tenant/control/settings', {
+        let response = await fetch('/api/v1/tenant/control/settings', {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -150,6 +150,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
             'X-Tenant-ID': activeTenantId,
           },
         });
+        if (!response.ok && response.status === 404) {
+          response = await fetch('/api/tenant/control/settings', {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+              'X-Tenant-ID': activeTenantId,
+            },
+          });
+        }
         if (response.ok) {
           const data = await response.json();
           const views =

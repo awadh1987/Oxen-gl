@@ -821,8 +821,8 @@ function AppContent() {
       case 'tenant-settings':
         return (
           <TenantSettingsPanel
-            tenantId={(brandConfig as any)?.tenantId || '44f9ed53-be0a-454e-acbf-c87e54ff9438'}
-            tenantSlug={(brandConfig as any)?.slug || 'horizon-logistics'}
+            tenantId={tenantId || (brandConfig as any)?.tenantId || localStorage.getItem('oxengl_tenant_id') || 'dcb40cee-b20a-4bdf-a79b-b284371f04fa'}
+            tenantSlug={(brandConfig as any)?.slug || localStorage.getItem('oxengl_tenant_slug') || 'myon'}
           />
         );
       case 'organization-profile':

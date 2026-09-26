@@ -11,13 +11,20 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install minimal runtime dependencies (curl for healthcheck, libpq for PostgreSQL)
+# Install runtime dependencies (curl, libpq, and graphics libraries for WeasyPrint)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
     gcc \
     python3-dev \
     libpq-dev \
+    libpango-1.0-0 \
+    libpangoft2-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libffi-dev \
+    shared-mime-info \
+    libgdk-pixbuf-2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies

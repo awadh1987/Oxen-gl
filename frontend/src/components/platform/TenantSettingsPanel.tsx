@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { CustomDomainWizard } from './CustomDomainWizard';
+import { erpApi } from '../../services/api';
 
 interface TenantSettingsPanelProps {
   tenantId: string;
@@ -48,15 +49,31 @@ export const TenantSettingsPanel: React.FC<TenantSettingsPanelProps> = ({ tenant
 
   const loadSettings = async () => {
     try {
-      const res = await fetch('/api/tenant/control/settings', {
-        headers: { 'x-tenant-id': tenantId },
-      });
-      const data = await res.json();
-      if (data.success) {
+      const data = await erpApi.getTenantControlSettings(tenantId);
+      if (data?.success) {
         setSettings(data.settings);
+      } else {
+        const res = await fetch('/api/tenant/control/settings', {
+          headers: { 'x-tenant-id': tenantId, 'x-tenant-slug': tenantSlug },
+        });
+        const fallbackData = await res.json();
+        if (fallbackData.success) {
+          setSettings(fallbackData.settings);
+        }
       }
     } catch (err) {
-      console.error('Failed to load settings:', err);
+      console.warn('API getTenantControlSettings failed, attempting direct fetch:', err);
+      try {
+        const res = await fetch('/api/tenant/control/settings', {
+          headers: { 'x-tenant-id': tenantId, 'x-tenant-slug': tenantSlug },
+        });
+        const fallbackData = await res.json();
+        if (fallbackData?.success) {
+          setSettings(fallbackData.settings);
+        }
+      } catch (innerErr) {
+        console.error('Failed to load settings:', innerErr);
+      }
     } finally {
       setLoading(false);
     }
@@ -64,15 +81,31 @@ export const TenantSettingsPanel: React.FC<TenantSettingsPanelProps> = ({ tenant
 
   const loadTeam = async () => {
     try {
-      const res = await fetch('/api/tenant/control/team', {
-        headers: { 'x-tenant-id': tenantId },
-      });
-      const data = await res.json();
-      if (data.success) {
+      const data = await erpApi.getTenantControlTeam(tenantId);
+      if (data?.success) {
         setTeam(data.team);
+      } else {
+        const res = await fetch('/api/tenant/control/team', {
+          headers: { 'x-tenant-id': tenantId, 'x-tenant-slug': tenantSlug },
+        });
+        const fallbackData = await res.json();
+        if (fallbackData.success) {
+          setTeam(fallbackData.team);
+        }
       }
     } catch (err) {
-      console.error('Failed to load team:', err);
+      console.warn('API getTenantControlTeam failed, attempting direct fetch:', err);
+      try {
+        const res = await fetch('/api/tenant/control/team', {
+          headers: { 'x-tenant-id': tenantId, 'x-tenant-slug': tenantSlug },
+        });
+        const fallbackData = await res.json();
+        if (fallbackData?.success) {
+          setTeam(fallbackData.team);
+        }
+      } catch (innerErr) {
+        console.error('Failed to load team:', innerErr);
+      }
     }
   };
 
@@ -80,22 +113,30 @@ export const TenantSettingsPanel: React.FC<TenantSettingsPanelProps> = ({ tenant
     setSaving(true);
     setSaveSuccess(false);
     try {
-      const res = await fetch('/api/tenant/control/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-id': tenantId,
-        },
-        body: JSON.stringify({
-          section: sectionKey,
-          settings: payload,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSettings(data.settings);
+      const data = await erpApi.updateTenantControlSettings(
+        { section: sectionKey, settings: payload, general: sectionKey === 'general' ? payload : undefined },
+        tenantId
+      );
+      if (data?.success) {
+        setSettings(data.settings || { ...settings, [sectionKey]: payload });
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        const res = await fetch('/api/tenant/control/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-tenant-id': tenantId,
+            'x-tenant-slug': tenantSlug,
+          },
+          body: JSON.stringify({ section: sectionKey, settings: payload }),
+        });
+        const fallbackData = await res.json();
+        if (fallbackData.success) {
+          setSettings(fallbackData.settings || { ...settings, [sectionKey]: payload });
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+        }
       }
     } catch (err) {
       console.error('Error saving settings:', err);
@@ -107,16 +148,8 @@ export const TenantSettingsPanel: React.FC<TenantSettingsPanelProps> = ({ tenant
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('/api/tenant/control/team/invite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-tenant-id': tenantId,
-        },
-        body: JSON.stringify(inviteForm),
-      });
-      const data = await res.json();
-      if (data.success) {
+      const data = await erpApi.inviteTenantControlMember(inviteForm, tenantId);
+      if (data?.success) {
         setShowInviteModal(false);
         setInviteForm({ full_name: '', email: '', role: 'accountant', department: 'Operations' });
         loadTeam();
@@ -128,12 +161,8 @@ export const TenantSettingsPanel: React.FC<TenantSettingsPanelProps> = ({ tenant
 
   const handleDeleteMember = async (memberId: string) => {
     try {
-      const res = await fetch(`/api/tenant/control/team/${memberId}`, {
-        method: 'DELETE',
-        headers: { 'x-tenant-id': tenantId },
-      });
-      const data = await res.json();
-      if (data.success) {
+      const data = await erpApi.deleteTenantControlMember(memberId, tenantId);
+      if (data?.success) {
         loadTeam();
       }
     } catch (err) {

@@ -1043,6 +1043,37 @@ export const erpApi = {
   // Phase 5: Multi-Tenant Real-Time Analytics
   getTenantAnalyticsSummary: (companyId: string) => request<any>('/api/analytics/tenant-summary', companyId),
 
+  // Tenant Control Panel API (Live Backend Integration with /api/v1/ and /api/ support)
+  getTenantControlSettings: (companyId?: string) =>
+    request<any>('/api/v1/tenant/control/settings', companyId),
+  updateTenantControlSettings: (payload: any, companyId?: string) =>
+    request<any>('/api/v1/tenant/control/settings', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getTenantControlTeam: (companyId?: string) =>
+    request<any>('/api/v1/tenant/control/team', companyId),
+  inviteTenantControlMember: (payload: any, companyId?: string) =>
+    request<any>('/api/v1/tenant/control/team/invite', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deleteTenantControlMember: (memberId: string, companyId?: string) =>
+    request<any>(`/api/v1/tenant/control/team/${memberId}`, companyId, {
+      method: 'DELETE',
+    }),
+  getTenantControlDomains: (companyId?: string) =>
+    request<any>('/api/v1/tenant/control/domains', companyId),
+  registerTenantControlDomain: (payload: any, companyId?: string) =>
+    request<any>('/api/v1/tenant/control/domains', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  verifyTenantControlDomain: (domainId: string, companyId?: string) =>
+    request<any>(`/api/v1/tenant/control/domains/${domainId}/verify`, companyId, {
+      method: 'POST',
+    }),
+
   // Tenant User Management API (Live Backend Integration)
   getUsers: () =>
     request<
