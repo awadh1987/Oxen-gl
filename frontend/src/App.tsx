@@ -45,6 +45,7 @@ const SuperAdminTenantsView = React.lazy(() => import('./views/SuperAdminTenants
 const SuperAdminLogsView = React.lazy(() => import('./views/SuperAdminLogsView').then(m => ({ default: m.SuperAdminLogsView })));
 const SuperAdminAnalyticsView = React.lazy(() => import('./views/SuperAdminAnalyticsView').then(m => ({ default: m.SuperAdminAnalyticsView })));
 const ResetPasswordView = React.lazy(() => import('./views/ResetPasswordView').then(m => ({ default: m.ResetPasswordView })));
+const ForgotPasswordView = React.lazy(() => import('./views/auth/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
 const ProcurementView = React.lazy(() => import('./views/ProcurementView').then(m => ({ default: m.ProcurementView })));
 const InventoryView = React.lazy(() => import('./views/InventoryView').then(m => ({ default: m.InventoryView })));
 const HRMSView = React.lazy(() => import('./views/HRMSView').then(m => ({ default: m.HRMSView })));
@@ -588,6 +589,27 @@ function AppContent() {
               onSuccess={() => {
                 if (typeof window !== 'undefined') {
                   window.history.pushState({}, '', '/login');
+                  window.dispatchEvent(new PopStateEvent('popstate'));
+                }
+              }}
+            />
+          }
+        />
+      </Suspense>
+    );
+  }
+
+  if (currentPath === '/forgot-password') {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route
+          path="/forgot-password"
+          element={
+            <ForgotPasswordView
+              onSuccessRedirect={(email, slug) => {
+                if (typeof window !== 'undefined') {
+                  const target = `/reset-password?email=${encodeURIComponent(email)}&slug=${encodeURIComponent(slug || 'master')}`;
+                  window.history.pushState({}, '', target);
                   window.dispatchEvent(new PopStateEvent('popstate'));
                 }
               }}
