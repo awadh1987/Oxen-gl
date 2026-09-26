@@ -2259,3 +2259,18 @@ from backend.app.domains.inventory.models import (  # noqa: E402
 Product = ProductProduct
 InventoryLedgerMovement = InventoryMovement
 
+
+# ==============================================================================
+# Phase 10: Procurement Tendering, RFQ Engine & Vendor Portal Integration
+# ==============================================================================
+from backend.app.domains.procurement.models import (  # noqa: E402
+    ProcurementTender,
+    TenderRFQLine,
+    VendorPortalUser,
+    ProcurementBid,
+    ProcurementBidLine,
+    TenderRFQ,
+    TenderBid,
+    TenderBidLine,
+)
+

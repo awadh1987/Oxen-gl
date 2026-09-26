@@ -2779,3 +2779,188 @@ class TenantAnalyticsSummaryRead(BaseModel):
     avg_fuel_price_sar: Decimal
     total_invoices_count: int
     paid_invoices_count: int
+
+
+# ==============================================================================
+# Phase 10: Procurement Tendering, RFQ Engine & Vendor Portal Schemas
+# ==============================================================================
+
+class TenderRFQLineCreate(BaseModel):
+    item_code: str
+    description: str
+    quantity: Decimal = Field(..., gt=0)
+    uom: str = "UNIT"
+    target_unit_price: Decimal | None = None
+    technical_specifications: str | None = None
+
+
+class TenderRFQLineRead(ORMReadModel):
+    id: UUID
+    tender_id: UUID
+    line_number: int
+    item_code: str
+    description: str
+    quantity: Decimal
+    uom: str
+    target_unit_price: Decimal | None = None
+    technical_specifications: str | None = None
+    created_at: datetime
+
+
+class ProcurementTenderCreate(BaseModel):
+    company_id: UUID
+    purchasing_organization_id: UUID
+    title: str = Field(..., min_length=3, max_length=255)
+    description: str | None = None
+    category: str = "Raw Materials"
+    submission_deadline: datetime
+    bid_opening_date: datetime
+    currency: str = "SAR"
+    estimated_budget: Decimal | None = None
+    is_sealed_bid: bool = True
+    terms_and_conditions: str | None = None
+    lines: list[TenderRFQLineCreate] = Field(default_factory=list)
+
+
+class ProcurementTenderRead(ORMReadModel):
+    id: UUID
+    company_id: UUID
+    purchasing_organization_id: UUID
+    tender_number: str
+    title: str
+    description: str | None = None
+    category: str
+    status: str
+    submission_deadline: datetime
+    bid_opening_date: datetime
+    currency: str
+    estimated_budget: Decimal | None = None
+    is_sealed_bid: bool
+    bids_unsealed: bool
+    unsealed_at: datetime | None = None
+    winning_bid_id: UUID | None = None
+    awarded_purchase_order_id: UUID | None = None
+    created_at: datetime
+    lines_count: int = 0
+    bids_count: int = 0
+    purchasing_org_name: str | None = None
+    purchasing_org_code: str | None = None
+
+
+class ProcurementTenderDetailRead(ProcurementTenderRead):
+    terms_and_conditions: str | None = None
+    lines: list[TenderRFQLineRead] = Field(default_factory=list)
+
+
+class VendorPortalRegisterRequest(BaseModel):
+    company_id: UUID
+    email: str = Field(..., min_length=5)
+    password: str = Field(..., min_length=8)
+    contact_name: str = Field(..., min_length=2)
+    company_name: str = Field(..., min_length=2)
+    mobile_number: str | None = None
+    commercial_registration: str | None = None
+    tax_id: str | None = None
+
+
+class VendorPortalLoginRequest(BaseModel):
+    email: str
+    password: str
+    workspace_slug: str | None = None
+    company_id: UUID | None = None
+
+
+class VendorPortalLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str = "vendor"
+    vendor_user_id: UUID
+    partner_id: UUID
+    company_id: UUID
+    company_name: str
+    contact_name: str
+    email: str
+
+
+class ProcurementBidLineCreate(BaseModel):
+    tender_line_id: UUID
+    quoted_quantity: Decimal = Field(..., gt=0)
+    unit_price: Decimal = Field(..., ge=0)
+    notes: str | None = None
+    is_alternative: bool = False
+
+
+class ProcurementBidLineRead(ORMReadModel):
+    id: UUID
+    bid_id: UUID
+    tender_line_id: UUID
+    quoted_quantity: Decimal
+    unit_price: Decimal | None = None  # None if masked/sealed
+    total_price: Decimal | None = None  # None if masked/sealed
+    notes: str | None = None
+    is_alternative: bool
+
+
+class ProcurementBidCreate(BaseModel):
+    tender_id: UUID
+    partner_id: UUID | None = None
+    technical_proposal: str | None = None
+    commercial_terms: str | None = None
+    delivery_lead_time_days: int = Field(default=7, ge=1)
+    validity_period_days: int = Field(default=60, ge=15)
+    lines: list[ProcurementBidLineCreate] = Field(..., min_length=1)
+
+
+class ProcurementBidRead(ORMReadModel):
+    id: UUID
+    tender_id: UUID
+    partner_id: UUID
+    bid_number: str
+    total_amount: Decimal | None = None  # Masked if sealed!
+    currency: str
+    sealed_quote_hash: str
+    is_sealed: bool
+    unsealed_at: datetime | None = None
+    status: str
+    technical_proposal: str | None = None
+    commercial_terms: str | None = None
+    delivery_lead_time_days: int
+    validity_period_days: int
+    evaluation_score: Decimal | None = None
+    evaluation_notes: str | None = None
+    submission_timestamp: datetime
+    vendor_name: str | None = None
+    lines: list[ProcurementBidLineRead] = Field(default_factory=list)
+
+
+class TenderUnsealResponse(BaseModel):
+    status: str
+    tender_id: UUID
+    tender_number: str
+    unsealed_at: datetime
+    bids_unsealed_count: int
+    bids: list[ProcurementBidRead]
+
+
+class TenderAwardRequest(BaseModel):
+    winning_bid_id: UUID
+    justification_notes: str | None = None
+
+
+class TenderAwardResponse(BaseModel):
+    status: str
+    tender_id: UUID
+    winning_bid_id: UUID
+    awarded_vendor_name: str
+    purchase_order_id: UUID
+    purchase_order_number: str
+    awarded_amount: Decimal
+    currency: str
+
+
+class GenerateRFQFromPRRequest(BaseModel):
+    purchase_requisition_id: UUID
+    purchasing_organization_id: UUID
+    submission_deadline: datetime
+    bid_opening_date: datetime
+    title: str | None = None

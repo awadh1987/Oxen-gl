@@ -18,22 +18,41 @@ import {
   ExternalLink,
   Receipt,
   FileText,
+  Lock,
+  Unlock,
+  Award,
+  Layers,
+  Clock,
+  Eye,
+  Send,
+  Check,
+  X,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/formatters';
 import { BulkImportModal } from '../components/BulkImportModal';
 import { NewPurchaseOrderModal, PurchaseOrderRecord } from '../components/NewPurchaseOrderModal';
-import { erpApi, ApiProcurementBill } from '../services/api';
+import { erpApi, ApiProcurementBill, ApiProcurementTender, ApiProcurementBid } from '../services/api';
 
 export const ProcurementView: React.FC = () => {
   const { language, themeMode } = useApp();
   const isAr = language === 'ar';
   const isDark = themeMode === 'dark';
 
-  const [activeTab, setActiveTab] = useState<'orders' | 'matching'>('matching');
+  const [activeTab, setActiveTab] = useState<'orders' | 'matching' | 'tenders'>('matching');
   const [searchTerm, setSearchTerm] = useState('');
   const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [isNewPoOpen, setIsNewPoOpen] = useState(false);
+
+  // Tenders & eSourcing State (Phase 10)
+  const [tenders, setTenders] = useState<ApiProcurementTender[]>([]);
+  const [loadingTenders, setLoadingTenders] = useState<boolean>(false);
+  const [selectedTenderBids, setSelectedTenderBids] = useState<ApiProcurementBid[]>([]);
+  const [bidsModalTender, setBidsModalTender] = useState<ApiProcurementTender | null>(null);
+  const [loadingSelectedBids, setLoadingSelectedBids] = useState<boolean>(false);
+  const [unsealingTenderId, setUnsealingTenderId] = useState<string | null>(null);
+  const [awardingBidId, setAwardingBidId] = useState<string | null>(null);
+  const [isNewTenderOpen, setIsNewTenderOpen] = useState<boolean>(false);
 
   // Procurement Bills & Ledger Posting State
   const [procurementBills, setProcurementBills] = useState<ApiProcurementBill[]>([]);
@@ -92,6 +111,90 @@ export const ProcurementView: React.FC = () => {
       .finally(() => setLoadingBills(false));
   };
 
+  const fetchTenders = () => {
+    setLoadingTenders(true);
+    erpApi
+      .getProcurementTenders()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setTenders(data);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load tenders', err);
+      })
+      .finally(() => setLoadingTenders(false));
+  };
+
+  const handleOpenBidsModal = async (tender: ApiProcurementTender) => {
+    setBidsModalTender(tender);
+    setLoadingSelectedBids(true);
+    try {
+      const bids = await erpApi.getTenderBids(tender.id);
+      setSelectedTenderBids(Array.isArray(bids) ? bids : []);
+    } catch (err: any) {
+      console.error('Failed to get tender bids', err);
+    } finally {
+      setLoadingSelectedBids(false);
+    }
+  };
+
+  const handleUnsealBids = async (tenderId: string) => {
+    setUnsealingTenderId(tenderId);
+    try {
+      const res = await erpApi.unsealTenderBids(tenderId);
+      setSelectedTenderBids(res.bids);
+      setTenders((prev) =>
+        prev.map((t) =>
+          t.id === tenderId ? { ...t, bids_unsealed: true, status: 'UNSEALED' } : t
+        )
+      );
+      if (bidsModalTender && bidsModalTender.id === tenderId) {
+        setBidsModalTender({ ...bidsModalTender, bids_unsealed: true, status: 'UNSEALED' });
+      }
+      setNotification({
+        type: 'success',
+        message: isAr
+          ? `تم فض المظاريف بنجاح! تم كشف وتصنيف ${res.bids_unsealed_count} عطاءات بحسب السعر الأقل.`
+          : `Unsealing ceremony complete! ${res.bids_unsealed_count} bids unsealed and ranked by lowest price.`,
+      });
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err.message || (isAr ? 'فشل فتح المظاريف' : 'Failed to unseal bids'),
+      });
+    } finally {
+      setUnsealingTenderId(null);
+    }
+  };
+
+  const handleAwardBid = async (tenderId: string, bidId: string) => {
+    setAwardingBidId(bidId);
+    try {
+      const res = await erpApi.awardTenderBid(tenderId, { winning_bid_id: bidId });
+      setNotification({
+        type: 'success',
+        message: isAr
+          ? `تمت ترسية المناقصة بنجاح وتوليد أمر الشراء رقم ${res.purchase_order_number} للمورد ${res.awarded_vendor_name}!`
+          : `Tender awarded! Purchase Order ${res.purchase_order_number} generated for ${res.awarded_vendor_name}!`,
+      });
+      fetchTenders();
+      setBidsModalTender(null);
+      erpApi.getPurchaseOrders().then((data) => {
+        if (Array.isArray(data)) {
+          setPurchaseOrders(data);
+        }
+      });
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err.message || (isAr ? 'فشل ترسية المناقصة' : 'Failed to award tender'),
+      });
+    } finally {
+      setAwardingBidId(null);
+    }
+  };
+
   useEffect(() => {
     erpApi
       .getPurchaseOrders()
@@ -123,6 +226,7 @@ export const ProcurementView: React.FC = () => {
       .catch(() => {});
 
     fetchBills();
+    fetchTenders();
   }, []);
 
   const handlePostToLedger = async (billId: string) => {
@@ -343,6 +447,23 @@ export const ProcurementView: React.FC = () => {
           >
             <Boxes className="h-4 w-4" />
             <span>{isAr ? 'أوامر الشراء (POs)' : 'Purchase Orders'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('tenders')}
+            className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-black transition-colors ${
+              activeTab === 'tenders'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+            }`}
+          >
+            <Lock className="h-4 w-4" />
+            <span>{isAr ? 'المناقصات والمظاريف المغلقة (eSourcing)' : 'eSourcing & Tenders'}</span>
+            {tenders.length > 0 && (
+              <span className="rounded-full bg-white text-amber-600 text-[10px] px-1.5 py-0.2 font-black ml-1">
+                {tenders.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -590,6 +711,514 @@ export const ProcurementView: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tenders & eSourcing RFQ View (Phase 10) */}
+      {activeTab === 'tenders' && (
+        <div
+          className={`rounded-2xl border shadow-xs overflow-hidden ${
+            isDark ? 'border-slate-800 bg-[#141726]' : 'border-slate-200/80 bg-white'
+          }`}
+        >
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-black flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-500" />
+                <span>{isAr ? 'مناقصات المنظمات الشرائية والمظاريف المغلقة' : 'Purchasing Organizations eSourcing & Tenders'}</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isAr
+                  ? 'محرك المناقصات المشفرة: المظاريف محجوبة ومحمية بتشفير SHA-256 لمنع الاطلاع المسبق حتى مراسم الجلسة الرسمية.'
+                  : 'Encrypted eSourcing Engine: Sealed quotes remain concealed until the official unsealing ceremony.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={fetchTenders}
+                className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                {isAr ? 'تحديث' : 'Refresh'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsNewTenderOpen(true)}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-sm transition flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>{isAr ? 'طرح مناقصة جديدة' : 'New Tender'}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs rtl:text-right">
+              <thead
+                className={`border-b text-[11px] font-black uppercase tracking-wider ${
+                  isDark
+                    ? 'border-slate-800 bg-slate-900/60 text-slate-400'
+                    : 'border-slate-200 bg-slate-50 text-slate-500'
+                }`}
+              >
+                <tr>
+                  <th className="py-3 px-4">{isAr ? 'رقم المناقصة / RFQ' : 'Tender / RFQ #'}</th>
+                  <th className="py-3 px-4">{isAr ? 'عنوان المناقصة' : 'Title'}</th>
+                  <th className="py-3 px-4">{isAr ? 'المنظمة الشرائية' : 'Purchasing Org'}</th>
+                  <th className="py-3 px-4">{isAr ? 'الموعد النهائي' : 'Submission Deadline'}</th>
+                  <th className="py-3 px-4 text-center">{isAr ? 'تاريخ الجلسة' : 'Opening Date'}</th>
+                  <th className="py-3 px-4 text-center">{isAr ? 'المظاريف المقدمة' : 'Bids'}</th>
+                  <th className="py-3 px-4 text-center">{isAr ? 'الحالة' : 'Status'}</th>
+                  <th className="py-3 px-4 text-center">{isAr ? 'الإجراءات' : 'Actions'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {loadingTenders ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                      <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent animate-spin rounded-full mx-auto mb-2" />
+                      {isAr ? 'جاري تحميل المناقصات...' : 'Loading tenders...'}
+                    </td>
+                  </tr>
+                ) : tenders.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-slate-500">
+                      {isAr ? 'لا توجد مناقصات نشطة حالياً. اضغط "طرح مناقصة جديدة" للبدء.' : 'No active tenders found.'}
+                    </td>
+                  </tr>
+                ) : (
+                  tenders.map((t) => {
+                    const isPassed = new Date(t.submission_deadline) < new Date();
+                    return (
+                      <tr key={t.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-amber-500">
+                          {t.tender_number}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200">
+                          {t.title}
+                          <span className="block text-[10px] text-slate-400 font-normal">{t.category}</span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1 font-semibold text-slate-700 dark:text-slate-300">
+                            <Building2 className="w-3 h-3 text-amber-500" />
+                            {t.purchasing_org_name || 'Central Purchasing Org'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-rose-500 font-semibold">
+                          {new Date(t.submission_deadline).toLocaleDateString(isAr ? 'ar-SA' : 'en-US')}
+                        </td>
+                        <td className="py-3.5 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
+                          {new Date(t.bid_opening_date).toLocaleDateString(isAr ? 'ar-SA' : 'en-US')}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="inline-flex items-center gap-1 font-mono font-bold px-2 py-0.5 rounded-full text-[11px] bg-slate-100 dark:bg-slate-800">
+                            <Lock className="w-2.5 h-2.5 text-amber-500" />
+                            {t.bids_count}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                              t.status === 'AWARDED'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                : t.bids_unsealed
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-400'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400'
+                            }`}
+                          >
+                            {t.status === 'AWARDED' ? (
+                              <Award className="h-3 w-3" />
+                            ) : t.bids_unsealed ? (
+                              <Unlock className="h-3 w-3" />
+                            ) : (
+                              <Lock className="h-3 w-3" />
+                            )}
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenBidsModal(t)}
+                              className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3 text-slate-500" />
+                              <span>{isAr ? 'المظاريف' : 'Bids'}</span>
+                            </button>
+                            {!t.bids_unsealed && t.status !== 'AWARDED' && (
+                              <button
+                                type="button"
+                                disabled={unsealingTenderId === t.id}
+                                onClick={() => handleUnsealBids(t.id)}
+                                className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition flex items-center gap-1 shadow-xs disabled:opacity-50"
+                              >
+                                {unsealingTenderId === t.id ? (
+                                  <div className="w-2.5 h-2.5 border border-white border-t-transparent animate-spin rounded-full" />
+                                ) : (
+                                  <Unlock className="w-3 h-3" />
+                                )}
+                                <span>{isAr ? 'فض المظاريف' : 'Unseal'}</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Bids Modal & Evaluation Ceremony */}
+      {bidsModalTender && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div
+            className={`w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border p-6 shadow-2xl ${
+              isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <span className="font-mono text-xs font-bold text-amber-500">
+                  {bidsModalTender.tender_number}
+                </span>
+                <h3 className="text-base font-black">
+                  {isAr ? 'سجل المظاريف والعطاءات المقدمة' : 'Sealed Quotations & Bids Register'}
+                </h3>
+                <p className="text-xs text-slate-500">{bidsModalTender.title}</p>
+              </div>
+              <button
+                onClick={() => setBidsModalTender(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Unsealing Ceremony Banner */}
+            {!bidsModalTender.bids_unsealed ? (
+              <div className="my-4 p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-500 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-xs">
+                  <Lock className="w-5 h-5 flex-shrink-0" />
+                  <div>
+                    <span className="font-bold block">
+                      {isAr ? 'المظاريف مغلقة ومحجوبة الأسعار' : 'Bids Currently Sealed & Masked'}
+                    </span>
+                    <span className="text-slate-400">
+                      {isAr
+                        ? 'الأسعار مشفرة بهوية SHA-256. يجب إجراء مراسم فتح المظاريف الرسمية لإزالة الحجب والترتيب المالي.'
+                        : 'Prices concealed. Execute official unsealing ceremony to reveal quotations.'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={unsealingTenderId === bidsModalTender.id}
+                  onClick={() => handleUnsealBids(bidsModalTender.id)}
+                  className="px-4 py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {unsealingTenderId === bidsModalTender.id ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent animate-spin rounded-full" />
+                  ) : (
+                    <Unlock className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isAr ? 'فض المظاريف الرسمية' : 'Conduct Ceremony'}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="my-4 p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 text-emerald-500 flex items-center gap-3 text-xs">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                <div>
+                  <span className="font-bold block">
+                    {isAr ? 'تم فتح المظاريف واعتماد الترتيب المالي' : 'Unsealing Ceremony Completed'}
+                  </span>
+                  <span className="text-slate-400">
+                    {isAr
+                      ? 'العطاءات مرتبة تلقائياً من الأقل سعراً. يمكنك ترسية المناقصة لتوليد أمر الشراء (PO) فورياً.'
+                      : 'Bids sorted lowest-to-highest. Click Award to immediately generate a Purchase Order.'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Bids List */}
+            <div className="space-y-3 mt-4">
+              {loadingSelectedBids ? (
+                <div className="py-8 text-center text-slate-500 text-xs">
+                  <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent animate-spin rounded-full mx-auto mb-2" />
+                  {isAr ? 'جاري تحميل المظاريف...' : 'Loading bids...'}
+                </div>
+              ) : selectedTenderBids.length === 0 ? (
+                <div className="py-8 text-center text-slate-500 text-xs border border-dashed rounded-xl">
+                  {isAr ? 'لم يقم أي مورد بتقديم مظروف حتى الآن.' : 'No bids submitted for this tender yet.'}
+                </div>
+              ) : (
+                selectedTenderBids.map((bid, idx) => (
+                  <div
+                    key={bid.id}
+                    className={`p-4 rounded-xl border transition ${
+                      isDark ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-slate-500">#{idx + 1}</span>
+                        <span className="font-mono text-xs font-bold text-amber-500">{bid.bid_number}</span>
+                        {bid.vendor_name && (
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                            - {bid.vendor_name}
+                          </span>
+                        )}
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            bid.status === 'AWARDED'
+                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                              : 'bg-slate-500/10 text-slate-500'
+                          }`}
+                        >
+                          {bid.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right rtl:text-left">
+                          <span className="text-[10px] text-slate-400 block font-semibold">
+                            {isAr ? 'قيمة العطاء المالي' : 'Quoted Amount'}
+                          </span>
+                          <span className="text-sm font-mono font-black text-amber-500">
+                            {bid.total_amount != null
+                              ? formatCurrency(bid.total_amount, bid.currency || 'SAR')
+                              : '•••••••• SAR (مشفر)'}
+                          </span>
+                        </div>
+
+                        {bidsModalTender.bids_unsealed && bidsModalTender.status !== 'AWARDED' && (
+                          <button
+                            type="button"
+                            disabled={awardingBidId === bid.id}
+                            onClick={() => handleAwardBid(bidsModalTender.id, bid.id)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm transition flex items-center gap-1 disabled:opacity-50"
+                          >
+                            {awardingBidId === bid.id ? (
+                              <div className="w-3 h-3 border border-white border-t-transparent animate-spin rounded-full" />
+                            ) : (
+                              <Award className="w-3.5 h-3.5" />
+                            )}
+                            <span>{isAr ? 'ترسية المناقصة (PO)' : 'Award PO'}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-slate-500 pt-2 border-t border-slate-200 dark:border-slate-800">
+                      <div>
+                        <span>{isAr ? 'مدة التوريد:' : 'Lead Time:'}</span>{' '}
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          {bid.delivery_lead_time_days} {isAr ? 'أيام' : 'days'}
+                        </span>
+                      </div>
+                      <div>
+                        <span>{isAr ? 'صلاحية العرض:' : 'Validity:'}</span>{' '}
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          {bid.validity_period_days} {isAr ? 'يوم' : 'days'}
+                        </span>
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-400 truncate">
+                        SHA256: {bid.sealed_quote_hash?.slice(0, 16)}...
+                      </div>
+                    </div>
+
+                    {bid.technical_proposal && (
+                      <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 italic">
+                        "{bid.technical_proposal}"
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Tender RFQ Creation Modal */}
+      {isNewTenderOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div
+            className={`w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border p-6 shadow-2xl ${
+              isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="text-base font-black">
+                  {isAr ? 'طرح مناقصة وتوريد تنافسي جديد (RFQ)' : 'Create New eSourcing Tender RFQ'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAr ? 'ربط مباشر بالمنظمة الشرائية ونظام المظاريف المغلقة' : 'Direct Purchasing Organization Binding'}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsNewTenderOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const fd = new FormData(form);
+                const title = fd.get('title') as string;
+                const category = fd.get('category') as string;
+                const days = Number(fd.get('duration_days')) || 7;
+                const budget = Number(fd.get('budget')) || undefined;
+                const itemCode = fd.get('item_code') as string || 'MAT-001';
+                const itemDesc = fd.get('item_desc') as string || title;
+                const itemQty = Number(fd.get('item_qty')) || 1000;
+                const itemUom = fd.get('item_uom') as string || 'TON';
+
+                const now = new Date();
+                const deadline = new Date(now.getTime() + days * 86400000).toISOString();
+                const opening = new Date(now.getTime() + (days + 1) * 86400000).toISOString();
+
+                try {
+                  const newTender = await erpApi.createProcurementTender({
+                    company_id: '1fa3b69a-f9a1-4ab9-bd6a-c3af99b27c11',
+                    purchasing_organization_id: 'c8f5636f-c097-4557-8f6d-d1a895ad1ca0',
+                    title,
+                    category,
+                    submission_deadline: deadline,
+                    bid_opening_date: opening,
+                    estimated_budget: budget,
+                    is_sealed_bid: true,
+                    lines: [
+                      {
+                        item_code: itemCode,
+                        description: itemDesc,
+                        quantity: itemQty,
+                        uom: itemUom,
+                      },
+                    ],
+                  });
+
+                  setTenders((prev) => [newTender, ...prev]);
+                  setIsNewTenderOpen(false);
+                  setNotification({
+                    type: 'success',
+                    message: isAr
+                      ? `تم طرح المناقصة بنجاح برقم ${newTender.tender_number}!`
+                      : `Tender ${newTender.tender_number} published successfully!`,
+                  });
+                } catch (err: any) {
+                  alert(err.message || 'Failed to create tender');
+                }
+              }}
+              className="mt-4 space-y-4 text-xs"
+            >
+              <div>
+                <label className="block font-bold mb-1">
+                  {isAr ? 'عنوان المناقصة / الغرض' : 'Tender Title'}
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  required
+                  placeholder="توريد خرسانة إسفلتية ساخنة للمشروع الجنوبي"
+                  className="w-full px-3 py-2 text-xs rounded-lg border bg-transparent border-slate-300 dark:border-slate-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold mb-1">
+                    {isAr ? 'التصنيف' : 'Category'}
+                  </label>
+                  <select
+                    name="category"
+                    className="w-full px-3 py-2 text-xs rounded-lg border bg-transparent border-slate-300 dark:border-slate-700"
+                  >
+                    <option value="Raw Materials">{isAr ? 'مواد خام وركام' : 'Raw Materials'}</option>
+                    <option value="Spare Parts">{isAr ? 'قطع غيار ومعدات' : 'Spare Parts'}</option>
+                    <option value="Logistics">{isAr ? 'خدمات نقل ولوجستيات' : 'Logistics'}</option>
+                    <option value="Consumables">{isAr ? 'مهمات ومستهلكات' : 'Consumables'}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold mb-1">
+                    {isAr ? 'فترة التقديم (أيام)' : 'Submission Period (Days)'}
+                  </label>
+                  <input
+                    type="number"
+                    name="duration_days"
+                    defaultValue={10}
+                    min={1}
+                    className="w-full px-3 py-2 text-xs rounded-lg border bg-transparent border-slate-300 dark:border-slate-700"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 space-y-2">
+                <span className="font-bold text-[11px] text-amber-500 block">
+                  {isAr ? 'بند المواصفة الرئيسي' : 'Primary Specification Line Item'}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    name="item_code"
+                    defaultValue="MAT-ASPH-01"
+                    placeholder="رمز المادة / Item Code"
+                    className="px-2.5 py-1.5 text-xs rounded border bg-transparent border-slate-300 dark:border-slate-700"
+                  />
+                  <input
+                    type="text"
+                    name="item_desc"
+                    defaultValue="خلطة إسفلتية مطابقة للمواصفات"
+                    placeholder="الوصف / Description"
+                    className="px-2.5 py-1.5 text-xs rounded border bg-transparent border-slate-300 dark:border-slate-700"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    name="item_qty"
+                    defaultValue={2000}
+                    placeholder="الكمية / Quantity"
+                    className="px-2.5 py-1.5 text-xs rounded border bg-transparent border-slate-300 dark:border-slate-700"
+                  />
+                  <input
+                    type="text"
+                    name="item_uom"
+                    defaultValue="TON"
+                    placeholder="الوحدة / UOM"
+                    className="px-2.5 py-1.5 text-xs rounded border bg-transparent border-slate-300 dark:border-slate-700"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsNewTenderOpen(false)}
+                  className="px-4 py-2 font-bold rounded-lg border border-slate-300 dark:border-slate-700"
+                >
+                  {isAr ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 font-bold rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow-sm transition"
+                >
+                  {isAr ? 'طرح المناقصة فورياً' : 'Publish Tender RFQ'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

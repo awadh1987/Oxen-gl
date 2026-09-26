@@ -52,6 +52,7 @@ const HRMSView = React.lazy(() => import('./views/HRMSView').then(m => ({ defaul
 const OrganizationProfile = React.lazy(() => import('./views/settings/OrganizationProfile').then(m => ({ default: m.OrganizationProfile })));
 const CorporateVault = React.lazy(() => import('./views/settings/CorporateVault').then(m => ({ default: m.CorporateVault })));
 const FinancialReportsView = React.lazy(() => import('./views/FinancialReportsView').then(m => ({ default: m.FinancialReportsView })));
+const VendorPortalView = React.lazy(() => import('./views/VendorPortalView').then(m => ({ default: m.VendorPortalView })));
 
 const ViewLoadingFallback = () => (
   <div className="flex min-h-[400px] w-full flex-col items-center justify-center p-12 text-center">
@@ -635,6 +636,17 @@ function AppContent() {
               }}
             />
           }
+        />
+      </Suspense>
+    );
+  }
+
+  if (currentPath === '/portal/vendor' || currentPath === '/vendor-portal') {
+    return (
+      <Suspense fallback={<ViewLoadingFallback />}>
+        <Route
+          path={currentPath}
+          element={<VendorPortalView />}
         />
       </Suspense>
     );

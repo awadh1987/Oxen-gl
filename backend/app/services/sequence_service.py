@@ -84,6 +84,13 @@ DEFAULT_ENTITY_CONFIGS: Dict[str, Dict[str, Any]] = {
         "table": "customs_manifests",
         "column": "manifest_number",
     },
+    "tender_rfq": {
+        "prefix": "RFQ",
+        "pattern": "RFQ-{YYYY}{MM}-{XXXX}",
+        "track_fiscal_year": True,
+        "table": "procurement_tenders",
+        "column": "tender_number",
+    },
 }
 
 ALIAS_MAP: Dict[str, str] = {
@@ -130,6 +137,10 @@ ALIAS_MAP: Dict[str, str] = {
     "manifest": "customs_manifest",
     "manifests": "customs_manifest",
     "customs_manifests": "customs_manifest",
+    "rfq": "tender_rfq",
+    "tender": "tender_rfq",
+    "tenders": "tender_rfq",
+    "tender_rfq": "tender_rfq",
 }
 
 

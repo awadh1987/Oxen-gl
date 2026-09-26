@@ -1301,6 +1301,48 @@ export const erpApi = {
   getProcurementVendors: (companyId?: string) =>
     request<any[]>('/api/procurement/vendors', companyId),
 
+  // Procurement Tendering & Vendor Portal (Phase 10)
+  getProcurementTenders: (companyId?: string) =>
+    request<ApiProcurementTender[]>('/api/v1/procurement/tenders', companyId),
+  getProcurementTender: (tenderId: string, companyId?: string) =>
+    request<ApiProcurementTender>(`/api/v1/procurement/tenders/${tenderId}`, companyId),
+  createProcurementTender: (payload: any, companyId?: string) =>
+    request<ApiProcurementTender>('/api/v1/procurement/tenders', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  generateRFQFromPR: (payload: any, companyId?: string) =>
+    request<ApiProcurementTender>('/api/v1/procurement/rfq/from-pr', companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getTenderBids: (tenderId: string, companyId?: string) =>
+    request<ApiProcurementBid[]>(`/api/v1/procurement/tenders/${tenderId}/bids`, companyId),
+  submitTenderBid: (tenderId: string, payload: any, companyId?: string) =>
+    request<ApiProcurementBid>(`/api/v1/procurement/tenders/${tenderId}/bids`, companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  unsealTenderBids: (tenderId: string, companyId?: string) =>
+    request<ApiUnsealResponse>(`/api/v1/procurement/tenders/${tenderId}/unseal`, companyId, {
+      method: 'POST',
+    }),
+  awardTenderBid: (tenderId: string, payload: any, companyId?: string) =>
+    request<ApiAwardResponse>(`/api/v1/procurement/tenders/${tenderId}/award`, companyId, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  vendorPortalRegister: (payload: any) =>
+    request<any>('/api/v1/procurement/vendor-portal/register', undefined, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  vendorPortalLogin: (payload: any) =>
+    request<ApiVendorPortalUser>('/api/v1/procurement/vendor-portal/login', undefined, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
   // Inventory Management & Double-Entry Ledger Integration (Phase 8)
   getInventoryMovements: (companyId?: string) =>
     request<ApiInventoryMovement[]>('/api/inventory/movements', companyId),
@@ -1696,3 +1738,109 @@ export interface CreateCustomsManifestPayload {
   total_value_sar?: number;
   hs_codes?: string[];
 }
+
+export interface ApiTenderLine {
+  id: string;
+  tender_id: string;
+  line_number: number;
+  item_code: string;
+  description: string;
+  quantity: number;
+  uom: string;
+  target_unit_price?: number;
+  technical_specifications?: string;
+  created_at: string;
+}
+
+export interface ApiProcurementTender {
+  id: string;
+  company_id: string;
+  purchasing_organization_id: string;
+  tender_number: string;
+  title: string;
+  description?: string;
+  category: string;
+  status: string;
+  submission_deadline: string;
+  bid_opening_date: string;
+  currency: string;
+  estimated_budget?: number;
+  is_sealed_bid: boolean;
+  bids_unsealed: boolean;
+  unsealed_at?: string;
+  winning_bid_id?: string;
+  awarded_purchase_order_id?: string;
+  created_at: string;
+  lines_count: number;
+  bids_count: number;
+  purchasing_org_name?: string;
+  purchasing_org_code?: string;
+  terms_and_conditions?: string;
+  lines?: ApiTenderLine[];
+}
+
+export interface ApiBidLine {
+  id: string;
+  bid_id: string;
+  tender_line_id: string;
+  quoted_quantity: number;
+  unit_price?: number;
+  total_price?: number;
+  notes?: string;
+  is_alternative: boolean;
+}
+
+export interface ApiProcurementBid {
+  id: string;
+  tender_id: string;
+  partner_id: string;
+  bid_number: string;
+  total_amount?: number;
+  currency: string;
+  sealed_quote_hash: string;
+  is_sealed: boolean;
+  unsealed_at?: string;
+  status: string;
+  technical_proposal?: string;
+  commercial_terms?: string;
+  delivery_lead_time_days: number;
+  validity_period_days: number;
+  evaluation_score?: number;
+  evaluation_notes?: string;
+  submission_timestamp: string;
+  vendor_name?: string;
+  lines: ApiBidLine[];
+}
+
+export interface ApiUnsealResponse {
+  status: string;
+  tender_id: string;
+  tender_number: string;
+  unsealed_at: string;
+  bids_unsealed_count: number;
+  bids: ApiProcurementBid[];
+}
+
+export interface ApiAwardResponse {
+  status: string;
+  tender_id: string;
+  winning_bid_id: string;
+  awarded_vendor_name: string;
+  purchase_order_id: string;
+  purchase_order_number: string;
+  awarded_amount: number;
+  currency: string;
+}
+
+export interface ApiVendorPortalUser {
+  access_token: string;
+  token_type: string;
+  role: string;
+  vendor_user_id: string;
+  partner_id: string;
+  company_id: string;
+  company_name: string;
+  contact_name: string;
+  email: string;
+}
+
