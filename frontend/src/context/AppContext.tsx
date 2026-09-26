@@ -823,7 +823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [densityMode, setDensityModeState] = useState<DensityMode>(() => {
-    return (localStorage.getItem('oxengl_density_mode') as DensityMode) || 'comfortable';
+    return (localStorage.getItem('oxengl_density_mode') as DensityMode) || 'compact';
   });
 
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {

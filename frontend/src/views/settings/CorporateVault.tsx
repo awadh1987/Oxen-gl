@@ -402,35 +402,31 @@ export const CorporateVault: React.FC = () => {
   };
 
   return (
-    <div className={`p-4 md:p-8 space-y-6 max-w-7xl mx-auto font-sans min-h-screen ${isAr ? 'text-right' : 'text-left'}`} dir={isAr ? 'rtl' : 'ltr'}>
+    <div className={`p-1.5 md:p-2.5 space-y-2 w-full font-sans min-h-screen ${isAr ? 'text-right' : 'text-left'}`} dir={isAr ? 'rtl' : 'ltr'}>
       {/* ==================================================================== */}
       {/* TOP HERO & PROMINENT UNOPS CV ACTION BANNER */}
       {/* ==================================================================== */}
-      <div className={`rounded-3xl border p-6 md:p-8 relative overflow-hidden shadow-2xl ${
+      <div className={`rounded-xl border p-2.5 md:p-3 relative overflow-hidden shadow-xs ${
         isDark
           ? 'bg-gradient-to-br from-slate-900 via-slate-900/90 to-sky-950/40 border-slate-800'
           : 'bg-gradient-to-br from-white via-sky-50/50 to-blue-50/30 border-sky-200'
       }`}>
-        {/* Glow ambient background accents */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        <div className="absolute bottom-0 left-0 w-72 h-72 bg-blue-600/10 rounded-full blur-2xl pointer-events-none -ml-20 -mb-20" />
-
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                <ShieldCheck className="w-3.5 h-3.5" />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          <div className="space-y-1 max-w-3xl">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                <ShieldCheck className="w-3 h-3" />
                 {isAr ? 'معيار UNOPS-STD-2026.1 / ISO-21500' : 'UNOPS-STD-2026.1 / ISO-21500'}
               </span>
 
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
                 complianceRating === 'COMPLIANT'
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                   : complianceRating === 'PARTIAL'
                   ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                   : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${
+                <span className={`w-1.5 h-1.5 rounded-full ${
                   complianceRating === 'COMPLIANT' ? 'bg-emerald-400 animate-pulse' : complianceRating === 'PARTIAL' ? 'bg-amber-400' : 'bg-rose-400'
                 }`} />
                 {isAr
@@ -438,31 +434,31 @@ export const CorporateVault: React.FC = () => {
                   : complianceRating}
               </span>
 
-              <span className="text-xs font-mono text-slate-400">
+              <span className="text-[10px] font-mono text-slate-400">
                 {isAr ? `جاهزية التأهيل: ${readinessScore}%` : `Readiness: ${readinessScore}%`}
               </span>
             </div>
 
-            <h1 className={`text-2xl md:text-3xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            <h1 className={`text-base md:text-lg font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
               {isAr ? 'ملف المنشأة وخزينة وثائق الامتثال المعتمدة' : 'Corporate Profile & Document Vault (UNOPS)'}
             </h1>
 
-            <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+            <p className={`text-[11px] leading-relaxed line-clamp-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
               {isAr
-                ? 'مركز إدارة الوثائق القانونية والتراخيص الرسمية وتوليد السيرة الذاتية المؤسسية للمناقصات الدولية والأممية UNOPS بصيغة PDF عالية الدقة مع الاعتمادات.'
-                : 'Central repository for statutory licenses, regulatory filings, and one-click compilation of your official UNOPS-compliant Corporate CV dossier in vector PDF format.'}
+                ? 'مركز إدارة الوثائق القانونية والتراخيص وتوليد السيرة الذاتية المؤسسية للمناقصات الدولية والأممية UNOPS بصيغة PDF.'
+                : 'Central repository for statutory licenses, regulatory filings, and compilation of official UNOPS Corporate CV dossier.'}
             </p>
 
             {/* Multi-Branch Aggregation Switch */}
-            <div className="pt-2 flex items-center gap-3">
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-400 hover:text-slate-300">
+            <div className="pt-0.5 flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer text-[10.5px] font-medium text-slate-400 hover:text-slate-300">
                 <input
                   type="checkbox"
                   checked={includeBranches}
                   onChange={(e) => setIncludeBranches(e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-sky-600 focus:ring-sky-500 focus:ring-offset-0"
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-800 text-sky-600 focus:ring-sky-500 focus:ring-offset-0"
                 />
-                <Layers className="w-3.5 h-3.5 text-sky-400" />
+                <Layers className="w-3 h-3 text-sky-400" />
                 <span>
                   {isAr
                     ? 'تضمين بيانات الفروع والمعدات والمواقع في التقرير الموحد'
@@ -473,36 +469,28 @@ export const CorporateVault: React.FC = () => {
           </div>
 
           {/* Action Buttons with PROMINENT UNOPS CV BUTTON */}
-          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
             {/* Primary Generate PDF Button */}
             <button
               onClick={() => handleGeneratePdf(true)}
               disabled={isGeneratingPdf}
-              className={`relative group overflow-hidden px-6 py-3.5 rounded-2xl font-black text-sm tracking-wide text-white transition-all duration-300 shadow-xl flex items-center justify-center gap-3 ${
+              className={`relative group overflow-hidden px-3.5 py-1.5 rounded-lg font-bold text-xs tracking-wide text-white transition-all shadow-sm flex items-center justify-center gap-2 ${
                 isGeneratingPdf
                   ? 'bg-slate-700 cursor-not-allowed opacity-80'
-                  : 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-700 hover:from-sky-500 hover:to-indigo-600 shadow-sky-600/30 hover:shadow-sky-500/50 hover:scale-[1.02] active:scale-[0.98]'
+                  : 'bg-gradient-to-r from-sky-600 to-indigo-700 hover:from-sky-500 hover:to-indigo-600 shadow-sky-600/20 active:scale-[0.98]'
               }`}
               title={isAr ? 'عرض وتحميل ملف المنشأة بصيغة PDF' : 'Open UNOPS Corporate Profile PDF'}
             >
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
               {isGeneratingPdf ? (
                 <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>{isAr ? 'جاري تجميع وثيقة UNOPS...' : 'Compiling UNOPS Dossier...'}</span>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>{isAr ? 'جاري التجميع...' : 'Compiling...'}</span>
                 </>
               ) : (
                 <>
-                  <Award className="w-5 h-5 text-amber-300 animate-pulse" />
-                  <div className="text-left">
-                    <div className="text-xs uppercase tracking-widest text-sky-200 leading-none">
-                      {isAr ? 'تصدير فوري معتمد' : 'Official Tender Export'}
-                    </div>
-                    <div className="text-base font-black leading-tight">
-                      {isAr ? 'توليد ملف المنشأة (UNOPS)' : 'Generate Corporate CV (UNOPS)'}
-                    </div>
-                  </div>
-                  <Download className="w-4 h-4 ml-1 opacity-70 group-hover:opacity-100" />
+                  <Award className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{isAr ? 'توليد ملف المنشأة (UNOPS)' : 'Generate Corporate CV (UNOPS)'}</span>
+                  <Download className="w-3 h-3 opacity-70 group-hover:opacity-100" />
                 </>
               )}
             </button>
@@ -511,24 +499,24 @@ export const CorporateVault: React.FC = () => {
             <button
               onClick={() => handleGeneratePdf(false)}
               disabled={isGeneratingPdf}
-              className={`p-3.5 rounded-2xl border transition-all flex items-center justify-center ${
+              className={`p-1.5 rounded-lg border transition-all flex items-center justify-center ${
                 isDark
                   ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300 hover:text-white'
                   : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700'
               }`}
               title={isAr ? 'تحميل مباشر كملف PDF' : 'Download file directly'}
             >
-              <FileText className="w-5 h-5" />
+              <FileText className="w-3.5 h-3.5" />
             </button>
 
             {/* Register Document Button */}
             {canMutate && (
               <button
                 onClick={() => setIsUploadModalOpen(true)}
-                className="px-5 py-3.5 rounded-2xl font-bold text-sm bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                className="px-2.5 py-1.5 rounded-lg font-bold text-xs bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
               >
-                <Plus className="w-4 h-4" />
-                <span>{isAr ? 'تسجيل وثيقة جديدة' : 'Register Document'}</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>{isAr ? 'تسجيل وثيقة' : 'Register Document'}</span>
               </button>
             )}
 
@@ -536,14 +524,14 @@ export const CorporateVault: React.FC = () => {
             <button
               onClick={() => loadData(true)}
               disabled={isRefreshing}
-              className={`p-3.5 rounded-2xl border transition-all ${
+              className={`p-1.5 rounded-lg border transition-all ${
                 isDark
                   ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-700 text-slate-300'
                   : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-700'
               }`}
               title={isAr ? 'تحديث البيانات' : 'Refresh'}
             >
-              <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin text-sky-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-sky-400' : ''}`} />
             </button>
           </div>
         </div>
@@ -552,67 +540,67 @@ export const CorporateVault: React.FC = () => {
       {/* ==================================================================== */}
       {/* COMPLIANCE TELEMETRY KPI METRICS CARDS */}
       {/* ==================================================================== */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
         {/* Total Documents */}
-        <div className={`p-5 rounded-2xl border transition-all ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        <div className={`p-2 rounded-lg border transition-all ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'
         }`}>
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{isAr ? 'إجمالي الوثائق' : 'Total Documents'}</span>
-            <FileText className="w-4 h-4 text-sky-400" />
+          <div className="flex items-center justify-between text-slate-400 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">{isAr ? 'إجمالي الوثائق' : 'Total Documents'}</span>
+            <FileText className="w-3.5 h-3.5 text-sky-400" />
           </div>
-          <div className="text-2xl md:text-3xl font-black text-slate-100 font-mono">
+          <div className="text-lg font-black text-slate-100 font-mono">
             {isLoading ? '...' : totalCount}
           </div>
-          <div className="text-xs text-slate-500 mt-1">
+          <div className="text-[9.5px] text-slate-500">
             {isAr ? 'في الخزينة المؤسسية' : 'Stored in secure vault'}
           </div>
         </div>
 
         {/* Verified Documents */}
-        <div className={`p-5 rounded-2xl border transition-all ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        <div className={`p-2 rounded-lg border transition-all ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'
         }`}>
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{isAr ? 'وثائق معتمدة' : 'Verified Documents'}</span>
-            <BadgeCheck className="w-4 h-4 text-emerald-400" />
+          <div className="flex items-center justify-between text-slate-400 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">{isAr ? 'وثائق معتمدة' : 'Verified Documents'}</span>
+            <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <div className="text-2xl md:text-3xl font-black text-emerald-400 font-mono">
+          <div className="text-lg font-black text-emerald-400 font-mono">
             {isLoading ? '...' : verifiedCount}
           </div>
-          <div className="text-xs text-emerald-500/80 mt-1">
-            {totalCount > 0 ? `${Math.round((verifiedCount / totalCount) * 100)}% ${isAr ? 'معدل الاعتماد' : 'Verification Rate'}` : '0%'}
+          <div className="text-[9.5px] text-emerald-500/80">
+            {totalCount > 0 ? `${Math.round((verifiedCount / totalCount) * 100)}% ${isAr ? 'معدل الاعتماد' : 'Verified'}` : '0%'}
           </div>
         </div>
 
         {/* Unverified / Pending */}
-        <div className={`p-5 rounded-2xl border transition-all ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        <div className={`p-2 rounded-lg border transition-all ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'
         }`}>
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{isAr ? 'قيد المراجعة' : 'Pending Review'}</span>
-            <Clock className="w-4 h-4 text-amber-400" />
+          <div className="flex items-center justify-between text-slate-400 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">{isAr ? 'قيد المراجعة' : 'Pending Review'}</span>
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="text-2xl md:text-3xl font-black text-amber-400 font-mono">
+          <div className="text-lg font-black text-amber-400 font-mono">
             {isLoading ? '...' : unverifiedCount}
           </div>
-          <div className="text-xs text-amber-500/80 mt-1">
-            {isAr ? 'بانتظار تدقيق المسؤول' : 'Awaiting compliance check'}
+          <div className="text-[9.5px] text-amber-500/80">
+            {isAr ? 'بانتظار تدقيق المسؤول' : 'Awaiting check'}
           </div>
         </div>
 
         {/* Readiness Score */}
-        <div className={`p-5 rounded-2xl border transition-all ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        <div className={`p-2 rounded-lg border transition-all ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'
         }`}>
-          <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">{isAr ? 'جاهزية UNOPS' : 'UNOPS Score'}</span>
-            <Award className="w-4 h-4 text-sky-400" />
+          <div className="flex items-center justify-between text-slate-400 mb-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider">{isAr ? 'جاهزية UNOPS' : 'UNOPS Score'}</span>
+            <Award className="w-3.5 h-3.5 text-sky-400" />
           </div>
-          <div className="text-2xl md:text-3xl font-black text-sky-400 font-mono">
+          <div className="text-lg font-black text-sky-400 font-mono">
             {readinessScore}%
           </div>
-          <div className="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+          <div className="w-full bg-slate-800 h-1 rounded-full mt-1 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${
                 readinessScore >= 80 ? 'bg-emerald-500' : readinessScore >= 40 ? 'bg-amber-500' : 'bg-rose-500'
@@ -624,186 +612,162 @@ export const CorporateVault: React.FC = () => {
       </div>
 
       {/* ==================================================================== */}
-      {/* MANDATORY UNOPS CHECKLIST MATRIX */}
+      {/* MANDATORY UNOPS CHECKLIST MATRIX (High-Density 6-col Strip) */}
       {/* ==================================================================== */}
-      <div className={`p-6 rounded-3xl border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-sky-400" />
-            <h2 className="text-base font-bold text-slate-200">
+      <div className={`p-2 rounded-xl border ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'}`}>
+        <div className="flex items-center justify-between mb-1.5 px-1">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
+            <h2 className="text-xs font-bold text-slate-200">
               {isAr ? 'مصفوفة المتطلبات الإلزامية للمناقصات والمشتريات الحكومية' : 'Mandatory Statutory & Procurement Checklist'}
             </h2>
           </div>
-          <span className="text-xs text-slate-400">
+          <span className="text-[10px] text-slate-400">
             {isAr ? 'المعايير التنظيمية الصارمة' : 'Mandatory Qualification Gates'}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
           {/* 1. Commercial Registration */}
-          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+          <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between ${
             mandatoryChecklist.commercial_registration?.verified
               ? 'bg-emerald-500/5 border-emerald-500/30'
               : 'bg-slate-800/40 border-slate-700/60'
           }`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${
-                mandatoryChecklist.commercial_registration?.verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
-              }`}>
-                <Building2 className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-200">{isAr ? 'السجل التجاري (CR)' : 'Commercial Registration'}</div>
-                <div className="text-[11px] text-slate-400">{currentCompany?.commercial_registration || (isAr ? 'غير مسجل' : 'Not recorded')}</div>
+            <div className="flex items-center gap-1.5 truncate">
+              <Building2 className={`w-3.5 h-3.5 shrink-0 ${mandatoryChecklist.commercial_registration?.verified ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <div className="truncate">
+                <div className="text-[10.5px] font-bold text-slate-200 truncate">{isAr ? 'السجل التجاري' : 'CR License'}</div>
+                <div className="text-[9.5px] text-slate-400 truncate">{currentCompany?.commercial_registration || (isAr ? 'غير مسجل' : 'None')}</div>
               </div>
             </div>
             {mandatoryChecklist.commercial_registration?.verified ? (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                 {isAr ? 'معتمد' : 'VERIFIED'}
               </span>
             ) : (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                {isAr ? 'مطلوب' : 'REQUIRED'}
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                {isAr ? 'مطلوب' : 'REQ'}
               </span>
             )}
           </div>
 
           {/* 2. ZATCA Tax / VAT */}
-          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+          <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between ${
             mandatoryChecklist.zatca_tax_vat?.verified
               ? 'bg-emerald-500/5 border-emerald-500/30'
               : 'bg-slate-800/40 border-slate-700/60'
           }`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${
-                mandatoryChecklist.zatca_tax_vat?.verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
-              }`}>
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-200">{isAr ? 'شهادة هيئة الزكاة والضريبة' : 'ZATCA VAT Certificate'}</div>
-                <div className="text-[11px] text-slate-400">{currentCompany?.tax_id || (isAr ? 'غير مسجل' : 'Not recorded')}</div>
+            <div className="flex items-center gap-1.5 truncate">
+              <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${mandatoryChecklist.zatca_tax_vat?.verified ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <div className="truncate">
+                <div className="text-[10.5px] font-bold text-slate-200 truncate">{isAr ? 'الزكاة والضريبة' : 'ZATCA VAT'}</div>
+                <div className="text-[9.5px] text-slate-400 truncate">{currentCompany?.tax_id || (isAr ? 'غير مسجل' : 'None')}</div>
               </div>
             </div>
             {mandatoryChecklist.zatca_tax_vat?.verified ? (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                 {isAr ? 'معتمد' : 'VERIFIED'}
               </span>
             ) : (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                {isAr ? 'مطلوب' : 'REQUIRED'}
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                {isAr ? 'مطلوب' : 'REQ'}
               </span>
             )}
           </div>
 
           {/* 3. GOSI Saudization */}
-          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+          <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between ${
             mandatoryChecklist.gosi_saudization?.verified
               ? 'bg-emerald-500/5 border-emerald-500/30'
               : 'bg-slate-800/40 border-slate-700/60'
           }`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${
-                mandatoryChecklist.gosi_saudization?.verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
-              }`}>
-                <BadgeCheck className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-200">{isAr ? 'التأمينات والتوطين (GOSI)' : 'GOSI Saudization'}</div>
-                <div className="text-[11px] text-slate-400">{isAr ? 'نسب التوطين المعتمدة' : 'Nationalization Compliance'}</div>
+            <div className="flex items-center gap-1.5 truncate">
+              <BadgeCheck className={`w-3.5 h-3.5 shrink-0 ${mandatoryChecklist.gosi_saudization?.verified ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <div className="truncate">
+                <div className="text-[10.5px] font-bold text-slate-200 truncate">{isAr ? 'التأمينات والتوطين' : 'GOSI Saudization'}</div>
+                <div className="text-[9.5px] text-slate-400 truncate">{isAr ? 'نسب التوطين' : 'Quotas'}</div>
               </div>
             </div>
             {mandatoryChecklist.gosi_saudization?.verified ? (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                 {isAr ? 'معتمد' : 'VERIFIED'}
               </span>
             ) : (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                {isAr ? 'مطلوب' : 'REQUIRED'}
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                {isAr ? 'مطلوب' : 'REQ'}
               </span>
             )}
           </div>
 
           {/* 4. ISO Certifications */}
-          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+          <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between ${
             mandatoryChecklist.iso_certifications?.verified
               ? 'bg-emerald-500/5 border-emerald-500/30'
               : 'bg-slate-800/40 border-slate-700/60'
           }`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${
-                mandatoryChecklist.iso_certifications?.verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
-              }`}>
-                <Award className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-200">{isAr ? 'شهادات الجودة (ISO 9001/45001)' : 'ISO Certifications'}</div>
-                <div className="text-[11px] text-slate-400">{isAr ? 'نظام إدارة الجودة والسلامة' : 'QMS & HSE Standards'}</div>
+            <div className="flex items-center gap-1.5 truncate">
+              <Award className={`w-3.5 h-3.5 shrink-0 ${mandatoryChecklist.iso_certifications?.verified ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <div className="truncate">
+                <div className="text-[10.5px] font-bold text-slate-200 truncate">{isAr ? 'شهادات الجودة' : 'ISO 9001/45001'}</div>
+                <div className="text-[9.5px] text-slate-400 truncate">{isAr ? 'نظام الجودة' : 'QMS/HSE'}</div>
               </div>
             </div>
             {mandatoryChecklist.iso_certifications?.verified ? (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                 {isAr ? 'معتمد' : 'VERIFIED'}
               </span>
             ) : (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                {isAr ? 'مطلوب' : 'REQUIRED'}
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                {isAr ? 'مطلوب' : 'REQ'}
               </span>
             )}
           </div>
 
           {/* 5. Chamber of Commerce */}
-          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+          <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between ${
             mandatoryChecklist.chamber_of_commerce?.verified
               ? 'bg-emerald-500/5 border-emerald-500/30'
               : 'bg-slate-800/40 border-slate-700/60'
           }`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${
-                mandatoryChecklist.chamber_of_commerce?.verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
-              }`}>
-                <FileCheck2 className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-200">{isAr ? 'الغرفة التجارية' : 'Chamber of Commerce'}</div>
-                <div className="text-[11px] text-slate-400">{isAr ? 'الاشتراك السنوي الساري' : 'Active Registration'}</div>
+            <div className="flex items-center gap-1.5 truncate">
+              <FileCheck2 className={`w-3.5 h-3.5 shrink-0 ${mandatoryChecklist.chamber_of_commerce?.verified ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <div className="truncate">
+                <div className="text-[10.5px] font-bold text-slate-200 truncate">{isAr ? 'الغرفة التجارية' : 'Chamber of Comm.'}</div>
+                <div className="text-[9.5px] text-slate-400 truncate">{isAr ? 'اشتراك ساري' : 'Active'}</div>
               </div>
             </div>
             {mandatoryChecklist.chamber_of_commerce?.verified ? (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                 {isAr ? 'معتمد' : 'VERIFIED'}
               </span>
             ) : (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                {isAr ? 'مطلوب' : 'REQUIRED'}
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                {isAr ? 'مطلوب' : 'REQ'}
               </span>
             )}
           </div>
 
           {/* 6. Municipal & Civil Defense */}
-          <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+          <div className={`p-1.5 px-2 rounded-lg border flex items-center justify-between ${
             mandatoryChecklist.municipal_civil_defense?.verified
               ? 'bg-emerald-500/5 border-emerald-500/30'
               : 'bg-slate-800/40 border-slate-700/60'
           }`}>
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${
-                mandatoryChecklist.municipal_civil_defense?.verified ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-400'
-              }`}>
-                <ShieldAlert className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-slate-200">{isAr ? 'البلدية والدفاع المدني' : 'Civil Defense / Municipal'}</div>
-                <div className="text-[11px] text-slate-400">{isAr ? 'رخص السلامة الميدانية' : 'Safety & Operating Permits'}</div>
+            <div className="flex items-center gap-1.5 truncate">
+              <ShieldAlert className={`w-3.5 h-3.5 shrink-0 ${mandatoryChecklist.municipal_civil_defense?.verified ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <div className="truncate">
+                <div className="text-[10.5px] font-bold text-slate-200 truncate">{isAr ? 'البلدية والدفاع' : 'Civil Defense'}</div>
+                <div className="text-[9.5px] text-slate-400 truncate">{isAr ? 'رخص السلامة' : 'Permits'}</div>
               </div>
             </div>
             {mandatoryChecklist.municipal_civil_defense?.verified ? (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                 {isAr ? 'معتمد' : 'VERIFIED'}
               </span>
             ) : (
-              <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                {isAr ? 'مطلوب' : 'REQUIRED'}
+              <span className="px-1 py-0.2 text-[8.5px] font-bold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+                {isAr ? 'مطلوب' : 'REQ'}
               </span>
             )}
           </div>
@@ -813,21 +777,21 @@ export const CorporateVault: React.FC = () => {
       {/* ==================================================================== */}
       {/* DOCUMENT VAULT DATA GRID & CONTROLS */}
       {/* ==================================================================== */}
-      <div className={`rounded-3xl border overflow-hidden ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-        {/* Table Filters Ribbon */}
-        <div className={`p-4 md:p-6 border-b flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 ${
-          isDark ? 'border-slate-800 bg-slate-900/40' : 'border-slate-200 bg-slate-50/50'
+      <div className={`neo-compact-panel rounded-lg border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-2xs'}`}>
+        {/* Table Filters Ribbon (High Density) */}
+        <div className={`p-1.5 px-2 border-b flex flex-col md:flex-row items-stretch md:items-center justify-between gap-1.5 ${
+          isDark ? 'border-slate-800 bg-slate-900/60' : 'border-slate-200 bg-slate-50/70'
         }`}>
           {/* Search Bar */}
-          <div className="relative flex-1 max-w-md">
-            <Search className={`w-4 h-4 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-3' : 'left-3'} text-slate-400`} />
+          <div className="relative flex-1 max-w-sm">
+            <Search className={`w-3 h-3 absolute top-1/2 -translate-y-1/2 ${isAr ? 'right-2' : 'left-2'} text-slate-400`} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={isAr ? 'البحث عن وثيقة، رقم السجل، الجهة المصدرة...' : 'Search by title, number, authority...'}
-              className={`w-full py-2.5 rounded-xl text-xs border outline-none transition-all ${
-                isAr ? 'pr-9 pl-3' : 'pl-9 pr-3'
+              className={`w-full py-1 rounded text-xs border outline-none transition-all ${
+                isAr ? 'pr-7 pl-2' : 'pl-7 pr-2'
               } ${
                 isDark
                   ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-sky-500'
@@ -837,12 +801,12 @@ export const CorporateVault: React.FC = () => {
           </div>
 
           {/* Filter dropdowns */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {/* Category Filter */}
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className={`py-2 px-3 rounded-xl text-xs border outline-none cursor-pointer ${
+              className={`py-1 px-2 rounded text-[11px] font-bold border outline-none cursor-pointer ${
                 isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'
               }`}
             >
@@ -858,7 +822,7 @@ export const CorporateVault: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`py-2 px-3 rounded-xl text-xs border outline-none cursor-pointer ${
+              className={`py-1 px-2 rounded text-[11px] font-bold border outline-none cursor-pointer ${
                 isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-slate-300 text-slate-800'
               }`}
             >
@@ -871,38 +835,38 @@ export const CorporateVault: React.FC = () => {
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
-            <thead className={`text-[11px] uppercase font-bold tracking-wider ${
-              isDark ? 'bg-slate-950/70 text-slate-400 border-b border-slate-800' : 'bg-slate-100 text-slate-600 border-b border-slate-200'
+        {/* High-Density Data Table Viewport */}
+        <div className="neo-data-viewport responsive-table-wrapper rounded-b-lg">
+          <table className="neo-grid-table w-full text-start">
+            <thead className={`sticky top-0 z-10 text-[10px] uppercase font-bold tracking-wider ${
+              isDark ? 'bg-slate-950 text-slate-400 border-b border-slate-800' : 'bg-slate-100 text-slate-600 border-b border-slate-200'
             }`}>
               <tr>
-                <th className={`p-4 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'الوثيقة والمسمى' : 'Document Title'}</th>
-                <th className={`p-4 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'التصنيف النظامي' : 'Category'}</th>
-                <th className={`p-4 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'رقم الوثيقة / الجهة' : 'Doc No. & Authority'}</th>
-                <th className={`p-4 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'تاريخ الصلاحية' : 'Expiry Date'}</th>
-                <th className={`p-4 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'حالة الاعتماد' : 'Verification Status'}</th>
-                <th className={`p-4 text-center`}>{isAr ? 'إجراءات' : 'Actions'}</th>
+                <th className={`py-1 px-2 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'الوثيقة والمسمى' : 'Document Title'}</th>
+                <th className={`py-1 px-2 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'التصنيف النظامي' : 'Category'}</th>
+                <th className={`py-1 px-2 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'رقم الوثيقة / الجهة' : 'Doc No. & Authority'}</th>
+                <th className={`py-1 px-2 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'تاريخ الصلاحية' : 'Expiry Date'}</th>
+                <th className={`py-1 px-2 ${isAr ? 'text-right' : 'text-left'}`}>{isAr ? 'حالة الاعتماد' : 'Verification Status'}</th>
+                <th className={`py-1 px-2 text-center`}>{isAr ? 'إجراءات' : 'Actions'}</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-slate-800 text-slate-300' : 'divide-slate-100 text-slate-700'}`}>
+            <tbody className={`divide-y ${isDark ? 'divide-slate-800/80 text-slate-300' : 'divide-slate-100 text-slate-700'}`}>
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-sky-400" />
-                    <span>{isAr ? 'جاري تحميل وثائق الخزينة...' : 'Loading compliance vault...'}</span>
+                  <td colSpan={6} className="py-6 text-center text-slate-500">
+                    <RefreshCw className="w-4 h-4 animate-spin mx-auto mb-1 text-sky-400" />
+                    <span className="text-xs">{isAr ? 'جاري تحميل وثائق الخزينة...' : 'Loading compliance vault...'}</span>
                   </td>
                 </tr>
               ) : filteredDocuments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-slate-500">
-                    <FileText className="w-10 h-10 mx-auto mb-3 text-slate-600" />
-                    <p className="font-bold text-sm text-slate-400">
+                  <td colSpan={6} className="py-6 text-center text-slate-500">
+                    <FileText className="w-6 h-6 mx-auto mb-1 text-slate-600" />
+                    <p className="font-bold text-xs text-slate-400">
                       {isAr ? 'لا توجد وثائق تطابق معايير البحث.' : 'No compliance documents found.'}
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {isAr ? 'اضغط على "تسجيل وثيقة جديدة" لإيداع التراخيص والشهادات.' : 'Click "Register Document" to add licenses, certificates, and audits.'}
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {isAr ? 'اضغط على "تسجيل وثيقة" لإيداع التراخيص والشهادات.' : 'Click "Register Document" to add licenses, certificates, and audits.'}
                     </p>
                   </td>
                 </tr>
@@ -916,84 +880,73 @@ export const CorporateVault: React.FC = () => {
                   return (
                     <tr
                       key={doc.id}
-                      className={`transition-colors hover:${isDark ? 'bg-slate-800/40' : 'bg-slate-50/80'}`}
+                      className="hover:bg-amber-500/10 dark:hover:bg-amber-500/10 transition-colors border-b border-slate-200/60 dark:border-slate-800"
                     >
                       {/* Document Title & File Info */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl shrink-0 ${
-                            doc.verification_status === 'VERIFIED'
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : 'bg-sky-500/10 text-sky-400'
-                          }`}>
-                            <FileCheck2 className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-100 text-xs">{doc.title}</div>
-                            <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                              <span>{doc.file_name}</span>
-                              {doc.file_size_bytes ? (
-                                <span className="font-mono text-[10px] text-slate-500">
-                                  ({Math.round(doc.file_size_bytes / 1024)} KB)
-                                </span>
-                              ) : null}
-                            </div>
+                      <td className="py-0.5 px-2">
+                        <div className="flex items-center gap-1.5">
+                          <FileCheck2 className={`w-3 h-3 shrink-0 ${
+                            doc.verification_status === 'VERIFIED' ? 'text-emerald-400' : 'text-sky-400'
+                          }`} />
+                          <div className="truncate">
+                            <span className="font-bold text-slate-900 dark:text-slate-100 text-[10.5px]">{doc.title}</span>
+                            <span className="text-[9px] text-slate-400 ml-1.5">({doc.file_name})</span>
                           </div>
                         </div>
                       </td>
 
                       {/* Document Type Badge */}
-                      <td className="p-4">
-                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-sky-300 border border-slate-700">
+                      <td className="py-0.5 px-2">
+                        <span className="px-1 py-0.2 rounded text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-slate-700">
                           {doc.document_type}
                         </span>
                       </td>
 
                       {/* Number & Authority */}
-                      <td className="p-4">
-                        <div className="font-mono text-slate-200 font-semibold">{doc.document_number || '—'}</div>
-                        <div className="text-[11px] text-slate-400">{doc.issuing_authority || '—'}</div>
+                      <td className="py-0.5 px-2">
+                        <span className="neo-cell-mono font-bold text-slate-800 dark:text-slate-200 text-[10.5px]">{doc.document_number || '—'}</span>
+                        {doc.issuing_authority && <span className="text-[9.5px] text-slate-500 dark:text-slate-400 ml-1.5">({doc.issuing_authority})</span>}
                       </td>
 
                       {/* Expiry Date */}
-                      <td className="p-4">
+                      <td className="py-0.5 px-2">
                         {doc.expiry_date ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className={`font-mono text-xs ${
-                              isExpired ? 'text-rose-400 font-bold' : isNearExpiry ? 'text-amber-400 font-bold' : 'text-slate-300'
+                          <div className="flex items-center gap-1">
+                            <span className={`neo-cell-mono text-[10.5px] ${
+                              isExpired ? 'text-rose-500 dark:text-rose-400 font-bold' : isNearExpiry ? 'text-amber-500 dark:text-amber-400 font-bold' : 'text-slate-700 dark:text-slate-300'
                             }`}>
                               {doc.expiry_date.split('T')[0]}
                             </span>
                             {isExpired && (
-                              <span className="px-1.5 py-0.5 text-[9px] rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                                {isAr ? 'منتهية' : 'EXPIRED'}
+                              <span className="px-1 py-0.2 text-[8px] font-bold rounded bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/30">
+                                {isAr ? 'منتهية' : 'EXP'}
                               </span>
                             )}
                             {isNearExpiry && (
-                              <span className="px-1.5 py-0.5 text-[9px] rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                {isAr ? 'قاربت على الانتهاء' : '<60d'}
+                              <span className="px-1 py-0.2 text-[8px] font-bold rounded bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30">
+                                {isAr ? 'قاربت' : '<60d'}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-slate-500">{isAr ? 'غير محدد' : 'No expiry'}</span>
+                          <span className="text-slate-400 text-[10px]">{isAr ? 'دائم' : 'None'}</span>
                         )}
                       </td>
 
                       {/* Status & Quick Action */}
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      <td className="py-0.5 px-2">
+                        <div className="flex items-center gap-1">
+                          <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase tracking-wider ${
                             doc.verification_status === 'VERIFIED'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                               : doc.verification_status === 'UNVERIFIED'
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                               : doc.verification_status === 'EXPIRED'
-                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                              : 'bg-slate-700 text-slate-400'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              doc.verification_status === 'VERIFIED' ? 'bg-emerald-400' : doc.verification_status === 'UNVERIFIED' ? 'bg-amber-400' : 'bg-rose-400'
+                            <span className={`w-1 h-1 rounded-full ${
+                              doc.verification_status === 'VERIFIED' ? 'bg-emerald-500' : doc.verification_status === 'UNVERIFIED' ? 'bg-amber-500' : 'bg-rose-500'
                             }`} />
                             {doc.verification_status}
                           </span>
@@ -1002,35 +955,35 @@ export const CorporateVault: React.FC = () => {
                           {isAdmin && doc.verification_status !== 'VERIFIED' && (
                             <button
                               onClick={() => handleQuickVerify(doc, 'VERIFIED')}
-                              className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all"
+                              className="neo-action-btn neo-btn-verify"
                               title={isAr ? 'اعتماد الوثيقة فورياً' : 'Approve & Verify'}
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              <Check className="w-2.5 h-2.5" />
                             </button>
                           )}
                         </div>
                       </td>
 
                       {/* Actions */}
-                      <td className="p-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="py-0.5 px-2 text-center">
+                        <div className="flex items-center justify-center gap-1">
                           {canMutate && (
                             <button
                               onClick={() => openEditModal(doc)}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all"
+                              className="neo-action-btn neo-btn-edit"
                               title={isAr ? 'تعديل البيانات' : 'Edit details'}
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
+                              <Edit3 className="w-2.5 h-2.5" />
                             </button>
                           )}
 
                           {canMutate && (
                             <button
                               onClick={() => setDeletingDoc(doc)}
-                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/50 text-slate-400 hover:text-rose-400 border border-transparent hover:border-rose-800/40 transition-all"
+                              className="neo-action-btn neo-btn-delete"
                               title={isAr ? 'حذف الوثيقة' : 'Delete'}
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-2.5 h-2.5" />
                             </button>
                           )}
                         </div>

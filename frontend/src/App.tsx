@@ -880,15 +880,15 @@ function AppContent() {
           >
             {/* Master Domain Switcher Bar */}
             <div
-              className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-1.5 sm:px-6 ${
+              className={`flex flex-wrap items-center justify-between gap-1.5 border-b px-3 py-1 sm:px-4 ${
                 themeMode === 'dark' ? 'border-slate-800/80 bg-slate-950/40' : 'border-slate-100 bg-slate-50/70'
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400">
                   {isAr ? 'مجال المنظومة:' : 'Domain Switcher:'}
                 </span>
-                <div className="flex items-center gap-1 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-0.5 shadow-2xs">
+                <div className="flex items-center gap-1 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-0.5 shadow-2xs">
                   <button
                     type="button"
                     id="domain-switch-operations"
@@ -899,7 +899,7 @@ function AppContent() {
                         navigateToTab('operations');
                       }
                     }}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
+                    className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-black transition-all ${
                       selectedDomain === 'Operations & Logistics'
                         ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-xs'
                         : themeMode === 'dark'
@@ -921,7 +921,7 @@ function AppContent() {
                         navigateToTab('invoicing');
                       }
                     }}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-black transition-all ${
+                    className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-black transition-all ${
                       selectedDomain === 'Finance, Accounting & Control'
                         ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-xs'
                         : themeMode === 'dark'
@@ -950,7 +950,7 @@ function AppContent() {
             </div>
 
             {/* Dynamic Secondary Ribbon (Only Active Domain Screens) */}
-            <div className="flex min-h-10 items-center px-4 sm:px-6 overflow-x-auto no-scrollbar">
+            <div className="flex min-h-7.5 items-center px-3 sm:px-4 overflow-x-auto no-scrollbar">
               <div className="flex min-w-0 flex-1 items-center gap-1">
                 {currentRibbonItems.map((item) => {
                   const Icon = item.icon;
@@ -960,7 +960,7 @@ function AppContent() {
                     <button
                       key={item.id}
                       onClick={() => navigateToTab(item.id)}
-                      className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-[11px] font-bold transition-all ${
+                      className={`inline-flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-1 text-[10.5px] font-bold transition-all ${
                         isActive
                           ? isOps
                             ? 'border-orange-500 text-orange-500 dark:text-orange-400'
@@ -970,7 +970,7 @@ function AppContent() {
                           : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-950'
                       }`}
                     >
-                      <Icon className="h-3.5 w-3.5" />
+                      <Icon className="h-3 w-3" />
                       <span>{isAr ? item.labelAr : item.labelEn}</span>
                     </button>
                   );
@@ -988,12 +988,12 @@ function AppContent() {
           isOpenMobile={isMobileMenuOpen}
           onCloseMobile={() => setIsMobileMenuOpen(false)}
         />
-        <main className={`min-w-0 flex-1 p-4 sm:p-6 lg:p-8 ${themeMode === 'dark' ? 'bg-[#0b0d19]' : 'bg-slate-100'}`}>
-          <div className="mb-4 flex items-center justify-between lg:hidden">
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 shadow-xs">{isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}<span>{isAr ? 'Navigation' : 'Menu'}</span></button>
+        <main className={`min-w-0 flex-1 p-1.5 sm:p-2 lg:p-2.5 ${themeMode === 'dark' ? 'bg-[#0b0d19]' : 'bg-slate-100'}`}>
+          <div className="mb-2 flex items-center justify-between lg:hidden">
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-bold text-neutral-700 shadow-xs">{isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}<span>{isAr ? 'Navigation' : 'Menu'}</span></button>
             <span className="text-xs font-black text-[#F05627]">{isAr ? brandConfig.companyNameAr : brandConfig.companyNameEn}</span>
           </div>
-          <div className="mx-auto w-full max-w-[1600px]">
+          <div className="w-full">
             <ProtectedRoute
               tier="tenant"
               allowedRoles={viewRoleRequirements[activeTab]}

@@ -148,17 +148,17 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
   return (
     <div className="space-y-4">
       {/* Control Bar: Filters & Batch Creation Button */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900/70 p-4 rounded-2xl border border-slate-800">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
-            <Filter className="w-3.5 h-3.5" /> {t('planning.filterMatrix', 'Filter Matrix:')}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 mr-1">
+            <Filter className="w-3 h-3 text-sky-400" /> {t('planning.filterMatrix', 'Filter:')}
           </span>
 
           {/* Phase Filter */}
           <select
             value={selectedPhase}
             onChange={(e) => setSelectedPhase(e.target.value)}
-            className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500"
+            className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-blue-500 font-medium"
           >
             <option value="ALL">{t('planning.allPhases', 'All Phases')} ({tasks.length})</option>
             {phases.map((p) => (
@@ -172,7 +172,7 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
-            className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-blue-500"
+            className="bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1 focus:outline-none focus:border-blue-500 font-medium"
           >
             <option value="ALL">{t('planning.allDepartments', 'All Departments')}</option>
             {departments.map((d) => (
@@ -185,30 +185,30 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
 
         <button
           onClick={() => setShowBatchModal(true)}
-          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5"
+          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" /> {t('planning.batchAddTasks', 'Batch Add Tasks')}
         </button>
       </div>
 
       {/* High-Density Execution Matrix Data Table */}
-      <div className="overflow-x-auto rounded-2xl border border-slate-800/80 bg-slate-900/60 shadow-xl backdrop-blur-sm">
-        <table className="w-full text-left text-sm border-collapse">
+      <div className="neo-data-viewport overflow-x-auto rounded-lg border border-slate-800/80 bg-slate-900/60 shadow-xs">
+        <table className="neo-grid-table w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="border-b border-slate-800 bg-slate-950/60 text-slate-400 text-xs font-semibold uppercase tracking-wider">
-              <th className="py-3 px-4">{t('planning.taskNameScope', 'Task Name & Scope')}</th>
-              <th className="py-3 px-4">{t('planning.phaseDept', 'Phase & Dept')}</th>
-              <th className="py-3 px-4">{t('planning.workloadCost', 'Workload / Cost')}</th>
-              <th className="py-3 px-4">{t('planning.assignedPersonnel', 'Assigned Personnel')}</th>
-              <th className="py-3 px-4">{t('planning.priority', 'Priority')}</th>
-              <th className="py-3 px-4">{t('planning.status', 'Status')}</th>
-              <th className="py-3 px-4 text-right">{t('planning.hazardTracker', 'Hazard Tracker')}</th>
+            <tr className="border-b border-slate-800 bg-slate-950/80 text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+              <th className="py-1 px-2">{t('planning.taskNameScope', 'Task Name & Scope')}</th>
+              <th className="py-1 px-2">{t('planning.phaseDept', 'Phase & Dept')}</th>
+              <th className="py-1 px-2">{t('planning.workloadCost', 'Workload / Cost')}</th>
+              <th className="py-1 px-2">{t('planning.assignedPersonnel', 'Assigned Personnel')}</th>
+              <th className="py-1 px-2">{t('planning.priority', 'Priority')}</th>
+              <th className="py-1 px-2">{t('planning.status', 'Status')}</th>
+              <th className="py-1 px-2 text-right">{t('planning.hazardTracker', 'Hazard Tracker')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
             {filteredTasks.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-slate-500 text-sm">
+                <td colSpan={7} className="py-6 text-center text-slate-500 text-xs">
                   {t('planning.noTasks', 'No execution tasks matching selected criteria.')}
                 </td>
               </tr>
@@ -219,56 +219,60 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
                 return (
                   <tr
                     key={task.id}
-                    className="hover:bg-slate-800/30 transition-colors group"
+                    className="hover:bg-amber-500/10 transition-colors group"
                   >
                     {/* Task Name */}
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-white group-hover:text-blue-400 transition-colors">
+                    <td className="py-0.5 px-2">
+                      <div className="font-bold text-white group-hover:text-blue-400 transition-colors text-[11px]">
                         {task.task_name}
                       </div>
                       {task.materials_required && task.materials_required.length > 0 && (
-                        <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                          <span className="font-mono text-slate-400">{t('planning.materialsLabel', 'Materials:')}</span>{' '}
+                        <div className="text-[9.5px] text-slate-500 flex items-center gap-1">
+                          <span className="font-mono text-slate-400">{t('planning.materialsLabel', 'Mat:')}</span>{' '}
                           {task.materials_required.join(', ')}
                         </div>
                       )}
                     </td>
 
                     {/* Phase & Department */}
-                    <td className="py-3.5 px-4 space-y-1">
-                      <div className="inline-block px-2 py-0.5 bg-slate-800 text-slate-300 text-xs font-medium rounded-md border border-slate-700/60">
-                        {task.phase}
-                      </div>
-                      <div className="text-xs text-slate-400 flex items-center gap-1">
-                        <Briefcase className="w-3 h-3 text-slate-500" />
-                        {task.department}
+                    <td className="py-0.5 px-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-block px-1.5 py-0.2 bg-slate-800 text-slate-300 text-[9.5px] font-bold rounded border border-slate-700/60">
+                          {task.phase}
+                        </span>
+                        <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <Briefcase className="w-2.5 h-2.5 text-slate-500" />
+                          {task.department}
+                        </span>
                       </div>
                     </td>
 
                     {/* Workload / Cost */}
-                    <td className="py-3.5 px-4">
-                      <div className="text-xs font-semibold text-slate-200 flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-blue-400" />
-                        <bdi>{task.planned_hours} {t('planning.hours', 'hrs')}</bdi>
-                      </div>
-                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-                        <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-                        <bdi>{Number(task.task_cost).toLocaleString()} {t('common.currency', 'SAR')}</bdi>
+                    <td className="py-0.5 px-2">
+                      <div className="flex items-center gap-2">
+                        <div className="text-[10px] font-semibold text-slate-200 flex items-center gap-0.5 neo-cell-mono">
+                          <Clock className="w-2.5 h-2.5 text-blue-400" />
+                          <bdi>{task.planned_hours}h</bdi>
+                        </div>
+                        <div className="text-[10px] text-slate-400 flex items-center gap-0.5 neo-cell-mono">
+                          <DollarSign className="w-2.5 h-2.5 text-emerald-400" />
+                          <bdi>{Number(task.task_cost).toLocaleString()} SAR</bdi>
+                        </div>
                       </div>
                     </td>
 
                     {/* Assigned Personnel */}
-                    <td className="py-3.5 px-4">
-                      <div className="text-xs font-medium text-slate-200 flex items-center gap-1.5">
-                        <User className="w-3.5 h-3.5 text-slate-400" />
+                    <td className="py-0.5 px-2">
+                      <div className="text-[10.5px] font-medium text-slate-200 flex items-center gap-1">
+                        <User className="w-3 h-3 text-slate-400" />
                         {task.assigned_user_name || t('planning.unassigned', 'Unassigned')}
                       </div>
                     </td>
 
                     {/* Priority Badge */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-2">
                       <span
-                        className={`px-2 py-0.5 text-xs font-bold rounded-md border ${
+                        className={`px-1.5 py-0.2 text-[9px] font-bold rounded border ${
                           task.priority === 'CRITICAL'
                             ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                             : task.priority === 'HIGH'
@@ -281,13 +285,13 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
                     </td>
 
                     {/* Inline Status Dropdown Editor */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-0.5 px-2">
                       <div className="relative inline-block">
                         <select
                           disabled={updatingTaskId === task.id}
                           value={task.status}
                           onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                          className={`text-xs font-semibold rounded-lg px-2.5 py-1 border transition-all cursor-pointer focus:outline-none ${
+                          className={`text-[9.5px] font-bold rounded px-1.5 py-0.5 border transition-all cursor-pointer focus:outline-none ${
                             task.status === 'COMPLETED'
                               ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
                               : task.status === 'IN_PROGRESS'
@@ -306,20 +310,20 @@ export const ExecutionMatrixTable: React.FC<ExecutionMatrixTableProps> = ({
                     </td>
 
                     {/* Hazard Tracker Link */}
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-0.5 px-2 text-right">
                       <button
                         onClick={() => onOpenHazardModal(task)}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all ${
                           activeHazards.length > 0
                             ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20'
                             : 'bg-slate-800/60 text-slate-400 border-slate-700 hover:text-slate-200'
                         }`}
                       >
-                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <ShieldAlert className="w-3 h-3" />
                         <span>
                           {activeHazards.length > 0
                             ? t('planning.activeCount', { count: activeHazards.length, defaultValue: `${activeHazards.length} Active` })
-                            : t('planning.logRisk', 'Log Risk')}
+                            : t('planning.logRisk', 'Risk')}
                         </span>
                       </button>
                     </td>

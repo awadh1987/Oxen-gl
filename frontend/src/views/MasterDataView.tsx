@@ -375,24 +375,24 @@ export const MasterDataView: React.FC = () => {
   const DynamicActionIcon = dynamicActionConfig.icon;
 
   return (
-    <div className="space-y-6" id="master-data-view">
-      {/* 1. Primary Header Card */}
-      <div className="flex flex-col justify-between gap-4 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs sm:flex-row sm:items-center">
+    <div className="space-y-1.5" id="master-data-view">
+      {/* 1. Primary Header Card (High-Density Neo-Classic) */}
+      <div className="neo-compact-panel flex flex-col justify-between gap-1.5 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-2.5 py-1.5 shadow-2xs sm:flex-row sm:items-center">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/10 text-orange-600">
-              <Database className="h-5 w-5" />
+          <div className="flex items-center gap-2">
+            <div className="flex h-5 w-5 items-center justify-center rounded border neo-icon-core text-sky-500">
+              <Database className="h-3 w-3" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black text-slate-900">
+              <div className="flex items-center gap-1.5">
+                <h1 className="text-xs font-black text-slate-900 dark:text-slate-100">
                   {isAr ? 'البيانات الرئيسية ومصفوفة الصلاحيات (Master Data & RBAC)' : 'Master Data & Permissions Matrix'}
                 </h1>
-                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-black text-emerald-700">
+                <span className="rounded bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.2 text-[8.5px] font-black text-emerald-700 dark:text-emerald-400">
                   Live Registries
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
                 {isAr
                   ? 'إدارة مركزية لسجلات العملاء، موردي المواد، موردي الخدمات، تسعير المواد، وحسابات المستخدمين'
                   : 'Centralized enterprise directory for clients, material suppliers, service suppliers, material catalogs, and RBAC users'}
@@ -403,15 +403,15 @@ export const MasterDataView: React.FC = () => {
 
         {/* Global Record Status */}
         {backendStatus && (
-          <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 animate-in fade-in">
-            <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
+          <div className="flex items-center gap-1 rounded border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-300">
+            <CheckCircle className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span>{backendStatus}</span>
           </div>
         )}
       </div>
 
-      {/* 2. Elevated Primary Entity Tabs Directly Beneath Header */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* 2. High-Density Neo-Classic Entity Ribbon */}
+      <div className="flex flex-wrap items-center gap-1 p-0.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/80 shadow-2xs">
         {[
           {
             id: 'customer',
@@ -419,7 +419,7 @@ export const MasterDataView: React.FC = () => {
             labelEn: 'Customers',
             count: customers.filter((c) => !c.is_deleted).length,
             icon: Building2,
-            accent: 'from-blue-600 to-indigo-600',
+            iconStyle: 'neo-icon-core',
           },
           {
             id: 'crusher',
@@ -427,7 +427,7 @@ export const MasterDataView: React.FC = () => {
             labelEn: 'Material Suppliers',
             count: crushers.filter((c) => !c.is_deleted).length,
             icon: Database,
-            accent: 'from-amber-600 to-orange-600',
+            iconStyle: 'neo-icon-procurement',
           },
           {
             id: 'transporter',
@@ -435,7 +435,7 @@ export const MasterDataView: React.FC = () => {
             labelEn: 'Service Suppliers',
             count: transporters.filter((t) => !t.is_deleted).length,
             icon: Truck,
-            accent: 'from-emerald-600 to-teal-600',
+            iconStyle: 'neo-icon-logistics',
           },
           {
             id: 'material',
@@ -443,7 +443,7 @@ export const MasterDataView: React.FC = () => {
             labelEn: 'Materials & Price Catalog',
             count: materials.filter((m) => !m.is_deleted).length,
             icon: Package,
-            accent: 'from-purple-600 to-violet-600',
+            iconStyle: 'neo-icon-finance',
           },
           {
             id: 'user',
@@ -451,7 +451,7 @@ export const MasterDataView: React.FC = () => {
             labelEn: 'Users & RBAC',
             count: users.filter((u) => !u.is_deleted).length,
             icon: Users,
-            accent: 'from-rose-600 to-red-600',
+            iconStyle: 'neo-icon-hr',
           },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -466,45 +466,39 @@ export const MasterDataView: React.FC = () => {
                 setSearchQuery('');
                 setQuickFilter('all');
               }}
-              className={`flex flex-col justify-between p-4 rounded-2xl border text-right transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded border text-[11px] font-bold transition-all cursor-pointer ${
                 isActive
-                  ? 'border-slate-900 bg-slate-900 text-white shadow-md ring-2 ring-slate-900/10'
-                  : 'border-slate-200/90 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50/70 shadow-2xs'
+                  ? 'border-slate-900 bg-slate-900 text-white dark:border-orange-500/50 dark:bg-orange-500/20 dark:text-orange-300 shadow-2xs'
+                  : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
               }`}
             >
-              <div className="flex items-center justify-between w-full">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-xl transition ${
-                    isActive ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-700'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                </div>
-                <span
-                  className={`text-[11px] font-mono font-black px-2 py-0.5 rounded-full ${
-                    isActive ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {tab.count}
-                </span>
+              <div className={`flex h-4 w-4 items-center justify-center rounded border ${isActive ? 'bg-white/20 border-white/30 text-white' : tab.iconStyle}`}>
+                <Icon className="h-2.5 w-2.5" />
               </div>
-              <div className="mt-3">
-                <span className="block text-xs font-black tracking-tight truncate">
-                  {isAr ? tab.labelAr : tab.labelEn}
-                </span>
-              </div>
+              <span className="truncate">
+                {isAr ? tab.labelAr : tab.labelEn}
+              </span>
+              <span
+                className={`neo-cell-mono text-[9px] font-bold px-1.5 py-0.2 rounded-full ${
+                  isActive
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                {tab.count}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* 3. Unified Single-Row Dynamic Action Bar & Search */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+      {/* 3. Unified Single-Row Dynamic Action Bar & Search (High Density) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-1.5 bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-slate-200/90 dark:border-slate-800 shadow-2xs">
         {/* Right Side (in RTL): Search & Quick Filter */}
-        <div className="flex flex-1 flex-wrap items-center gap-2.5">
+        <div className="flex flex-1 flex-wrap items-center gap-1.5">
           {/* Quick Search */}
-          <div className="relative flex-1 min-w-[220px] max-w-md">
-            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 rtl:right-3.5 rtl:left-auto ltr:left-3.5 ltr:right-auto" />
+          <div className="relative flex-1 min-w-[180px] max-w-sm">
+            <Search className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400 rtl:right-2 rtl:left-auto ltr:left-2 ltr:right-auto" />
             <input
               type="text"
               value={searchQuery}
@@ -520,26 +514,26 @@ export const MasterDataView: React.FC = () => {
                   ? (isAr ? 'بحث باسم المادة أو التصنيف...' : 'Search materials or categories...')
                   : (isAr ? 'بحث بالاسم، البريد، أو الدور الوظيفي...' : 'Search users, email, or role...')
               }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-2 px-10 text-xs text-slate-900 placeholder-slate-400 focus:border-orange-500 focus:bg-white focus:outline-none transition"
+              className="w-full rounded border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/70 py-1 px-7 text-[11px] text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-orange-500 focus:bg-white dark:focus:bg-slate-800 focus:outline-none transition"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 rtl:left-3 rtl:right-auto ltr:right-3 ltr:left-auto"
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 rtl:left-2 rtl:right-auto ltr:right-2 ltr:left-auto"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-2.5 w-2.5" />
               </button>
             )}
           </div>
 
           {/* Quick Filter Dropdown based on active tab */}
-          <div className="flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5 text-slate-400" />
+          <div className="flex items-center gap-1">
+            <Filter className="h-3 w-3 text-slate-400" />
             <select
               value={quickFilter}
               onChange={(e) => setQuickFilter(e.target.value)}
-              className="rounded-xl border border-slate-200 bg-slate-50 py-2 px-3 text-xs font-bold text-slate-700 focus:border-orange-500 focus:bg-white focus:outline-none cursor-pointer"
+              className="rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 py-1 px-2 text-[11px] font-bold text-slate-700 dark:text-slate-200 focus:border-orange-500 focus:outline-none cursor-pointer"
             >
               {activeSubTab === 'customer' && (
                 <>
@@ -560,7 +554,7 @@ export const MasterDataView: React.FC = () => {
                 <>
                   <option value="all">{isAr ? 'كافة الشاحنات' : 'All Haulers'}</option>
                   <option value="heavy">{isAr ? 'شاحنات ثقيلة (≥ 40 طن)' : 'Heavy Haulers (≥40T)'}</option>
-                  <option value="medium">{isAr ? 'شاحنات متوسطة (&lt; 40 طن)' : 'Medium Haulers (<40T)'}</option>
+                  <option value="medium">{isAr ? 'شاحنات متوسطة (< 40 طن)' : 'Medium Haulers (<40T)'}</option>
                 </>
               )}
               {activeSubTab === 'material' && (
@@ -586,16 +580,16 @@ export const MasterDataView: React.FC = () => {
         </div>
 
         {/* Left Side (in RTL): Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1">
           {/* Refresh Action */}
           <button
             type="button"
             onClick={handleRefreshRecords}
             disabled={isRefreshing}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-2xs"
+            className="flex h-6.5 w-6.5 items-center justify-center rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-2xs cursor-pointer"
             title={isAr ? 'تحديث السجلات' : 'Refresh Records'}
           >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin text-orange-600' : ''}`} />
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin text-orange-600' : ''}`} />
           </button>
 
           {/* Universal Bulk Import Button (REM-P7) */}
@@ -603,32 +597,32 @@ export const MasterDataView: React.FC = () => {
             id="bulk-import-master-btn"
             type="button"
             onClick={() => setIsUniversalBulkImportOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50/80 px-3.5 py-2 text-xs font-bold text-emerald-900 shadow-2xs hover:bg-emerald-100 transition-colors"
+            className="flex items-center gap-1 rounded border border-emerald-300 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/40 px-2 py-1 text-[11px] font-bold text-emerald-900 dark:text-emerald-300 shadow-2xs hover:bg-emerald-100 transition-colors cursor-pointer"
             title={isAr ? 'استيراد بيانات الشركاء وقاعدة البيانات الشاملة (CSV / Excel)' : 'Bulk Import (CSV/Excel)'}
           >
-            <Upload className="h-4 w-4 text-emerald-700" />
-            <span>{isAr ? 'استيراد بيانات / Bulk Import (CSV/Excel)' : 'Bulk Import (CSV/Excel)'}</span>
+            <Upload className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
+            <span>{isAr ? 'استيراد شامل' : 'Bulk Import'}</span>
           </button>
 
           {/* Batch CSV Import */}
           <button
             type="button"
             onClick={handleOpenCsv}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 transition-colors"
+            className="flex items-center gap-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-200 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
           >
-            <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-            <span>{isAr ? 'استيراد جماعي (CSV / Excel)' : 'Batch CSV Import'}</span>
+            <FileSpreadsheet className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+            <span>{isAr ? 'استيراد CSV' : 'CSV Import'}</span>
           </button>
 
           {/* Direct Backend Partner Drawer Trigger */}
           <button
             type="button"
             onClick={() => setIsPartnerDrawerOpen(true)}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-50 hover:border-slate-300 transition-colors"
+            className="flex items-center gap-1 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-[11px] font-bold text-slate-700 dark:text-slate-200 shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
             title={isAr ? 'إدارة شريك مباشر في قاعدة البيانات' : 'Direct Backend Partner Entry'}
           >
-            <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
-            <span>{isAr ? 'شركاء قاعدة البيانات' : 'Backend Partners'}</span>
+            <SlidersHorizontal className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+            <span>{isAr ? 'شركاء DB' : 'DB Partners'}</span>
           </button>
 
           {/* Dynamic Entity Creation Button */}
@@ -636,72 +630,72 @@ export const MasterDataView: React.FC = () => {
             id="btn-dynamic-create-master"
             type="button"
             onClick={() => handleOpenCreate(activeSubTab)}
-            className="flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2 text-xs font-black text-white shadow-md shadow-orange-100 hover:bg-orange-700 transition-colors"
+            className="flex items-center gap-1 rounded bg-orange-600 px-2.5 py-1 text-[11px] font-black text-white shadow-xs hover:bg-orange-700 transition-colors cursor-pointer"
           >
-            <DynamicActionIcon className="h-4 w-4" />
+            <DynamicActionIcon className="h-3 w-3" />
             <span>{isAr ? dynamicActionConfig.labelAr : dynamicActionConfig.labelEn}</span>
           </button>
         </div>
       </div>
 
-      {/* 4. Full-Width Maximized Table Viewport (Tab 1 to 5) */}
+      {/* 4. Full-Width Maximized High-Density Table Viewport (Tab 1 to 5) */}
 
       {/* TAB 1: Customers Table */}
       {activeSubTab === 'customer' && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-orange-600" />
+        <div className="neo-compact-panel rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5 text-sky-500" />
               <span>{isAr ? 'دليل العملاء' : 'Clients Registry'}</span>
             </h3>
-            <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
+            <span className="neo-cell-mono text-[9px] font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-1.5 py-0.2 rounded">
               {activeCustomers.length} {isAr ? 'عملاء مسجلين' : 'Registered Clients'}
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
-                  <th className="py-3 px-4">{isAr ? 'اسم العميل / المنشأة' : 'Customer Name'}</th>
-                  <th className="py-3 px-4">{isAr ? 'الرقم الضريبي (VAT)' : 'Tax Number'}</th>
-                  <th className="py-3 px-4">{isAr ? 'مسؤول الاتصال' : 'Contact Person'}</th>
-                  <th className="py-3 px-4">{isAr ? 'الهاتف' : 'Phone'}</th>
-                  <th className="py-3 px-4">{isAr ? 'العنوان والموقع' : 'Address'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'الحد الائتماني' : 'Credit Limit'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
+          <div className="neo-data-viewport responsive-table-wrapper rounded border border-slate-200 dark:border-slate-800">
+            <table className="neo-grid-table w-full text-start">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <tr>
+                  <th className="text-start">{isAr ? 'اسم العميل / المنشأة' : 'Customer Name'}</th>
+                  <th className="text-start">{isAr ? 'الرقم الضريبي (VAT)' : 'Tax Number'}</th>
+                  <th className="text-start">{isAr ? 'مسؤول الاتصال' : 'Contact Person'}</th>
+                  <th className="text-start">{isAr ? 'الهاتف' : 'Phone'}</th>
+                  <th className="text-start">{isAr ? 'العنوان والموقع' : 'Address'}</th>
+                  <th className="text-center">{isAr ? 'الحد الائتماني' : 'Credit Limit'}</th>
+                  <th className="text-center w-14">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {activeCustomers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
                       {isAr ? 'لا توجد سجلات مطابقة للبحث أو التصفية.' : 'No customers match the active query.'}
                     </td>
                   </tr>
                 ) : (
                   activeCustomers.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                    <tr key={c.id}>
+                      <td className="font-bold text-slate-900 dark:text-slate-100">
                         {c.customerName}
-                        {c.customerNameEn && <span className="block text-[11px] font-normal text-slate-400">{c.customerNameEn}</span>}
+                        {c.customerNameEn && <span className="inline-block ms-1 text-[9.5px] font-normal text-slate-400">({c.customerNameEn})</span>}
                       </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{c.taxNumber || '-'}</td>
-                      <td className="py-3.5 px-4 text-slate-700">{c.contactPerson || '-'}</td>
-                      <td className="py-3.5 px-4 font-mono text-slate-600">{c.phone || '-'}</td>
-                      <td className="py-3.5 px-4 text-slate-500 truncate max-w-xs">{c.address || '-'}</td>
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-700">
+                      <td className="neo-cell-mono font-bold text-slate-800 dark:text-slate-200">{c.taxNumber || '-'}</td>
+                      <td className="text-slate-700 dark:text-slate-300">{c.contactPerson || '-'}</td>
+                      <td className="neo-cell-mono text-slate-600 dark:text-slate-400">{c.phone || '-'}</td>
+                      <td className="text-slate-500 dark:text-slate-400 truncate max-w-xs">{c.address || '-'}</td>
+                      <td className="text-center neo-cell-mono font-bold text-slate-700 dark:text-slate-200">
                         {c.creditLimit ? formatCurrency(c.creditLimit, language) : '-'}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit('customer', c)}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-edit"
                             title={isAr ? 'تعديل البيانات' : 'Edit'}
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-2.5 w-2.5" />
                           </button>
                           <button
                             type="button"
@@ -710,10 +704,10 @@ export const MasterDataView: React.FC = () => {
                                 deleteCustomer(c.id);
                               }
                             }}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-delete"
                             title={isAr ? 'أرشفة وحذف' : 'Delete'}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-2.5 w-2.5" />
                           </button>
                         </div>
                       </td>
@@ -728,55 +722,55 @@ export const MasterDataView: React.FC = () => {
 
       {/* TAB 2: Crushers Table */}
       {activeSubTab === 'crusher' && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Database className="h-4 w-4 text-orange-600" />
+        <div className="neo-compact-panel rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              <Database className="h-3.5 w-3.5 text-amber-500" />
               <span>{isAr ? 'دليل موردي المواد' : 'Material Suppliers'}</span>
             </h3>
-            <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
+            <span className="neo-cell-mono text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 px-1.5 py-0.2 rounded">
               {activeCrushers.length} {isAr ? 'موردي مواد مسجلين' : 'Registered Material Suppliers'}
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
-                  <th className="py-3 px-4">{isAr ? 'اسم مورد المواد' : 'Supplier Name'}</th>
-                  <th className="py-3 px-4">{isAr ? 'الموقع الجغرافي' : 'Location'}</th>
-                  <th className="py-3 px-4">{isAr ? 'المادة الموردة' : 'Material'}</th>
-                  <th className="py-3 px-4">{isAr ? 'الحساب البنكي / الآيبان' : 'Bank Account'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'الرصيد الافتتاحي' : 'Opening Balance'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
+          <div className="neo-data-viewport responsive-table-wrapper rounded border border-slate-200 dark:border-slate-800">
+            <table className="neo-grid-table w-full text-start">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <tr>
+                  <th className="text-start">{isAr ? 'اسم مورد المواد' : 'Supplier Name'}</th>
+                  <th className="text-start">{isAr ? 'الموقع الجغرافي' : 'Location'}</th>
+                  <th className="text-start">{isAr ? 'المادة الموردة' : 'Material'}</th>
+                  <th className="text-start">{isAr ? 'الحساب البنكي / الآيبان' : 'Bank Account'}</th>
+                  <th className="text-center">{isAr ? 'الرصيد الافتتاحي' : 'Opening Balance'}</th>
+                  <th className="text-center w-14">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {activeCrushers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={6} className="py-6 text-center text-xs text-slate-400">
                       {isAr ? 'لا يوجد موردي مواد مطابقين للبحث أو التصفية.' : 'No material suppliers match the active query.'}
                     </td>
                   </tr>
                 ) : (
                   activeCrushers.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">{c.crusherName}</td>
-                      <td className="py-3.5 px-4 text-slate-600">{c.location}</td>
-                      <td className="py-3.5 px-4 text-orange-800 font-bold">{c.materialProduced}</td>
-                      <td className="py-3.5 px-4 text-slate-600 font-mono text-[11px]">{c.bankDetails || '-'}</td>
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-700">
+                    <tr key={c.id}>
+                      <td className="font-bold text-slate-900 dark:text-slate-100">{c.crusherName}</td>
+                      <td className="text-slate-600 dark:text-slate-400">{c.location}</td>
+                      <td className="text-amber-800 dark:text-amber-400 font-bold">{c.materialProduced}</td>
+                      <td className="neo-cell-mono text-slate-600 dark:text-slate-400 text-[9.5px]">{c.bankDetails || '-'}</td>
+                      <td className="text-center neo-cell-mono font-bold text-slate-700 dark:text-slate-200">
                         {formatCurrency(c.openingBalance || 0, language)}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit('crusher', c)}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-edit"
                             title={isAr ? 'تعديل البيانات' : 'Edit'}
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-2.5 w-2.5" />
                           </button>
                           <button
                             type="button"
@@ -785,10 +779,10 @@ export const MasterDataView: React.FC = () => {
                                 deleteCrusher(c.id);
                               }
                             }}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-delete"
                             title={isAr ? 'أرشفة وحذف' : 'Delete'}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-2.5 w-2.5" />
                           </button>
                         </div>
                       </td>
@@ -803,57 +797,57 @@ export const MasterDataView: React.FC = () => {
 
       {/* TAB 3: Transporters Table */}
       {activeSubTab === 'transporter' && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Truck className="h-4 w-4 text-orange-600" />
+        <div className="neo-compact-panel rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              <Truck className="h-3.5 w-3.5 text-emerald-500" />
               <span>{isAr ? 'دليل موردي الخدمات والأسطول' : 'Service Suppliers & Fleet'}</span>
             </h3>
-            <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
+            <span className="neo-cell-mono text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.2 rounded">
               {activeTransporters.length} {isAr ? 'موردي خدمات مسجلين' : 'Registered Service Suppliers'}
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
-                  <th className="py-3 px-4">{isAr ? 'اسم مورد الخدمة / المؤسسة' : 'Service Supplier Name'}</th>
-                  <th className="py-3 px-4">{isAr ? 'اسم السائق' : 'Driver'}</th>
-                  <th className="py-3 px-4">{isAr ? 'رقم الشاحنة الافتراضية' : 'Default Truck #'}</th>
-                  <th className="py-3 px-4">{isAr ? 'الهاتف' : 'Phone'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'سعة الحمولة' : 'Capacity'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'أجرة النقل / MT طن' : 'Rate / MT'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
+          <div className="neo-data-viewport responsive-table-wrapper rounded border border-slate-200 dark:border-slate-800">
+            <table className="neo-grid-table w-full text-start">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <tr>
+                  <th className="text-start">{isAr ? 'اسم مورد الخدمة / المؤسسة' : 'Service Supplier Name'}</th>
+                  <th className="text-start">{isAr ? 'اسم السائق' : 'Driver'}</th>
+                  <th className="text-start">{isAr ? 'رقم الشاحنة الافتراضية' : 'Default Truck #'}</th>
+                  <th className="text-start">{isAr ? 'الهاتف' : 'Phone'}</th>
+                  <th className="text-center">{isAr ? 'سعة الحمولة' : 'Capacity'}</th>
+                  <th className="text-center">{isAr ? 'أجرة النقل / MT طن' : 'Rate / MT'}</th>
+                  <th className="text-center w-14">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {activeTransporters.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
                       {isAr ? 'لا يوجد ناقلون مطابقون للبحث أو التصفية.' : 'No transporters match the active query.'}
                     </td>
                   </tr>
                 ) : (
                   activeTransporters.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">{t.transporterName}</td>
-                      <td className="py-3.5 px-4 text-slate-800">{t.driverName || '-'}</td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-orange-950">{t.defaultTruckNo || '-'}</td>
-                      <td className="py-3.5 px-4 font-mono text-slate-600">{t.phone || '-'}</td>
-                      <td className="py-3.5 px-4 text-center font-bold text-slate-700">{t.capacityTons || 44} MT طن</td>
-                      <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-700">
+                    <tr key={t.id}>
+                      <td className="font-bold text-slate-900 dark:text-slate-100">{t.transporterName}</td>
+                      <td className="text-slate-800 dark:text-slate-200">{t.driverName || '-'}</td>
+                      <td className="neo-cell-mono font-bold text-orange-950 dark:text-orange-400">{t.defaultTruckNo || '-'}</td>
+                      <td className="neo-cell-mono text-slate-600 dark:text-slate-400">{t.phone || '-'}</td>
+                      <td className="text-center neo-cell-mono font-bold text-slate-700 dark:text-slate-300">{t.capacityTons || 44} MT</td>
+                      <td className="text-center neo-cell-mono font-bold text-emerald-700 dark:text-emerald-400">
                         {formatCurrency(t.ratePerTon || 18, language)}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit('transporter', t)}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-edit"
                             title={isAr ? 'تعديل البيانات' : 'Edit'}
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-2.5 w-2.5" />
                           </button>
                           <button
                             type="button"
@@ -862,10 +856,10 @@ export const MasterDataView: React.FC = () => {
                                 deleteTransporter(t.id);
                               }
                             }}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-delete"
                             title={isAr ? 'أرشفة وحذف' : 'Delete'}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-2.5 w-2.5" />
                           </button>
                         </div>
                       </td>
@@ -880,34 +874,34 @@ export const MasterDataView: React.FC = () => {
 
       {/* TAB 4: Materials Table */}
       {activeSubTab === 'material' && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Package className="h-4 w-4 text-orange-600" />
+        <div className="neo-compact-panel rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              <Package className="h-3.5 w-3.5 text-purple-500" />
               <span>{isAr ? 'قائمة المواد وتعرفات أسعار الشراء والبيع القياسية' : 'Materials & Price Catalog'}</span>
             </h3>
-            <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
+            <span className="neo-cell-mono text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-1.5 py-0.2 rounded">
               {activeMaterials.length} {isAr ? 'أصناف مسجلة' : 'Catalog Items'}
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
-                  <th className="py-3 px-4">{isAr ? 'اسم صنف المادة' : 'Material Name'}</th>
-                  <th className="py-3 px-4">{isAr ? 'التصنيف' : 'Category'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'وحدة القياس (UOM)' : 'UOM'}</th>
-                  <th className="py-3 px-4">{isAr ? 'سعر الشراء الافتراضي' : 'Buy Price'}</th>
-                  <th className="py-3 px-4">{isAr ? 'سعر البيع الافتراضي' : 'Sell Price'}</th>
-                  <th className="py-3 px-4">{isAr ? 'هامش الربح المتوقع' : 'Expected Margin'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
+          <div className="neo-data-viewport responsive-table-wrapper rounded border border-slate-200 dark:border-slate-800">
+            <table className="neo-grid-table w-full text-start">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <tr>
+                  <th className="text-start">{isAr ? 'اسم صنف المادة' : 'Material Name'}</th>
+                  <th className="text-start">{isAr ? 'التصنيف' : 'Category'}</th>
+                  <th className="text-center">{isAr ? 'وحدة القياس (UOM)' : 'UOM'}</th>
+                  <th className="text-start">{isAr ? 'سعر الشراء الافتراضي' : 'Buy Price'}</th>
+                  <th className="text-start">{isAr ? 'سعر البيع الافتراضي' : 'Sell Price'}</th>
+                  <th className="text-start">{isAr ? 'هامش الربح المتوقع' : 'Expected Margin'}</th>
+                  <th className="text-center w-14">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {activeMaterials.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={7} className="py-6 text-center text-xs text-slate-400">
                       {isAr ? 'لا توجد مواد مطابقة للبحث أو التصفية.' : 'No materials match the active query.'}
                     </td>
                   </tr>
@@ -916,39 +910,39 @@ export const MasterDataView: React.FC = () => {
                     const margin = m.defaultSellingPrice - m.defaultPurchasePrice;
                     const uomDisplay = m.unit || 'MT طن';
                     return (
-                      <tr key={m.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                      <tr key={m.id}>
+                        <td className="font-bold text-slate-900 dark:text-slate-100">
                           {m.nameAr}
-                          {m.nameEn && <span className="block text-[11px] font-normal text-slate-400">{m.nameEn}</span>}
+                          {m.nameEn && <span className="inline-block ms-1 text-[9.5px] font-normal text-slate-400">({m.nameEn})</span>}
                         </td>
-                        <td className="py-3.5 px-4">
-                          <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">
+                        <td>
+                          <span className="rounded bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 text-[8.5px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                             {m.category}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="rounded-md bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-900 border border-orange-200">
+                        <td className="text-center">
+                          <span className="rounded bg-orange-100/70 dark:bg-orange-950/50 px-1.5 py-0.2 text-[8.5px] font-bold text-orange-900 dark:text-orange-300 border border-orange-200 dark:border-orange-800">
                             {uomDisplay}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 font-mono font-bold text-slate-700">
-                          {formatCurrency(m.defaultPurchasePrice, language)} / {uomDisplay}
+                        <td className="neo-cell-mono font-bold text-slate-700 dark:text-slate-300">
+                          {formatCurrency(m.defaultPurchasePrice, language)}
                         </td>
-                        <td className="py-3.5 px-4 font-mono font-black text-orange-950">
-                          {formatCurrency(m.defaultSellingPrice, language)} / {uomDisplay}
+                        <td className="neo-cell-mono font-black text-orange-950 dark:text-orange-400">
+                          {formatCurrency(m.defaultSellingPrice, language)}
                         </td>
-                        <td className="py-3.5 px-4 font-mono font-black text-emerald-700">
-                          +{formatCurrency(margin, language)} / {uomDisplay}
+                        <td className="neo-cell-mono font-black text-emerald-700 dark:text-emerald-400">
+                          +{formatCurrency(margin, language)}
                         </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                        <td className="text-center">
+                          <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"
                               onClick={() => handleOpenEdit('material', m)}
-                              className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-colors shadow-2xs"
+                              className="neo-action-btn neo-btn-edit"
                               title={isAr ? 'تعديل البيانات' : 'Edit'}
                             >
-                              <Edit2 className="h-3.5 w-3.5" />
+                              <Edit2 className="h-2.5 w-2.5" />
                             </button>
                             <button
                               type="button"
@@ -957,10 +951,10 @@ export const MasterDataView: React.FC = () => {
                                   deleteMaterial(m.id);
                                 }
                               }}
-                              className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
+                              className="neo-action-btn neo-btn-delete"
                               title={isAr ? 'أرشفة وحذف' : 'Delete'}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 className="h-2.5 w-2.5" />
                             </button>
                           </div>
                         </td>
@@ -976,83 +970,83 @@ export const MasterDataView: React.FC = () => {
 
       {/* TAB 5: Users & RBAC Table */}
       {activeSubTab === 'user' && (
-        <div className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="neo-compact-panel rounded-lg border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs space-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 px-1">
             <div>
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <Users className="h-4 w-4 text-orange-600" />
+              <h3 className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-purple-500" />
                 <span>{isAr ? 'إدارة المستخدمين ومصفوفة صلاحيات الوصول (RBAC)' : 'User Management & Permissions Matrix'}</span>
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[9.5px] text-slate-500 dark:text-slate-400 leading-tight">
                 {isAr
                   ? 'حسابات المستخدمين المعتمدة لمساحة عمل المنشأة الحالية مع العزل الكامل'
                   : 'Authorized tenant workspace user accounts with strict multi-tenant isolation'}
               </p>
             </div>
-            <span className="text-xs font-bold text-orange-700 font-mono bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-lg">
+            <span className="neo-cell-mono text-[9px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800 px-1.5 py-0.2 rounded">
               {activeUsers.length} {isAr ? 'مستخدمين' : 'Users'}
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-slate-200">
-            <table className="w-full text-right text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 font-black text-slate-700">
-                  <th className="py-3 px-4">{isAr ? 'الاسم الكامل' : 'Full Name'}</th>
-                  <th className="py-3 px-4">{isAr ? 'اسم المستخدم / البريد' : 'Username / Email'}</th>
-                  <th className="py-3 px-4">{isAr ? 'الدور الوظيفي' : 'Role'}</th>
-                  <th className="py-3 px-4">{isAr ? 'الصلاحيات المتاحة' : 'Permissions'}</th>
-                  <th className="py-3 px-4 text-center">{isAr ? 'إجراءات' : 'Actions'}</th>
+          <div className="neo-data-viewport responsive-table-wrapper rounded border border-slate-200 dark:border-slate-800">
+            <table className="neo-grid-table w-full text-start">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                <tr>
+                  <th className="text-start">{isAr ? 'الاسم الكامل' : 'Full Name'}</th>
+                  <th className="text-start">{isAr ? 'اسم المستخدم / البريد' : 'Username / Email'}</th>
+                  <th className="text-start">{isAr ? 'الدور الوظيفي' : 'Role'}</th>
+                  <th className="text-start">{isAr ? 'الصلاحيات المتاحة' : 'Permissions'}</th>
+                  <th className="text-center w-14">{isAr ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {activeUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-xs text-slate-400">
+                    <td colSpan={5} className="py-6 text-center text-xs text-slate-400">
                       {isAr ? 'لا يوجد مستخدمون مطابقون للبحث أو التصفية.' : 'No users match the active query.'}
                     </td>
                   </tr>
                 ) : (
                   activeUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">{isAr ? u.fullNameAr : u.fullName}</td>
-                      <td className="py-3.5 px-4 text-slate-600 font-mono">
+                    <tr key={u.id}>
+                      <td className="font-bold text-slate-900 dark:text-slate-100">{isAr ? u.fullNameAr : u.fullName}</td>
+                      <td className="neo-cell-mono text-slate-600 dark:text-slate-400">
                         {u.email}
-                        <span className="block text-[11px] text-slate-400">@{u.username}</span>
+                        <span className="inline-block ms-1 text-[9.5px] text-slate-400">(@{u.username})</span>
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td>
                         <span
-                          className={`rounded-md px-2.5 py-1 text-[10px] font-bold ${
+                          className={`rounded px-1.5 py-0.2 text-[8.5px] font-bold ${
                             u.role === 'Admin'
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:border-rose-800 dark:text-rose-400'
                               : u.role === 'COO'
-                              ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                              ? 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/50 dark:border-orange-800 dark:text-orange-400'
                               : u.role === 'Accountant'
-                              ? 'bg-amber-50 text-purple-700 border border-amber-200'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/50 dark:border-purple-800 dark:text-purple-400'
                               : u.role === 'Data_Entry'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:border-blue-800 dark:text-blue-400'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
                           }`}
                         >
                           {u.role}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-[11px] text-slate-600">
+                      <td className="text-[9.5px] text-slate-600 dark:text-slate-400 truncate max-w-sm">
                         {u.role === 'Admin' && (isAr ? 'كافة الصلاحيات (إدارة كاملة للمنظومة CEO)' : 'Full Executive Authority (CEO)')}
                         {u.role === 'COO' && (isAr ? 'المدير التنفيذي للعمليات (اعتمادات تشغيلية ورقابة)' : 'Chief Operating Officer (COO Approvals)')}
                         {u.role === 'Accountant' && (isAr ? 'الفواتير، الأرباح، الكسارات، والتقارير المالية' : 'Invoices, Profits, Crushers, Reports')}
                         {u.role === 'Data_Entry' && (isAr ? 'إدخال وتعديل تذاكر الميزان والرحلات اليومية' : 'Daily Operations & Scale Tickets Input')}
                         {u.role === 'Guest' && (isAr ? 'قراءة ومراجعة فقط (حجب الأسعار والأرباح)' : 'Read-Only (Prices Hidden)')}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                      <td className="text-center">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEdit('user', u)}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-600 hover:bg-orange-50 hover:text-orange-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-edit"
                             title={isAr ? 'تعديل الصلاحيات' : 'Edit'}
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-2.5 w-2.5" />
                           </button>
                           <button
                             type="button"
@@ -1062,10 +1056,10 @@ export const MasterDataView: React.FC = () => {
                                 await refreshUsers();
                               }
                             }}
-                            className="rounded-xl border border-slate-200 bg-white p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-2xs"
+                            className="neo-action-btn neo-btn-delete"
                             title={isAr ? 'أرشفة وحذف' : 'Delete'}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-2.5 w-2.5" />
                           </button>
                         </div>
                       </td>

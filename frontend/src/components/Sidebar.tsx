@@ -748,20 +748,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       key={cat.id}
                       className="rounded-xl border border-slate-800/80 bg-slate-900/30 overflow-hidden"
                     >
-                      {/* Accordion Section Header */}
+                      {/* Accordion Section Header with Classic Enterprise Icon Badge */}
                       <button
                         type="button"
                         onClick={() => toggleCategory(cat.id)}
-                        className={`flex w-full items-center justify-between px-2.5 py-2 text-xs font-bold transition-all ${
+                        className={`flex w-full items-center justify-between px-2.5 py-1.5 text-xs font-bold transition-all ${
                           hasActiveChild
                             ? 'bg-slate-800/80 text-orange-400'
                             : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <CatIcon
-                            className={`h-3.5 w-3.5 ${hasActiveChild ? 'text-orange-400' : 'text-slate-500'}`}
-                          />
+                          <div className={`flex h-5 w-5 items-center justify-center rounded border shadow-2xs ${
+                            cat.id === 'core'
+                              ? 'neo-icon-core'
+                              : cat.id === 'procurement'
+                              ? 'neo-icon-procurement'
+                              : cat.id === 'logistics'
+                              ? 'neo-icon-logistics'
+                              : cat.id === 'finance'
+                              ? 'neo-icon-finance'
+                              : cat.id === 'hr'
+                              ? 'neo-icon-hr'
+                              : 'neo-icon-governance'
+                          }`}>
+                            <CatIcon className="h-3 w-3" />
+                          </div>
                           <span className="text-[11px] font-black uppercase tracking-wider">
                             {isAr ? cat.labelAr : cat.labelEn}
                           </span>
@@ -784,6 +796,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           {catItems.map((item) => {
                             const isAllowed = item.roles.includes(currentUser?.role ?? 'Guest');
                             const isActive = activeTab === item.id;
+                            const catIconClass =
+                              cat.id === 'core'
+                                ? 'neo-icon-core'
+                                : cat.id === 'procurement'
+                                ? 'neo-icon-procurement'
+                                : cat.id === 'logistics'
+                                ? 'neo-icon-logistics'
+                                : cat.id === 'finance'
+                                ? 'neo-icon-finance'
+                                : cat.id === 'hr'
+                                ? 'neo-icon-hr'
+                                : 'neo-icon-governance';
 
                             if (!isAllowed) {
                               return null;
@@ -793,33 +817,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               <button
                                 key={item.id}
                                 onClick={() => handleNavigate(item)}
-                                className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all ${
+                                className={`flex w-full items-center justify-between rounded px-2 py-1 text-xs font-semibold transition-all cursor-pointer ${
                                   isActive
-                                    ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-sm'
+                                    ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-xs'
                                     : item.highlight
                                     ? 'bg-amber-400/10 text-amber-300 hover:bg-amber-400/20'
                                     : 'text-slate-300 hover:bg-slate-800/70 hover:text-white'
                                 }`}
                               >
-                                <div className="flex items-center gap-2.5 truncate">
-                                  {renderIconNode(
-                                    item.icon,
-                                    `h-3.5 w-3.5 shrink-0 ${
-                                      isActive
-                                        ? 'text-white'
-                                        : item.highlight
-                                        ? 'text-amber-300'
-                                        : 'text-slate-400'
-                                    }`
-                                  )}
-                                  <span className="truncate text-[11px]">
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <div className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded border shadow-2xs ${
+                                    isActive ? 'bg-white/20 border-white/40 text-white' : item.highlight ? 'bg-amber-400/20 border-amber-400/40 text-amber-300' : catIconClass
+                                  }`}>
+                                    {renderIconNode(
+                                      item.icon,
+                                      'h-2.5 w-2.5'
+                                    )}
+                                  </div>
+                                  <span className="truncate text-[10.5px]">
                                     {isAr ? item.labelAr : item.labelEn}
                                   </span>
                                 </div>
 
                                 {item.badge && (
                                   <span
-                                    className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-black ${
+                                    className={`shrink-0 rounded px-1.5 py-0.2 text-[8.5px] font-black ${
                                       isActive
                                         ? 'bg-white/20 text-white'
                                         : item.highlight && kpis.pendingApprovalsCount > 0
@@ -840,14 +862,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 })}
               </div>
             ) : (
-              /* Compact Rail Mode (w-16) with Tooltips */
-              <div className="space-y-3 py-1 flex flex-col items-center">
+              /* Compact Rail Mode (w-16) with Classic Color-Coded Module Icons */
+              <div className="space-y-2 py-0.5 flex flex-col items-center">
                 {categories.map((cat) => {
                   const catItems = cat.itemIds
                     .map((id) => menuItemsMap.get(id))
                     .filter((item): item is MenuItemDef => Boolean(item));
 
                   if (catItems.length === 0) return null;
+
+                  const railCatIconClass =
+                    cat.id === 'core'
+                      ? 'neo-icon-core'
+                      : cat.id === 'procurement'
+                      ? 'neo-icon-procurement'
+                      : cat.id === 'logistics'
+                      ? 'neo-icon-logistics'
+                      : cat.id === 'finance'
+                      ? 'neo-icon-finance'
+                      : cat.id === 'hr'
+                      ? 'neo-icon-hr'
+                      : 'neo-icon-governance';
 
                   return (
                     <div key={cat.id} className="w-full space-y-1 pb-1 border-b border-slate-800/80">
@@ -865,18 +900,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             key={item.id}
                             onClick={() => handleNavigate(item)}
                             title={`${label}${item.badge ? ` [${item.badge}]` : ''}`}
-                            className={`relative flex h-9 w-9 mx-auto items-center justify-center rounded-xl transition-all ${
+                            className={`relative flex h-7.5 w-7.5 mx-auto items-center justify-center rounded border transition-all cursor-pointer ${
                               isActive
-                                ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md shadow-orange-950/40 ring-1 ring-orange-400/50'
-                                : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                                ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md border-orange-400'
+                                : `${railCatIconClass} hover:opacity-90`
                             }`}
                           >
                             {renderIconNode(
                               item.icon,
-                              `h-4 w-4 ${isActive ? 'text-white' : 'text-slate-300'}`
+                              `h-3 w-3 ${isActive ? 'text-white' : ''}`
                             )}
                             {item.badge && !isActive && (
-                              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+                              <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-orange-500 animate-pulse" />
                             )}
                           </button>
                         );

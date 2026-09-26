@@ -251,24 +251,24 @@ export interface DensityStyleConfig {
 
 export const DENSITY_STYLES: Record<DensityMode, DensityStyleConfig> = {
   comfortable: {
-    cardPadding: 'p-6 sm:p-7',
-    gridGap: 'gap-5 sm:gap-6',
-    tableRowHeight: 'h-12',
-    tableCellPadding: 'px-4 py-3.5',
-    headerHeight: 'h-16',
-    badgePadding: 'px-3 py-1',
-    fontSizeSmall: 'text-xs',
-    fontSizeBase: 'text-sm',
-  },
-  compact: {
-    cardPadding: 'p-3.5 sm:p-4',
-    gridGap: 'gap-2.5 sm:gap-3',
-    tableRowHeight: 'h-8',
-    tableCellPadding: 'px-3 py-1.5',
-    headerHeight: 'h-12',
+    cardPadding: 'p-3 sm:p-4',
+    gridGap: 'gap-2 sm:gap-2.5',
+    tableRowHeight: 'h-6',
+    tableCellPadding: 'px-2.5 py-1',
+    headerHeight: 'h-11',
     badgePadding: 'px-2 py-0.5',
     fontSizeSmall: 'text-[11px]',
     fontSizeBase: 'text-xs',
+  },
+  compact: {
+    cardPadding: 'p-2 sm:p-2.5',
+    gridGap: 'gap-1.5 sm:gap-2',
+    tableRowHeight: 'h-[18px]',
+    tableCellPadding: 'px-1.5 py-0.5',
+    headerHeight: 'h-9',
+    badgePadding: 'px-1.5 py-0.2',
+    fontSizeSmall: 'text-[10px]',
+    fontSizeBase: 'text-[11px]',
   },
 };
 

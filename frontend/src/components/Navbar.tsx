@@ -288,47 +288,47 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
   return (
     <header
       id="main-app-header"
-      className={`sticky top-0 z-30 grid grid-cols-[1fr_auto] items-center gap-4 border-b px-4 sm:px-6 backdrop-blur-md transition-all ${
+      className={`sticky top-0 z-30 grid grid-cols-[1fr_auto] items-center gap-2 border-b px-3 py-1 sm:px-4 backdrop-blur-md transition-all ${
         isDark
           ? 'border-slate-800 bg-[#0e1324]/95 text-slate-100'
           : 'border-neutral-200/80 bg-white/95 text-neutral-900'
       }`}
     >
       {/* Left Section: Essentials Context (Logo, Subtitle, Tenant Selector, System Latency/Status) */}
-      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         {/* Brand Logo & Tagline */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Dynamic Logo Asset Rendering Container */}
           {isTenant && tenantLogoUrl ? (
-            <div className="relative h-8 w-8 shrink-0">
+            <div className="relative h-7 w-7 shrink-0">
               <img 
                 src={tenantLogoUrl} 
                 alt={`${tenantDisplayName} Logo`} 
-                className="h-8 w-8 object-contain rounded-md bg-slate-900 p-1 border border-slate-800 shrink-0"
+                className="h-7 w-7 object-contain rounded bg-slate-900 p-0.5 border border-slate-800 shrink-0"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
                   const fallback = e.currentTarget.nextElementSibling as HTMLElement | null;
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
-              <div className="hidden h-8 w-8 items-center justify-center">
+              <div className="hidden h-7 w-7 items-center justify-center">
                 <BrandLogo size="sm" showText={false} forcePlatformLogo={true} />
               </div>
             </div>
           ) : (
             /* Global Platform Master Logo strictly displayed on apex domain / unauthenticated / master portal routes */
-            <div className="flex h-8 w-8 items-center justify-center shrink-0">
+            <div className="flex h-7 w-7 items-center justify-center shrink-0">
               <PlatformLogo size="sm" />
             </div>
           )}
 
-          <div className="hidden h-7 w-px bg-neutral-200 dark:bg-slate-800 md:block" />
+          <div className="hidden h-5 w-px bg-neutral-200 dark:bg-slate-800 md:block" />
           <div className="hidden flex-col md:flex">
             {/* Dynamic Isolated Tenant Title or Master OxenGL Enterprise Header */}
-            <span className="text-sm font-semibold tracking-wide text-slate-200">
+            <span className="text-xs font-bold tracking-wide text-slate-200 leading-tight">
               {isTenant ? tenantDisplayName : 'OXENGL ENTERPRISE CLOUD'}
             </span>
-            <span className="text-[10px] text-neutral-500 dark:text-slate-400 font-medium">
+            <span className="text-[9px] text-neutral-500 dark:text-slate-400 font-medium leading-tight">
               {isTenant
                 ? (isAr ? 'المملكة العربية السعودية • ZATCA Compatible' : 'Kingdom of Saudi Arabia • ZATCA')
                 : (isAr ? 'منصة العمليات اللوجستية وإدارة الموارد' : 'Unified Logistics & Supply Chain Cloud')}
@@ -343,14 +343,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
         {!isOnline && (
           <div
             id="nav-offline-status-pill"
-            className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-xs animate-pulse"
+            className="flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 shadow-xs animate-pulse"
             title={
               isAr
                 ? 'وضع العمل دون اتصال نشط: يتم حفظ العمليات والسندات محلياً في الذاكرة التخزينية الميدانية'
                 : 'Offline Mode Active: All weighbridge data and vouchers persist locally'
             }
           >
-            <WifiOff className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <WifiOff className="h-3 w-3 text-amber-600 shrink-0" />
             <span className="hidden sm:inline">
               {isAr ? 'أوفلاين (حفظ محلي)' : 'Offline Mode'}
             </span>
@@ -359,7 +359,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
       </div>
 
       {/* Right Section: Clean Controls (Settings Dropdown, Notifications, Language, Role / Avatar) */}
-      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
         {/* Consolidated Settings Dropdown (⚙️ Icon) */}
         <div ref={settingsRef} className="relative">
           <button
@@ -369,7 +369,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
               setShowSettings(!showSettings);
               setShowNotifications(false);
             }}
-            className={`flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
+            className={`flex h-7.5 w-7.5 items-center justify-center rounded-lg border transition-colors ${
               showSettings
                 ? 'border-orange-500 bg-orange-50 text-[#F05627] dark:border-orange-500/80 dark:bg-orange-950/40 dark:text-orange-400'
                 : isDark
@@ -379,7 +379,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
             title={isAr ? 'إعدادات العرض والمظهر' : 'Display & Theme Settings'}
             aria-label="Settings"
           >
-            <Settings className="h-4 w-4" />
+            <Settings className="h-3.5 w-3.5" />
           </button>
 
           {showSettings && (
@@ -629,7 +629,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
               setShowNotifications(!showNotifications);
               setShowSettings(false);
             }}
-            className={`relative flex h-9 w-9 items-center justify-center rounded-lg border transition-colors ${
+            className={`relative flex h-7.5 w-7.5 items-center justify-center rounded-lg border transition-colors ${
               showNotifications
                 ? 'border-orange-500 bg-orange-50 text-[#F05627] dark:border-orange-500/80 dark:bg-orange-950/40 dark:text-orange-400'
                 : isDark
@@ -638,9 +638,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
             }`}
             title={isAr ? 'التنبيهات والإشعارات' : 'Notifications'}
           >
-            <Bell className="h-4 w-4" />
+            <Bell className="h-3.5 w-3.5" />
             {unreadAlertsCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-xs">
+              <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[8px] font-bold text-white shadow-xs">
                 {unreadAlertsCount}
               </span>
             )}
@@ -787,14 +787,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
         <button
           id="nav-lang-toggle-btn"
           onClick={() => setLanguage(language === 'ar' ? 'en' : 'ar')}
-          className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition-colors ${
+          className={`flex h-7.5 items-center gap-1.5 rounded-lg border px-2 text-[11px] font-semibold transition-colors ${
             isDark
               ? 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white'
               : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100'
           }`}
           title={isAr ? 'Switch to English' : 'التحويل للغة العربية'}
         >
-          <Globe className="h-3.5 w-3.5 text-[#F05627]" />
+          <Globe className="h-3 w-3 text-[#F05627]" />
           <span>{language === 'ar' ? 'English' : 'عربي'}</span>
         </button>
 
@@ -805,12 +805,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
           return (
             <div
               id="nav-user-role-badge"
-              className={`flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold select-none ${
+              className={`flex h-7.5 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold select-none ${
                 activeRoleBadge.bg
               } ${activeRoleBadge.border} ${activeRoleBadge.text}`}
               title={isAr ? `صلاحية الحساب الحالية: ${activeRoleBadge.labelAr}` : `Active Account Role: ${activeRoleBadge.labelEn}`}
             >
-              <Shield className="h-3.5 w-3.5" />
+              <Shield className="h-3 w-3" />
               <span className="hidden sm:inline">
                 {isAr ? activeRoleBadge.labelAr : activeRoleBadge.labelEn}
               </span>
@@ -820,22 +820,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onLogout, onNavigateTab }) => {
         })()}
 
         {/* User Profile Avatar & Logout */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <UserAvatar user={currentUser} sizeClassName="h-9 w-9 text-xs" />
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <UserAvatar user={currentUser} sizeClassName="h-7.5 w-7.5 text-xs" />
           {onLogout && (
             <button
               onClick={() => {
                 void signOutAuth();
                 onLogout();
               }}
-              className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+              className={`flex h-7.5 w-7.5 items-center justify-center rounded-lg transition-colors ${
                 isDark
                   ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                   : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700'
               }`}
               title={isAr ? 'تسجيل الخروج' : 'Logout'}
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
