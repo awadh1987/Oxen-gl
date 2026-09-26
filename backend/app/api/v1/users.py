@@ -18,7 +18,13 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.models import ResCompany, ResUser, TenantUser, User
-from backend.app.dependencies import get_current_user, require_role
+from backend.api.dependencies import (
+    TenantContext,
+    get_tenant_context,
+    require_role,
+    ADMIN,
+    SUPER_ADMIN,
+)
 from backend.two_tier_auth import hash_password
 
 logger = logging.getLogger("oxengl.api.users")
@@ -66,20 +72,31 @@ VALID_ROLES = ["Admin", "Accountant", "Data_Entry", "Guest"]
 @router.get("", response_model=List[UserResponse])
 @router.get("/", response_model=List[UserResponse])
 def get_tenant_users(
+    context: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(require_role(["Admin"])),
     db: Session = Depends(get_db),
 ):
     """
     Fetch all users within the caller's tenant workspace.
-    Strictly isolated: User.tenant_id == current_user.tenant_id.
+    Strictly isolated: filtered by caller's company_id and accessible branch scopes via TenantContext.
+    Cross-tenant user access is strictly forbidden.
     """
-    tenant_id = current_user.company_id
-    users = (
-        db.query(ResUser)
-        .filter(ResUser.company_id == tenant_id)
-        .order_by(ResUser.created_at.desc())
-        .all()
-    )
+    accessible_cids = context.get_accessible_company_ids(db)
+    if not accessible_cids:
+        accessible_cids = [context.company_id]
+
+    query = db.query(ResUser)
+
+    if context.is_super_admin:
+        # If super admin provided an explicit target company, restrict to that company
+        if context.company_id and str(context.company_id) != str(getattr(context.user, "company_id", "")):
+            query = query.filter(ResUser.company_id == context.company_id)
+        else:
+            query = query.filter(ResUser.company_id.in_(accessible_cids))
+    else:
+        query = query.filter(ResUser.company_id.in_(accessible_cids))
+
+    users = query.order_by(ResUser.created_at.desc()).all()
 
     return [
         UserResponse(
@@ -99,14 +116,15 @@ def get_tenant_users(
 @router.post("/invite", response_model=InviteUserResponse, status_code=status.HTTP_201_CREATED)
 def invite_tenant_user(
     payload: InviteUserRequest,
+    context: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(require_role(["Admin"])),
     db: Session = Depends(get_db),
 ):
     """
-    Invites and creates a new user strictly bound to current_user.tenant_id.
+    Invites and creates a new user strictly bound to context.company_id.
     Generates a secure random temporary password and hashes it before storage.
     """
-    tenant_id = current_user.company_id
+    tenant_id = context.company_id
     email_clean = payload.email.strip().lower()
 
     if not email_clean or "@" not in email_clean:
@@ -192,6 +210,7 @@ def invite_tenant_user(
 @router.delete("/{user_id}", status_code=status.HTTP_200_OK)
 def delete_tenant_user(
     user_id: str,
+    context: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(require_role(["Admin"])),
     db: Session = Depends(get_db),
 ):
@@ -199,7 +218,7 @@ def delete_tenant_user(
     Deletes a user from the workspace.
     Enforces strict tenant isolation: Admins can ONLY delete users from their own tenant.
     """
-    tenant_id = current_user.company_id
+    tenant_id = context.company_id
     try:
         target_uuid = uuid.UUID(user_id)
     except ValueError:
@@ -217,7 +236,8 @@ def delete_tenant_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
     # Strict tenant isolation check
-    if target_user.company_id != tenant_id and getattr(current_user, "role", "").lower() not in ["super_admin", "superadmin"]:
+    accessible_cids = context.get_accessible_company_ids(db)
+    if target_user.company_id not in accessible_cids and not context.is_super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cross-tenant violation: You do not have permission to modify users from another tenant.",
@@ -248,6 +268,7 @@ def delete_tenant_user(
 def update_tenant_user_role(
     user_id: str,
     payload: UpdateRoleRequest,
+    context: TenantContext = Depends(get_tenant_context),
     current_user: User = Depends(require_role(["Admin"])),
     db: Session = Depends(get_db),
 ):
@@ -255,7 +276,7 @@ def update_tenant_user_role(
     Updates a user's role.
     Enforces strict tenant isolation: Admins can ONLY modify users within their own tenant.
     """
-    tenant_id = current_user.company_id
+    tenant_id = context.company_id
     try:
         target_uuid = uuid.UUID(user_id)
     except ValueError:
@@ -266,7 +287,8 @@ def update_tenant_user_role(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
 
     # Strict tenant isolation check
-    if target_user.company_id != tenant_id and getattr(current_user, "role", "").lower() not in ["super_admin", "superadmin"]:
+    accessible_cids = context.get_accessible_company_ids(db)
+    if target_user.company_id not in accessible_cids and not context.is_super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cross-tenant violation: You do not have permission to modify users from another tenant.",

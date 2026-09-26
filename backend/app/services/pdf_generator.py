@@ -14,7 +14,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from weasyprint import HTML
+try:
+    from weasyprint import HTML
+except (ImportError, Exception):
+    HTML = None
 
 logger = logging.getLogger("oxengl.pdf_generator")
 
@@ -699,6 +702,8 @@ def generate_corporate_cv_pdf(payload: Dict[str, Any]) -> bytes:
     rendered_html = render_corporate_cv_html(payload)
 
     # Compile with WeasyPrint
+    if HTML is None:
+        raise RuntimeError("WeasyPrint library is not installed in the active environment.")
     pdf_bytes = HTML(string=rendered_html).write_pdf()
     logger.info(f"Successfully compiled Corporate CV PDF ({len(pdf_bytes):,} bytes).")
     return pdf_bytes

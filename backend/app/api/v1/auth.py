@@ -17,13 +17,18 @@ from typing import Optional
 import pyotp
 from jinja2 import Environment, FileSystemLoader
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+
+try:
+    from backend.app.services.notification_service import VerificationService
+except ImportError:
+    from app.services.notification_service import VerificationService
 
 logger = logging.getLogger("oxengl.auth.recovery")
 
@@ -45,11 +50,15 @@ pwd_context = CryptContext(
 
 class ForgotPasswordRequest(BaseModel):
     email: str = Field(..., description="Registered account email address")
-    workspace_slug: str = Field(..., description="Target tenant workspace identifier")
+    workspace_slug: Optional[str] = Field("master", description="Target tenant workspace identifier")
 
 
 class ResetPasswordConfirmRequest(BaseModel):
-    token: str = Field(..., description="Cryptographically signed reset token")
+    token: Optional[str] = Field(None, description="Cryptographically signed reset token or 6-digit OTP")
+    otp_code: Optional[str] = Field(None, description="6-digit Redis OTP verification code")
+    code: Optional[str] = Field(None, description="Alias for 6-digit OTP verification code")
+    email: Optional[str] = Field(None, description="Registered account email address")
+    workspace_slug: Optional[str] = Field(None, description="Target tenant workspace identifier")
     new_password: str = Field(..., min_length=8, description="New secret passphrase (min 8 chars)")
 
 
@@ -91,21 +100,23 @@ def ensure_password_resets_table(db: Session):
 
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 @router.post("/auth/forgot-password", status_code=status.HTTP_200_OK)
-def request_password_reset(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+@router.post("/password-reset-init", status_code=status.HTTP_200_OK)
+@router.post("/auth/password-reset-init", status_code=status.HTTP_200_OK)
+async def request_password_reset(
+    payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     """
-    Password Recovery Initiation Endpoint.
-    Verifies user presence in the workspace partition, creates a 15-minute token,
-    persists in password_resets table, and logs the recovery URL to console.
+    Password Recovery Initiation Endpoint with Redis 6-Digit OTP.
+    Verifies user presence across the workspace partition, generates a 6-digit OTP
+    via VerificationService stored in Redis (5-min TTL), persists backward-compatible token,
+    dispatches email/SMS notifications, and returns response.
     """
     ensure_password_resets_table(db)
 
     norm_email = payload.email.strip().lower()
-    raw_slug = (payload.workspace_slug or "").strip().lower()
-    if not raw_slug:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="workspace_slug parameter is mandatory.",
-        )
+    raw_slug = (payload.workspace_slug or "master").strip().lower()
 
     slug_variants = list(dict.fromkeys([
         raw_slug,
@@ -113,8 +124,10 @@ def request_password_reset(payload: ForgotPasswordRequest, db: Session = Depends
         raw_slug.replace("_", "-"),
     ]))
 
+    company_name = "OxenGL Enterprise"
     if raw_slug in ("master", "platform", "system", "superadmin", "super-admin"):
         tenant_row = {"id": "master", "slug": raw_slug, "name": "Platform Master Control Plane"}
+        company_name = "OxenGL Platform Master"
     else:
         # 1. Verify workspace/tenant partition existence
         tenant_row = db.execute(
@@ -130,21 +143,33 @@ def request_password_reset(payload: ForgotPasswordRequest, db: Session = Depends
             tenant_row = comp_row
 
         if not tenant_row:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Enterprise workspace '{raw_slug}' was not found in registered tenant catalog.",
-            )
+            user_exists_anywhere = db.execute(
+                text("SELECT id FROM public.tenant_users WHERE LOWER(email) = :e LIMIT 1"),
+                {"e": norm_email},
+            ).first() or db.execute(
+                text("SELECT id FROM public.users WHERE LOWER(email) = :e LIMIT 1"),
+                {"e": norm_email},
+            ).first()
+            if not user_exists_anywhere:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Enterprise workspace '{raw_slug}' was not found in registered tenant catalog.",
+                )
+            tenant_row = {"id": raw_slug, "slug": raw_slug, "name": raw_slug.capitalize()}
+
+        company_name = tenant_row.get("name", raw_slug)
 
     # 2. Verify user exists inside that partition
     sanitized_slug = re.sub(r"[^a-zA-Z0-9_]", "_", raw_slug)
     target_schemas = list(dict.fromkeys([
         sanitized_slug,
         raw_slug,
-        tenant_row["slug"],
-        str(tenant_row["slug"]).replace("-", "_"),
+        tenant_row.get("slug", raw_slug),
+        str(tenant_row.get("slug", raw_slug)).replace("-", "_"),
     ]))
 
     user_found = False
+    user_phone = None
     for schema_name in target_schemas:
         try:
             tbl_exists = db.execute(text("SELECT to_regclass(:t)"), {"t": f'"{schema_name}".users'}).scalar()
@@ -162,33 +187,36 @@ def request_password_reset(payload: ForgotPasswordRequest, db: Session = Depends
     if not user_found:
         try:
             chk = db.execute(
-                text("SELECT id, email FROM public.tenant_users WHERE LOWER(email) = :e LIMIT 1"),
+                text("SELECT id, email, mobile_number FROM public.tenant_users WHERE LOWER(email) = :e LIMIT 1"),
                 {"e": norm_email},
             ).mappings().first()
             if chk:
                 user_found = True
+                user_phone = chk.get("mobile_number")
         except Exception:
             db.rollback()
 
     if not user_found:
         try:
             chk = db.execute(
-                text("SELECT id, email FROM public.users WHERE LOWER(email) = :e LIMIT 1"),
+                text("SELECT id, email, mobile_number FROM public.master_users WHERE LOWER(email) = :e LIMIT 1"),
                 {"e": norm_email},
             ).mappings().first()
             if chk:
                 user_found = True
+                user_phone = chk.get("mobile_number")
         except Exception:
             db.rollback()
 
     if not user_found:
         try:
             chk = db.execute(
-                text("SELECT id, email FROM public.master_users WHERE LOWER(email) = :e LIMIT 1"),
+                text("SELECT id, email, phone FROM public.res_users WHERE LOWER(email) = :e LIMIT 1"),
                 {"e": norm_email},
             ).mappings().first()
             if chk:
                 user_found = True
+                user_phone = chk.get("phone")
         except Exception:
             db.rollback()
 
@@ -198,13 +226,30 @@ def request_password_reset(payload: ForgotPasswordRequest, db: Session = Depends
             detail=f"User identity '{norm_email}' not found inside workspace partition '{raw_slug}'.",
         )
 
-    # 3. Generate cryptographically secure token with 15-minute expiration
+    # 3. Generate 6-Digit OTP via VerificationService stored in Redis (5-minute TTL)
+    otp = await VerificationService.generate_and_store_otp(norm_email)
+    # Also store under reset-specific prefix so both identifiers work
+    await VerificationService.generate_and_store_otp(f"reset:{norm_email}")
+    # Cache recovery metadata in Redis
+    await VerificationService.store_registration_payload(
+        f"reset:{norm_email}",
+        {
+            "email": norm_email,
+            "workspace_slug": raw_slug,
+            "company_name": company_name,
+        },
+        expire_seconds=900,
+    )
+
+    # 4. Asynchronously dispatch verification notifications via Email and SMS
+    background_tasks.add_task(VerificationService.dispatch_email_otp, norm_email, otp, str(company_name))
+    if user_phone:
+        background_tasks.add_task(VerificationService.dispatch_sms_otp, user_phone, otp)
+
+    # 5. Maintain legacy cryptographic token for backward compatibility
     reset_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
-
-    # 4. Save into password_resets verification table
     try:
-        # Invalidate any prior unused tokens for this identity
         db.execute(
             text("UPDATE public.password_resets SET is_used = TRUE WHERE LOWER(email) = :e AND workspace_slug = :s AND is_used = FALSE"),
             {"e": norm_email, "s": raw_slug},
@@ -220,95 +265,138 @@ def request_password_reset(payload: ForgotPasswordRequest, db: Session = Depends
     except Exception as err:
         db.rollback()
         logger.error(f"Failed to record password reset token: {err}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate password reset request checkpoint.",
-        )
 
-    # 5. Print and log the recovery link to terminal console
-    recovery_link = f"https://{raw_slug}.oxengl.me/reset-password?token={reset_token}" if raw_slug else f"https://oxengl.me/reset-password?token={reset_token}"
+    recovery_link = f"https://{raw_slug}.oxengl.me/reset-password?email={norm_email}&otp={otp}" if raw_slug and raw_slug != "master" else f"https://oxengl.me/reset-password?email={norm_email}&otp={otp}"
+
     print(
         f"\n=======================================================\n"
-        f"🔑 [PASSWORD RECOVERY INITIATED]\n"
+        f"🔑 [PASSWORD RECOVERY OTP DISPATCHED]\n"
         f"Workspace:    {raw_slug}\n"
         f"User Email:   {norm_email}\n"
-        f"Token:        {reset_token}\n"
+        f"Redis OTP:    {otp} (6 digits, TTL 5 min)\n"
+        f"Legacy Token: {reset_token}\n"
         f"Recovery URL: {recovery_link}\n"
-        f"Expires:      {expires_at.isoformat()} (15 min)\n"
         f"=======================================================\n",
         flush=True,
     )
-    logger.info(f"[PASSWORD RECOVERY] Dispatched recovery link for {norm_email} in {raw_slug}: {recovery_link}")
+    logger.info(f"[PASSWORD RECOVERY] Dispatched OTP {otp} for {norm_email} in {raw_slug}")
 
-    # Compile responsive HTML recovery email template via Jinja2
-    template = template_env.get_template("auth/forgot_password.html")
-    html_payload = template.render(
-        workspace_slug=payload.workspace_slug,
-        recovery_url=recovery_link,
-        expires_at=expires_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
-    )
-    logger.info(f"[PASSWORD RECOVERY HTML PAYLOAD] Compiled email for {norm_email} ({raw_slug}):\n{html_payload}")
+    # Compile HTML recovery email template via Jinja2
+    try:
+        template = template_env.get_template("auth/forgot_password.html")
+        html_payload = template.render(
+            workspace_slug=payload.workspace_slug,
+            recovery_url=recovery_link,
+            otp_code=otp,
+            expires_at=expires_at.strftime("%Y-%m-%d %H:%M:%S UTC"),
+        )
+    except Exception as tmpl_err:
+        logger.warning(f"Could not render recovery email template: {tmpl_err}")
 
     return {
-        "message": "Password recovery request dispatched successfully.",
+        "status": "OTP_DISPATCHED",
+        "message": "Password recovery verification code dispatched successfully. Expires in 5 minutes.",
         "email": norm_email,
         "workspace_slug": raw_slug,
+        "otp_dispatched": True,
+        "otp_code": otp,
         "token": reset_token,
         "recovery_link": recovery_link,
-        "expires_in_seconds": 15 * 60,
+        "expires_in_seconds": 300,
     }
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 @router.post("/auth/reset-password", status_code=status.HTTP_200_OK)
-def confirm_password_reset(payload: ResetPasswordConfirmRequest, db: Session = Depends(get_db)):
+@router.post("/password-reset-verify", status_code=status.HTTP_200_OK)
+@router.post("/auth/password-reset-verify", status_code=status.HTTP_200_OK)
+async def confirm_password_reset(payload: ResetPasswordConfirmRequest, db: Session = Depends(get_db)):
     """
     Password Reset Confirmation Endpoint.
-    Validates token from password_resets, hashes new password with Argon2id,
-    updates target user record in tenant partition schema, and deletes token.
+    Validates either dynamic 6-digit Redis OTP (via VerificationService) or
+    legacy cryptographic token from password_resets, hashes new password with Argon2id,
+    and updates target user record in tenant partition schema.
     """
     ensure_password_resets_table(db)
     now = datetime.now(timezone.utc)
-    raw_token = payload.token.strip()
 
-    # 1. Validate token existence and active window
-    token_row = db.execute(
-        text("SELECT id, email, workspace_slug, token, expires_at, is_used FROM public.password_resets WHERE token = :t LIMIT 1"),
-        {"t": raw_token},
-    ).mappings().first()
+    raw_token = (payload.token or "").strip()
+    raw_otp = (payload.otp_code or payload.code or "").strip()
+    norm_email = (payload.email or "").strip().lower()
+    raw_slug = (payload.workspace_slug or "").strip().lower()
 
-    if not token_row:
-        # Fallback check against tenant_password_resets
-        t_row = db.execute(
-            text("SELECT id, identifier AS email, 'myon' AS workspace_slug, reset_token AS token, expires_at, is_used FROM public.tenant_password_resets WHERE reset_token = :t LIMIT 1"),
-            {"t": raw_token},
-        ).mappings().first()
-        if not t_row:
+    # Determine candidate 6-digit OTP
+    candidate_otp = None
+    if raw_otp and len(raw_otp) == 6 and raw_otp.isdigit():
+        candidate_otp = raw_otp
+    elif raw_token and len(raw_token) == 6 and raw_token.isdigit():
+        candidate_otp = raw_token
+
+    validated_via_otp = False
+
+    # 1. Attempt Redis OTP Validation via VerificationService
+    if candidate_otp and norm_email:
+        is_valid = await VerificationService.verify_otp(norm_email, candidate_otp)
+        if not is_valid:
+            is_valid = await VerificationService.verify_otp(f"reset:{norm_email}", candidate_otp)
+        if not is_valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid, unknown, or revoked password reset token.",
+                detail="Invalid or expired verification code."
             )
-        token_row = t_row
+        validated_via_otp = True
 
-    if token_row.get("is_used"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password reset token has already been consumed.",
-        )
+        # Retrieve cached payload to resolve workspace_slug if missing
+        cached = await VerificationService.get_registration_payload(f"reset:{norm_email}")
+        if cached and not raw_slug:
+            raw_slug = cached.get("workspace_slug", "")
+        await VerificationService.delete_registration_payload(f"reset:{norm_email}")
 
-    if token_row["expires_at"] <= now:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password reset token has expired. Request a fresh recovery link.",
-        )
+    # 2. If not validated via OTP, validate via legacy cryptographic token
+    if not validated_via_otp:
+        if not raw_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email and 6-digit verification code, or a valid reset token is required."
+            )
 
-    norm_email = token_row["email"].strip().lower()
-    raw_slug = (token_row.get("workspace_slug") or "").strip().lower()
+        token_row = db.execute(
+            text("SELECT id, email, workspace_slug, token, expires_at, is_used FROM public.password_resets WHERE token = :t LIMIT 1"),
+            {"t": raw_token},
+        ).mappings().first()
 
-    # 2. Hash new password natively with Argon2id
+        if not token_row:
+            t_row = db.execute(
+                text("SELECT id, identifier AS email, 'myon' AS workspace_slug, reset_token AS token, expires_at, is_used FROM public.tenant_password_resets WHERE reset_token = :t LIMIT 1"),
+                {"t": raw_token},
+            ).mappings().first()
+            if not t_row:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid, unknown, or revoked password reset token."
+                )
+            token_row = t_row
+
+        if token_row.get("is_used"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password reset token has already been consumed."
+            )
+
+        if token_row["expires_at"] <= now:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password reset token has expired. Request a fresh recovery link."
+            )
+
+        norm_email = token_row["email"].strip().lower()
+        if not raw_slug:
+            raw_slug = (token_row.get("workspace_slug") or "").strip().lower()
+
+    # 3. Hash new password natively with Argon2id
     argon2_hash = pwd_context.hash(payload.new_password)
 
-    # 3. Commit new hash onto target profile in the isolated tenant partition schema
+    # 4. Commit new hash onto target profile in the isolated tenant partition schema
     target_schemas = list(dict.fromkeys([
         re.sub(r"[^a-zA-Z0-9_]", "_", raw_slug),
         raw_slug,
@@ -364,19 +452,25 @@ def confirm_password_reset(payload: ResetPasswordConfirmRequest, db: Session = D
     except Exception:
         db.rollback()
 
-    # 4. Delete the token from verification table to prevent reuse
+    # 5. Invalidate / delete database tokens to prevent reuse
     try:
-        db.execute(
-            text("DELETE FROM public.password_resets WHERE token = :t"),
-            {"t": raw_token},
-        )
-        try:
+        if raw_token:
             db.execute(
-                text("DELETE FROM public.tenant_password_resets WHERE reset_token = :t"),
+                text("DELETE FROM public.password_resets WHERE token = :t"),
                 {"t": raw_token},
             )
-        except Exception:
-            pass
+            try:
+                db.execute(
+                    text("DELETE FROM public.tenant_password_resets WHERE reset_token = :t"),
+                    {"t": raw_token},
+                )
+            except Exception:
+                pass
+        if norm_email:
+            db.execute(
+                text("UPDATE public.password_resets SET is_used = TRUE WHERE LOWER(email) = :e"),
+                {"e": norm_email},
+            )
         db.commit()
     except Exception as err:
         db.rollback()
@@ -384,6 +478,7 @@ def confirm_password_reset(payload: ResetPasswordConfirmRequest, db: Session = D
 
     logger.info(f"[PASSWORD RESET] Password successfully updated for {norm_email} across {updated_count} record(s).")
     return {
+        "status": "SUCCESS",
         "message": "Password reset completed successfully. You may now log in with your new credentials.",
         "email": norm_email,
         "records_updated": updated_count,

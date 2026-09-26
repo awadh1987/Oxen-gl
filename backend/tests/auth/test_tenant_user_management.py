@@ -198,3 +198,54 @@ async def test_cross_tenant_delete_prevention(async_client, test_tenants_and_use
     response = await async_client.delete(f"/api/v1/users/{member_b_id}", headers=headers)
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert "Cross-tenant violation" in response.json().get("detail", "")
+
+
+@pytest.mark.asyncio
+async def test_tenant_a_user_cannot_see_tenant_b_users(async_client, test_tenants_and_users):
+    """
+    CRITICAL MULTI-TENANT ISOLATION ASSERTION:
+    Explicitly asserts that an Admin from Tenant A cannot see any accounts belonging
+    to Tenant B in the user listing endpoint (GET /api/v1/users).
+    Also asserts that attempting to inject Tenant B's ID via X-Company-ID or ?company_id=
+    is actively intercepted and rejected with HTTP 403 Forbidden.
+    """
+    token_admin_a = test_tenants_and_users["token_admin_a"]
+    token_admin_b = test_tenants_and_users["token_admin_b"]
+    tenant_a_id = test_tenants_and_users["tenant_a_id"]
+    tenant_b_id = test_tenants_and_users["tenant_b_id"]
+
+    headers_a = {"Authorization": f"Bearer {token_admin_a}"}
+    headers_b = {"Authorization": f"Bearer {token_admin_b}"}
+
+    # 1. Fetch Tenant B users with Tenant B token to get the exact set of Tenant B emails
+    resp_b = await async_client.get("/api/v1/users", headers=headers_b)
+    assert resp_b.status_code == status.HTTP_200_OK
+    tenant_b_users = resp_b.json()
+    tenant_b_emails = {u["email"] for u in tenant_b_users}
+    assert len(tenant_b_emails) >= 2, "Tenant B should have at least 2 users"
+
+    # 2. Fetch Tenant A users with Tenant A token
+    resp_a = await async_client.get("/api/v1/users", headers=headers_a)
+    assert resp_a.status_code == status.HTTP_200_OK
+    tenant_a_users = resp_a.json()
+    tenant_a_emails = {u["email"] for u in tenant_a_users}
+
+    # Explicit assertion: Zero intersection between Tenant A user list and Tenant B users
+    bleed = tenant_a_emails.intersection(tenant_b_emails)
+    assert not bleed, f"CRITICAL DATA BLEED DETECTED: Tenant A saw Tenant B users: {bleed}"
+
+    # Explicit assertion: Every user returned for Tenant A belongs strictly to Tenant A
+    for user in tenant_a_users:
+        assert user["tenant_id"] == str(tenant_a_id)
+        assert user["tenant_id"] != str(tenant_b_id)
+        assert user["email"] not in tenant_b_emails
+
+    # 3. IDOR Attack Assertion: Tenant A Admin attempts to query Tenant B users via query parameter
+    idor_query = await async_client.get(f"/api/v1/users?company_id={tenant_b_id}", headers=headers_a)
+    assert idor_query.status_code == status.HTTP_403_FORBIDDEN
+    assert "Multi-tenant isolation violation" in idor_query.json().get("detail", "")
+
+    # 4. IDOR Attack Assertion: Tenant A Admin attempts to query Tenant B users via header spoofing
+    idor_header = await async_client.get("/api/v1/users", headers={**headers_a, "X-Company-ID": str(tenant_b_id)})
+    assert idor_header.status_code == status.HTTP_403_FORBIDDEN
+    assert "Multi-tenant isolation violation" in idor_header.json().get("detail", "")
